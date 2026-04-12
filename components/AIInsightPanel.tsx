@@ -44,7 +44,8 @@ export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
     } else {
       setStatus("error")
     }
-  }, []) // Only fetch once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only fetch once on mount — headlines are stable server-rendered values
 
   if (status === "loading") {
     return (
