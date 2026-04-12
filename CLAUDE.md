@@ -7,8 +7,8 @@ trading and financial markets background.
 
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
-- Live URL: [TO BE FILLED after Vercel deploy]
-- Status: In development
+- Live URL: https://scm-disruption-monitor.vercel.app
+- Status: v1.0 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
