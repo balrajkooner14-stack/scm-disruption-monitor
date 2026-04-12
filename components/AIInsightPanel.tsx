@@ -1,0 +1,113 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
+interface AIInsightPanelProps {
+  headlines: string[]
+}
+
+type Status = "loading" | "success" | "error"
+
+export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
+  const [summary, setSummary] = useState<string[]>([])
+  const [status, setStatus] = useState<Status>("loading")
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ headlines }),
+        })
+
+        if (!res.ok) {
+          setStatus("error")
+          return
+        }
+
+        const data = await res.json()
+
+        if (data.summary && data.summary.length > 0) {
+          setSummary(data.summary)
+          setStatus("success")
+        } else {
+          setStatus("error")
+        }
+      } catch {
+        setStatus("error")
+      }
+    }
+
+    if (headlines.length > 0) {
+      fetchSummary()
+    } else {
+      setStatus("error")
+    }
+  }, []) // Only fetch once on mount
+
+  if (status === "loading") {
+    return (
+      <div className="bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-400 rounded-r-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-lg">⚡</span>
+          <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+            AI Risk Summary
+          </span>
+        </div>
+        <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
+          🤖 Analyzing global disruption signals with Gemini...
+        </p>
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-4 bg-blue-200 dark:bg-slate-600 rounded animate-pulse"
+              style={{ width: `${70 + i * 10}%` }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "error") {
+    return (
+      <div className="bg-gray-50 dark:bg-slate-800 border-l-4 border-gray-300 rounded-r-lg p-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          AI analysis unavailable — add your free Gemini API key at{" "}
+          <a
+            href="https://aistudio.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            aistudio.google.com
+          </a>
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-400 rounded-r-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-lg">⚡</span>
+        <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+          AI Risk Summary
+        </span>
+      </div>
+      <ul className="space-y-2">
+        {summary.map((point, i) => (
+          <li key={i} className="flex gap-2 text-sm text-blue-900 dark:text-blue-200">
+            <span className="text-blue-400 mt-0.5 flex-shrink-0">•</span>
+            <span>{point}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-gray-400 mt-3 text-right">
+        Powered by Gemini 2.5 Flash · Refreshes every 10 min
+      </p>
+    </div>
+  )
+}
