@@ -15,7 +15,8 @@ trading and financial markets background.
 - Styling: Tailwind CSS
 - Map: react-simple-maps (world heatmap)
 - News API: GDELT DOC 2.0 — https://api.gdeltproject.org/api/v2/doc/doc (FREE, no key)
-- AI summary: Anthropic API — model: claude-sonnet-4-6 — env var: ANTHROPIC_API_KEY
+- AI summary: Google Gemini API — model: gemini-2.5-flash — env var: GEMINI_API_KEY
+- AI SDK: @google/genai (NOT the deprecated @google/generative-ai)
 - Hosting: Vercel Hobby (free tier)
 
 ## Folder structure
@@ -52,7 +53,7 @@ Do not remove this logic.
 v0.1 — Scaffold and config files
 
 ## Backlog
-- [ ] Swap Anthropic for Gemini 2.5 Flash (free)
+- [x] Switched to Gemini 2.5 Flash (free) — completed
 - [ ] Add 30-day historical chart
 - [ ] Add country-level filter
 - [ ] Add GitHub Actions auto-deploy
