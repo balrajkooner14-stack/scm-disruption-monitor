@@ -1,0 +1,90 @@
+[
+  {
+    "id": "fb-001",
+    "title": "Port of Shanghai Closes Major Terminal After Typhoon Forces Emergency Shutdown",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "reuters.com",
+    "sourceCountry": "CN",
+    "category": "Port",
+    "severity": 3,
+    "region": "Asia Pacific"
+  },
+  {
+    "id": "fb-002",
+    "title": "Rotterdam Port Faces Full Closure as Dockworkers Strike Over Wage Dispute",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "apnews.com",
+    "sourceCountry": "NL",
+    "category": "Port",
+    "severity": 3,
+    "region": "Europe"
+  },
+  {
+    "id": "fb-003",
+    "title": "U.S. Imposes 25% Tariff on Chinese Electronics, Broad Supply Chain Impact Expected",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "wsj.com",
+    "sourceCountry": "US",
+    "category": "Tariff",
+    "severity": 2,
+    "region": "North America"
+  },
+  {
+    "id": "fb-004",
+    "title": "EU Retaliatory Tariffs on U.S. Agricultural Goods Take Effect, Shippers Warn of Delays",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "ft.com",
+    "sourceCountry": "DE",
+    "category": "Tariff",
+    "severity": 2,
+    "region": "Europe"
+  },
+  {
+    "id": "fb-005",
+    "title": "Western Sanctions on Iranian Oil Trigger Strait of Hormuz Shipping Disruption",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "bloomberg.com",
+    "sourceCountry": "US",
+    "category": "Geopolitical",
+    "severity": 2,
+    "region": "Middle East"
+  },
+  {
+    "id": "fb-006",
+    "title": "Red Sea Attacks Force Major Container Lines to Reroute, Disruption Spreads to Asia",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "lloydslist.com",
+    "sourceCountry": "GB",
+    "category": "Geopolitical",
+    "severity": 2,
+    "region": "Middle East"
+  },
+  {
+    "id": "fb-007",
+    "title": "West Coast Longshoremen Strike Halts Operations at Port of Los Angeles and Long Beach",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "freightwaves.com",
+    "sourceCountry": "US",
+    "category": "Labor",
+    "severity": 3,
+    "region": "North America"
+  },
+  {
+    "id": "fb-008",
+    "title": "Semiconductor Shortage Easing as Taiwan Fab Capacity Returns to Normal Levels",
+    "url": "https://example.com/article",
+    "date": "2026-04-11T08:00:00Z",
+    "sourceDomain": "supplychainbrain.com",
+    "sourceCountry": "TW",
+    "category": "General",
+    "severity": 1,
+    "region": "Asia Pacific"
+  }
+]
