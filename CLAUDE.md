@@ -6,7 +6,7 @@ Portfolio project for a Supply Chain Management master's student with a systemat
 trading and financial markets background.
 
 ## Live project
-- GitHub: [TO BE FILLED after GitHub setup]
+- GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: [TO BE FILLED after Vercel deploy]
 - Status: In development
 
