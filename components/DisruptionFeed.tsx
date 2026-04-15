@@ -8,13 +8,25 @@ interface DisruptionFeedProps {
 }
 
 const FILTERS: Array<"All" | DisruptionCategory> = [
-  "All", "Port", "Tariff", "Labor", "Geopolitical", "General",
+  "All", "Port", "Tariff", "Labor", "Geopolitical", "Weather", "General",
 ]
 
 const severityConfig = {
-  3: { label: "CRITICAL", borderColor: "border-l-red-500", badgeBg: "bg-red-100", badgeText: "text-red-700" },
-  2: { label: "WARNING", borderColor: "border-l-amber-500", badgeBg: "bg-amber-100", badgeText: "text-amber-700" },
-  1: { label: "MONITOR", borderColor: "border-l-green-500", badgeBg: "bg-green-100", badgeText: "text-green-700" },
+  3: {
+    label: "CRITICAL",
+    badgeClass: "bg-red-500 text-white",
+    cardClass: "shadow-[0_0_12px_rgba(239,68,68,0.15)]",
+  },
+  2: {
+    label: "WARNING",
+    badgeClass: "bg-amber-500 text-white",
+    cardClass: "",
+  },
+  1: {
+    label: "MONITOR",
+    badgeClass: "bg-slate-600 text-slate-200",
+    cardClass: "",
+  },
 }
 
 const formatDate = (dateStr: string) => {
@@ -37,14 +49,14 @@ export default function DisruptionFeed({ events }: DisruptionFeedProps) {
     activeFilter === "All" ? events : events.filter((e) => e.category === activeFilter)
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 flex flex-col h-full">
+    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 flex flex-col h-full">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
           Live Disruption Feed
         </h2>
-        <span className="text-xs text-gray-400">{events.length} events</span>
+        <span className="text-xs text-slate-500">{events.length} events</span>
       </div>
 
       {/* Filter pills */}
@@ -53,10 +65,10 @@ export default function DisruptionFeed({ events }: DisruptionFeedProps) {
           <button
             key={filter}
             onClick={() => setActiveFilter(filter)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
               activeFilter === filter
-                ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-800"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-slate-700 dark:text-gray-300"
+                ? "bg-blue-600 text-white border-blue-500"
+                : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500"
             }`}
           >
             {filter}
@@ -64,10 +76,10 @@ export default function DisruptionFeed({ events }: DisruptionFeedProps) {
         ))}
       </div>
 
-      {/* Event list - scrollable */}
+      {/* Event list */}
       <div className="flex-1 overflow-y-auto space-y-2 max-h-96">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+          <div className="flex flex-col items-center justify-center h-32 text-slate-500">
             <span className="text-2xl mb-2">📭</span>
             <span className="text-sm">No disruptions found for this filter</span>
           </div>
@@ -77,30 +89,28 @@ export default function DisruptionFeed({ events }: DisruptionFeedProps) {
             return (
               <div
                 key={event.id}
-                className={`border-l-4 ${config.borderColor} pl-3 pr-2 py-2 rounded-r-lg bg-gray-50 dark:bg-slate-700 hover:shadow-sm transition-all duration-150 hover:-translate-y-px`}
+                className={`bg-slate-800/50 backdrop-blur-sm rounded-lg px-3 py-2.5 transition-all duration-150 hover:-translate-y-px ${config.cardClass}`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded ${config.badgeBg} ${config.badgeText}`}
-                  >
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${config.badgeClass}`}>
                     {config.label}
                   </span>
-                  <span className="text-xs text-gray-400 bg-gray-200 dark:bg-slate-600 dark:text-gray-300 px-2 py-0.5 rounded">
+                  <span className="text-xs text-slate-400 bg-slate-700 px-2 py-0.5 rounded-full">
                     {event.category}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 line-clamp-2 mb-1">
+                <p className="text-sm font-medium text-slate-100 line-clamp-2 mb-1">
                   {event.title}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-slate-500">
                     {event.sourceDomain} · {formatDate(event.date)}
                   </span>
                   <a
                     href={event.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+                    className="text-xs text-blue-400 hover:text-blue-300 font-medium"
                   >
                     Read →
                   </a>

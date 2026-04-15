@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false)
   const dateString = new Date().toLocaleDateString("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -31,21 +32,36 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-slate-900 py-3 px-6 flex flex-row items-center justify-between">
-      <span className="text-white font-bold text-lg">
-        📡 SCM Disruption Monitor
-      </span>
+    <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-700 py-4 px-8 flex flex-row items-center justify-between">
+      {/* Left: Logo + title + subtitle */}
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📡</span>
+        <div className="flex flex-col">
+          <div className="flex items-baseline gap-0">
+            <span className="text-blue-400 font-black text-xl leading-none">SCM</span>
+            <span className="text-white font-light text-xl leading-none"> Disruption Monitor</span>
+          </div>
+          <span className="text-slate-500 text-xs mt-0.5">Real-time global supply chain intelligence</span>
+        </div>
+      </div>
 
-      <div className="flex flex-row gap-4 items-center">
-        <span className="relative flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-        </span>
-        <span className="text-green-400 text-xs font-bold tracking-widest">LIVE</span>
-        <span className="hidden sm:block text-slate-400 text-sm">{dateString}</span>
+      {/* Right: LIVE + separator + date + toggle */}
+      <div className="flex flex-row items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+          </span>
+          <span className="text-green-400 text-sm font-bold tracking-widest">LIVE</span>
+        </div>
+
+        <div className="w-px h-5 bg-slate-600 mx-1" />
+
+        <span className="hidden sm:block text-slate-300 text-sm">{dateString}</span>
+
         <button
           onClick={toggleDark}
-          className="text-slate-400 hover:text-white transition text-lg"
+          className="text-slate-400 hover:text-white transition text-lg ml-1"
           aria-label="Toggle dark mode"
         >
           {isDark ? "☀️" : "🌙"}

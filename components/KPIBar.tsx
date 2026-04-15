@@ -10,63 +10,66 @@ export default function KPIBar({ events }: KPIBarProps) {
   const criticalCount = events.filter((e) => e.severity === 3).length
 
   const mostAffectedRegion = (() => {
-    if (events.length === 0) return "None"
+    if (events.length === 0) return "Unknown"
     const counts: Record<string, number> = {}
     for (const e of events) {
+      if (e.region === "Unknown") continue
       counts[e.region] = (counts[e.region] ?? 0) + 1
     }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+    const entries = Object.entries(counts)
+    if (entries.length === 0) return "Unknown"
+    return entries.sort((a, b) => b[1] - a[1])[0][0]
   })()
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {/* Card 1 — Active Events */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 border-l-4 border-l-blue-500 p-4">
-        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-          Active Events
-        </p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-          {events.length}
-        </p>
+      <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-blue-500 p-4">
+        <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Active Events</p>
+        <p className="text-3xl font-black text-blue-400">{events.length}</p>
+        <p className="text-xs text-slate-500 mt-1">→ Updated live</p>
       </div>
 
       {/* Card 2 — Critical */}
       <div
-        className={`bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 border-l-4 p-4 ${
-          criticalCount > 0 ? "border-l-red-500" : "border-l-gray-300 dark:border-l-slate-600"
+        className={`rounded-lg border border-t-2 p-4 ${
+          criticalCount > 0
+            ? "bg-red-950 border-slate-700 border-t-red-500"
+            : "bg-slate-800 border-slate-700 border-t-slate-600"
         }`}
       >
-        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-          Critical
-        </p>
-        <p
-          className={`text-2xl font-bold ${
-            criticalCount > 0
-              ? "text-red-600"
-              : "text-gray-400 dark:text-slate-500"
-          }`}
-        >
-          {criticalCount}
+        <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Critical</p>
+        <div className="flex items-center gap-2">
+          <p className={`text-3xl font-black ${criticalCount > 0 ? "text-red-400" : "text-slate-400"}`}>
+            {criticalCount}
+          </p>
+          {criticalCount > 0 && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-500 mt-1">
+          {criticalCount > 0 ? "Requires immediate attention" : "No critical alerts"}
         </p>
       </div>
 
       {/* Card 3 — Most Affected Region */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 border-l-4 border-l-amber-500 p-4">
-        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-          Most Affected Region
-        </p>
-        <p className="text-base font-bold text-gray-900 dark:text-white leading-tight">
-          {mostAffectedRegion}
-        </p>
+      <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-amber-500 p-4">
+        <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Most Affected Region</p>
+        {mostAffectedRegion === "Unknown" ? (
+          <p className="text-base font-bold text-slate-500 italic leading-tight">Calculating...</p>
+        ) : (
+          <p className="text-base font-bold text-amber-400 leading-tight">{mostAffectedRegion}</p>
+        )}
       </div>
 
       {/* Card 4 — Data Window */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 border-l-4 border-l-green-500 p-4">
-        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-          Data Window
-        </p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">Last 24h</p>
-        <p className="text-xs text-gray-400 mt-1">GDELT · 4,500+ sources</p>
+      <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4">
+        <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Data Window</p>
+        <p className="text-2xl font-black text-green-400">Last 24h</p>
+        <p className="text-xs text-slate-500 mt-1">↻ Live · GDELT 4,500+ sources</p>
       </div>
     </div>
   )
