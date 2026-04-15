@@ -6,7 +6,54 @@ import { DisruptionEvent, Region } from "@/lib/types"
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
 
-const MAP_COUNTRY_TO_REGION: Record<string, Region> = {
+const COUNTRY_NAME_TO_REGION: Record<string, Region> = {
+  // North America
+  "United States of America": "North America",
+  "Canada": "North America",
+  "Mexico": "North America",
+  "Cuba": "North America",
+  "Guatemala": "North America",
+  "Honduras": "North America",
+  "El Salvador": "North America",
+  "Nicaragua": "North America",
+  "Costa Rica": "North America",
+  "Panama": "North America",
+  "Jamaica": "North America",
+  "Haiti": "North America",
+  "Dominican Republic": "North America",
+  // Europe
+  "United Kingdom": "Europe",
+  "France": "Europe",
+  "Germany": "Europe",
+  "Italy": "Europe",
+  "Spain": "Europe",
+  "Netherlands": "Europe",
+  "Sweden": "Europe",
+  "Norway": "Europe",
+  "Poland": "Europe",
+  "Belgium": "Europe",
+  "Austria": "Europe",
+  "Switzerland": "Europe",
+  "Portugal": "Europe",
+  "Greece": "Europe",
+  "Hungary": "Europe",
+  "Czech Republic": "Europe",
+  "Romania": "Europe",
+  "Bulgaria": "Europe",
+  "Croatia": "Europe",
+  "Serbia": "Europe",
+  "Finland": "Europe",
+  "Denmark": "Europe",
+  "Ireland": "Europe",
+  "Slovakia": "Europe",
+  "Slovenia": "Europe",
+  "Russia": "Europe",
+  "Ukraine": "Europe",
+  "Belarus": "Europe",
+  "Latvia": "Europe",
+  "Lithuania": "Europe",
+  "Estonia": "Europe",
+  // Asia Pacific
   "China": "Asia Pacific",
   "Japan": "Asia Pacific",
   "South Korea": "Asia Pacific",
@@ -19,21 +66,17 @@ const MAP_COUNTRY_TO_REGION: Record<string, Region> = {
   "Malaysia": "Asia Pacific",
   "Philippines": "Asia Pacific",
   "Taiwan": "Asia Pacific",
-  "United Kingdom": "Europe",
-  "France": "Europe",
-  "Germany": "Europe",
-  "Italy": "Europe",
-  "Spain": "Europe",
-  "Netherlands": "Europe",
-  "Sweden": "Europe",
-  "Norway": "Europe",
-  "Poland": "Europe",
-  "Belgium": "Europe",
-  "Switzerland": "Europe",
-  "Austria": "Europe",
-  "United States of America": "North America",
-  "Canada": "North America",
-  "Mexico": "North America",
+  "New Zealand": "Asia Pacific",
+  "Bangladesh": "Asia Pacific",
+  "Pakistan": "Asia Pacific",
+  "Myanmar": "Asia Pacific",
+  "Cambodia": "Asia Pacific",
+  "Mongolia": "Asia Pacific",
+  "Kazakhstan": "Asia Pacific",
+  "Sri Lanka": "Asia Pacific",
+  "Nepal": "Asia Pacific",
+  "Afghanistan": "Asia Pacific",
+  // Middle East
   "Saudi Arabia": "Middle East",
   "United Arab Emirates": "Middle East",
   "Iran": "Middle East",
@@ -43,18 +86,47 @@ const MAP_COUNTRY_TO_REGION: Record<string, Region> = {
   "Egypt": "Middle East",
   "Qatar": "Middle East",
   "Kuwait": "Middle East",
+  "Bahrain": "Middle East",
+  "Oman": "Middle East",
+  "Yemen": "Middle East",
+  "Jordan": "Middle East",
+  "Lebanon": "Middle East",
+  "Syria": "Middle East",
+  "Cyprus": "Middle East",
+  // Latin America
   "Brazil": "Latin America",
   "Argentina": "Latin America",
   "Chile": "Latin America",
   "Colombia": "Latin America",
   "Peru": "Latin America",
   "Venezuela": "Latin America",
+  "Ecuador": "Latin America",
+  "Bolivia": "Latin America",
+  "Paraguay": "Latin America",
+  "Uruguay": "Latin America",
+  "Guyana": "Latin America",
+  "Suriname": "Latin America",
+  // Africa
   "Nigeria": "Africa",
   "South Africa": "Africa",
   "Kenya": "Africa",
   "Ghana": "Africa",
   "Ethiopia": "Africa",
   "Tanzania": "Africa",
+  "Uganda": "Africa",
+  "Zimbabwe": "Africa",
+  "Morocco": "Africa",
+  "Algeria": "Africa",
+  "Tunisia": "Africa",
+  "Libya": "Africa",
+  "Angola": "Africa",
+  "Mozambique": "Africa",
+  "Somalia": "Africa",
+  "Sudan": "Africa",
+  "Cameroon": "Africa",
+  "Senegal": "Africa",
+  "Mali": "Africa",
+  "Zambia": "Africa",
 }
 
 function countByRegion(events: DisruptionEvent[]): Record<string, number> {
@@ -66,13 +138,19 @@ function countByRegion(events: DisruptionEvent[]): Record<string, number> {
 }
 
 function getCountryColor(geoName: string, regionCounts: Record<string, number>): string {
-  const region = MAP_COUNTRY_TO_REGION[geoName]
-  if (!region) return "#e5e7eb"
-  const count = regionCounts[region] ?? 0
-  if (count === 0) return "#e5e7eb"
-  if (count <= 2) return "#fef3c7"
-  if (count <= 5) return "#f97316"
-  return "#dc2626"
+  const region = COUNTRY_NAME_TO_REGION[geoName]
+  if (!region) return "#1e293b"
+  const count = regionCounts[region] || 0
+  if (count === 0) return "#1e293b"
+  if (count <= 2) return "#854d0e"
+  if (count <= 5) return "#c2410c"
+  return "#991b1b"
+}
+
+interface SelectedCountry {
+  name: string
+  region: Region
+  count: number
 }
 
 interface WorldMapProps {
@@ -81,7 +159,15 @@ interface WorldMapProps {
 
 export default function WorldMap({ events }: WorldMapProps) {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
+  const [selectedCountry, setSelectedCountry] = useState<SelectedCountry | null>(null)
   const regionCounts = countByRegion(events)
+
+  function handleCountryClick(geoName: string) {
+    const region = COUNTRY_NAME_TO_REGION[geoName]
+    if (!region) return
+    const count = regionCounts[region] || 0
+    setSelectedCountry({ name: geoName, region, count })
+  }
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
@@ -89,9 +175,23 @@ export default function WorldMap({ events }: WorldMapProps) {
         Risk by Region
       </h2>
 
-      <p className="text-xs text-gray-500 h-4 mb-2">
-        {hoveredCountry ? hoveredCountry : "Hover a country to see details"}
-      </p>
+      {selectedCountry ? (
+        <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-700 rounded px-3 py-2 mb-2 text-xs text-gray-700 dark:text-gray-200">
+          <span>
+            📍 <strong>{selectedCountry.name}</strong> — {selectedCountry.region} — {selectedCountry.count} event{selectedCountry.count !== 1 ? "s" : ""} in this region
+          </span>
+          <button
+            onClick={() => setSelectedCountry(null)}
+            className="ml-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-medium"
+          >
+            Clear
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 h-6 mb-2">
+          {hoveredCountry ? hoveredCountry : "Hover or click a country to see details"}
+        </p>
+      )}
 
       <ComposableMap projectionConfig={{ scale: 140 }}>
         <ZoomableGroup zoom={1}>
@@ -102,13 +202,14 @@ export default function WorldMap({ events }: WorldMapProps) {
                   key={geo.rsmKey}
                   geography={geo}
                   fill={getCountryColor(geo.properties.name, regionCounts)}
-                  stroke="#fff"
+                  stroke="#334155"
                   strokeWidth={0.5}
                   onMouseEnter={() => setHoveredCountry(geo.properties.name)}
                   onMouseLeave={() => setHoveredCountry(null)}
+                  onClick={() => handleCountryClick(geo.properties.name)}
                   style={{
-                    default: { outline: "none" },
-                    hover: { outline: "none", opacity: 0.8 },
+                    default: { outline: "none", cursor: "pointer" },
+                    hover: { outline: "none", opacity: 0.75, cursor: "pointer" },
                     pressed: { outline: "none" },
                   }}
                 />
@@ -120,13 +221,13 @@ export default function WorldMap({ events }: WorldMapProps) {
 
       <div className="flex flex-wrap gap-3 mt-3">
         {[
-          { color: "#e5e7eb", label: "No events" },
-          { color: "#fef3c7", label: "1–2 events" },
-          { color: "#f97316", label: "3–5 events" },
-          { color: "#dc2626", label: "6+ events" },
+          { color: "#1e293b", label: "No events" },
+          { color: "#854d0e", label: "1–2 events" },
+          { color: "#c2410c", label: "3–5 events" },
+          { color: "#991b1b", label: "6+ events" },
         ].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
+            <div className="w-3 h-3 rounded-sm border border-slate-600" style={{ backgroundColor: color }} />
             <span className="text-xs text-gray-500">{label}</span>
           </div>
         ))}

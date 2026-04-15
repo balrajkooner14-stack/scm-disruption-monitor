@@ -12,33 +12,71 @@ export function scoreSeverity(title: string): SeverityLevel {
 }
 
 export function mapCountryToRegion(countryCode: string): Region {
-  const code = (countryCode ?? "").toUpperCase()
-  const regions: Record<string, Region> = {
-    US: "North America", CA: "North America", MX: "North America",
-    GB: "Europe", FR: "Europe", DE: "Europe", IT: "Europe", ES: "Europe",
-    NL: "Europe", SE: "Europe", NO: "Europe", PL: "Europe", BE: "Europe",
-    CH: "Europe", AT: "Europe",
-    CN: "Asia Pacific", JP: "Asia Pacific", KR: "Asia Pacific", IN: "Asia Pacific",
-    SG: "Asia Pacific", AU: "Asia Pacific", TH: "Asia Pacific", VN: "Asia Pacific",
-    ID: "Asia Pacific", MY: "Asia Pacific", PH: "Asia Pacific", TW: "Asia Pacific",
-    SA: "Middle East", AE: "Middle East", IR: "Middle East", IQ: "Middle East",
-    IL: "Middle East", TR: "Middle East", EG: "Middle East", QA: "Middle East",
-    KW: "Middle East",
-    BR: "Latin America", AR: "Latin America", CL: "Latin America",
-    CO: "Latin America", PE: "Latin America", VE: "Latin America",
-    NG: "Africa", ZA: "Africa", KE: "Africa", GH: "Africa", ET: "Africa", TZ: "Africa",
-  }
-  return regions[code] ?? "Unknown"
+  const code = (countryCode || "").toUpperCase().trim()
+
+  const northAmerica = ["US", "CA", "MX", "CU", "JM", "HT", "DO", "PR", "GT",
+    "BZ", "HO", "ES", "NU", "CS", "PM"]
+  const europe = ["UK", "FR", "GM", "IT", "SP", "NL", "SW", "NO", "PL", "BE",
+    "AU", "SZ", "PO", "GR", "HU", "CZ", "RO", "BU", "HR", "SR", "FI", "DA",
+    "IC", "IR", "LU", "SK", "SI", "AL", "MK", "BO", "EI", "LG", "LH", "MT",
+    "EN", "RU", "UP", "BY", "MD", "AJ", "GG", "AM"]
+  const asiaPacific = ["CH", "JA", "KS", "IN", "SN", "AS", "TH", "VM", "ID",
+    "MY", "PH", "TW", "NZ", "BN", "CB", "LA", "BM", "MV", "NP", "BG", "CE",
+    "KZ", "UZ", "TM", "KG", "TJ", "AF", "PK", "MG", "RS", "PP", "WF"]
+  const middleEast = ["SA", "AE", "IR", "IZ", "IS", "TU", "EG", "QA", "KU",
+    "BA", "OM", "YM", "JO", "LE", "SY", "WE", "GZ", "CY"]
+  const latinAmerica = ["BR", "AR", "CI", "CO", "PE", "VE", "EC", "BO", "PA",
+    "UR", "PY", "GY", "NS", "TD", "BB", "VC", "LC", "AC", "BH", "CJ", "RQ"]
+  const africa = ["NI", "SF", "KE", "GH", "ET", "TZ", "UG", "ZI", "MO", "AO",
+    "MZ", "ZA", "SO", "LY", "TU", "MR", "ML", "SG", "GV", "SL", "LI", "IV",
+    "GH", "TO", "BN", "CM", "CF", "CD", "CG", "GA", "EK", "BY", "DJ", "ER",
+    "RW", "BI", "MW", "ZM", "BC", "NA", "BW", "LS", "SV", "SE", "SU"]
+
+  if (northAmerica.includes(code)) return "North America"
+  if (europe.includes(code)) return "Europe"
+  if (asiaPacific.includes(code)) return "Asia Pacific"
+  if (middleEast.includes(code)) return "Middle East"
+  if (latinAmerica.includes(code)) return "Latin America"
+  if (africa.includes(code)) return "Africa"
+  return "Unknown"
 }
 
-export function assignCategory(queryIndex: number, title: string): DisruptionCategory {
-  const t = title.toLowerCase()
-  if (queryIndex === 0) return "General"
-  if (queryIndex === 1) {
-    return t.includes("strike") || t.includes("labor") ? "Labor" : "Port"
-  }
-  // queryIndex === 2
-  return t.includes("sanction") || t.includes("geopolit") ? "Geopolitical" : "Tariff"
+export function assignCategory(title: string, url: string): DisruptionCategory {
+  const text = (title + " " + url).toLowerCase()
+
+  if (
+    text.includes("port") || text.includes("ship") || text.includes("vessel") ||
+    text.includes("container") || text.includes("freight") || text.includes("cargo") ||
+    text.includes("maritime") || text.includes("dock") || text.includes("harbor") ||
+    text.includes("berth") || text.includes("terminal")
+  ) return "Port"
+
+  if (
+    text.includes("strike") || text.includes("worker") || text.includes("union") ||
+    text.includes("labor") || text.includes("labour") || text.includes("walkout") ||
+    text.includes("employment") || text.includes("workforce")
+  ) return "Labor"
+
+  if (
+    text.includes("tariff") || text.includes("duty") || text.includes("import tax") ||
+    text.includes("trade war") || text.includes("customs") || text.includes("levy") ||
+    text.includes("trade barrier") || text.includes("protectionism")
+  ) return "Tariff"
+
+  if (
+    text.includes("sanction") || text.includes("geopolit") || text.includes("conflict") ||
+    text.includes("war") || text.includes("blockade") || text.includes("embargo") ||
+    text.includes("invasion") || text.includes("missile") || text.includes("military") ||
+    text.includes("strait") || text.includes("canal")
+  ) return "Geopolitical"
+
+  if (
+    text.includes("storm") || text.includes("flood") || text.includes("hurricane") ||
+    text.includes("earthquake") || text.includes("typhoon") || text.includes("drought") ||
+    text.includes("wildfire") || text.includes("climate") || text.includes("weather")
+  ) return "Weather"
+
+  return "General"
 }
 
 interface GdeltArticle {
@@ -111,7 +149,7 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
         date: parseGdeltDate(article.seendate),
         sourceDomain: article.domain,
         sourceCountry: article.sourcecountry,
-        category: assignCategory(queryIndex, article.title),
+        category: assignCategory(article.title, article.url),
         severity: scoreSeverity(article.title),
         region: mapCountryToRegion(article.sourcecountry),
       })
