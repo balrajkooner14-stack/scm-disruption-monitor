@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v1.0 live
+- Status: v1.1 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -21,7 +21,7 @@ trading and financial markets background.
 
 ## Folder structure
 /app            → Pages: page.tsx, /about/page.tsx, /api/analyze/route.ts
-/components     → KPIBar, WorldMap, DisruptionFeed, AIInsightPanel, Navbar
+/components     → KPIBar, WorldMap, DisruptionFeed, AIInsightPanel, Navbar, CategoryChart, DashboardClient
 /lib            → types.ts, fetchDisruptions.ts
 /data           → fallback.json
 
@@ -51,9 +51,19 @@ Do not remove this logic.
 
 ## Version history
 v0.1 — Scaffold and config files
+v1.0 — Full working dashboard: GDELT feed, Gemini AI summary, world map, KPI bar
+v1.1 — Fixed map choropleth coloring, category assignment, region mapping,
+        premium UI redesign, category bar chart, cross-filtering between
+        map and feed, critical event pulse animation, connected GitHub
+        to Vercel for auto-deploy (Apr 14, 2026)
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free) — completed
+- [x] Premium UI redesign with visual hierarchy (completed Apr 14, 2026)
+- [x] Category bar chart added (completed Apr 14, 2026)
+- [x] Map choropleth coloring fixed (completed Apr 14, 2026)
+- [x] Category filter tabs fixed (completed Apr 14, 2026)
+- [x] Cross-filtering map ↔ feed (completed Apr 14, 2026)
+- [x] Connected GitHub to Vercel auto-deploy (completed Apr 14, 2026)
 - [ ] Add 30-day historical chart
 - [ ] Add country-level filter
-- [ ] Add GitHub Actions auto-deploy
