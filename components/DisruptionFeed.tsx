@@ -5,6 +5,8 @@ import { DisruptionEvent, DisruptionCategory } from "@/lib/types"
 
 interface DisruptionFeedProps {
   events: DisruptionEvent[]
+  regionFilter?: string | null
+  onRegionClear?: () => void
 }
 
 const FILTERS: Array<"All" | DisruptionCategory> = [
@@ -15,7 +17,7 @@ const severityConfig = {
   3: {
     label: "CRITICAL",
     badgeClass: "bg-red-500 text-white",
-    cardClass: "shadow-[0_0_12px_rgba(239,68,68,0.15)]",
+    cardClass: "critical-card",
   },
   2: {
     label: "WARNING",
@@ -42,24 +44,49 @@ const formatDate = (dateStr: string) => {
   }
 }
 
-export default function DisruptionFeed({ events }: DisruptionFeedProps) {
+export default function DisruptionFeed({ events, regionFilter, onRegionClear }: DisruptionFeedProps) {
   const [activeFilter, setActiveFilter] = useState<"All" | DisruptionCategory>("All")
 
-  const filtered =
-    activeFilter === "All" ? events : events.filter((e) => e.category === activeFilter)
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  })
+
+  let filtered = activeFilter === "All" ? events : events.filter((e) => e.category === activeFilter)
+  if (regionFilter) {
+    filtered = filtered.filter((e) => e.region === regionFilter)
+  }
 
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 flex flex-col h-full">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
           Live Disruption Feed
         </h2>
         <span className="text-xs text-slate-500">{events.length} events</span>
       </div>
+      <p className="text-xs text-slate-500 mb-3">Updated {timeStr}</p>
 
-      {/* Filter pills */}
+      {/* Region filter badge */}
+      {regionFilter && (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-blue-400 bg-blue-950 border border-blue-800 px-2 py-1 rounded-full">
+            📍 Filtered: {regionFilter}
+          </span>
+          <button
+            onClick={onRegionClear}
+            className="text-xs text-slate-400 hover:text-white transition-colors"
+          >
+            Clear ✕
+          </button>
+        </div>
+      )}
+
+      {/* Category filter pills */}
       <div className="flex flex-wrap gap-2 mb-3">
         {FILTERS.map((filter) => (
           <button

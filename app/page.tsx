@@ -1,10 +1,9 @@
 import { Metadata } from "next"
 import Navbar from "@/components/Navbar"
 import KPIBar from "@/components/KPIBar"
-import WorldMap from "@/components/WorldMap"
-import DisruptionFeed from "@/components/DisruptionFeed"
 import AIInsightPanel from "@/components/AIInsightPanel"
 import CategoryChart from "@/components/CategoryChart"
+import DashboardClient from "@/components/DashboardClient"
 import { fetchDisruptions } from "@/lib/fetchDisruptions"
 
 export const metadata: Metadata = {
@@ -23,13 +22,17 @@ export default async function Home() {
         <AIInsightPanel headlines={top5Headlines} />
         <KPIBar events={events} />
         <CategoryChart events={events} />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <WorldMap events={events} />
-          <DisruptionFeed events={events} />
-        </div>
+        <DashboardClient events={events} />
       </div>
-      <footer className="text-center text-xs text-gray-400 py-6 border-t border-gray-200 dark:border-slate-700 mt-6">
-        Data: GDELT Project · AI: Google Gemini · Built with Next.js + Vercel
+      <footer className="text-center py-6 border-t border-slate-800 mt-6">
+        <p className="text-xs text-slate-600">
+          SCM Disruption Monitor · Data: GDELT Project (gdeltproject.org) ·
+          AI: Google Gemini 2.5 Flash · Built with Next.js + Vercel
+        </p>
+        <p className="text-xs text-slate-700 mt-1">
+          Updates every page load · AI summary refreshes every 10 min ·
+          Not financial advice
+        </p>
       </footer>
     </main>
   )
