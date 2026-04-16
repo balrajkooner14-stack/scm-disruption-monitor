@@ -1,6 +1,5 @@
 import { Metadata } from "next"
 import Navbar from "@/components/Navbar"
-import KPIBar from "@/components/KPIBar"
 import AIInsightPanel from "@/components/AIInsightPanel"
 import CategoryChart from "@/components/CategoryChart"
 import DashboardClient from "@/components/DashboardClient"
@@ -20,7 +19,6 @@ export default async function Home() {
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <AIInsightPanel headlines={top5Headlines} />
-        <KPIBar events={events} />
         <CategoryChart events={events} />
         <DashboardClient events={events} />
       </div>

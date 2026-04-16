@@ -31,6 +31,12 @@ body {
   50% { box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.2); }
 }
 
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .critical-card {
   animation: criticalPulse 3s ease-in-out infinite;
+  transition: box-shadow 0.3s ease;
 }

@@ -203,7 +203,7 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
                   onMouseLeave={() => setHoveredCountry(null)}
                   onClick={() => handleCountryClick(geo.properties.name)}
                   style={{
-                    default: { outline: "none", cursor: "pointer" },
+                    default: { outline: "none", cursor: "pointer", transition: "fill 0.2s ease" },
                     hover: { outline: "none", opacity: 0.75, cursor: "pointer" },
                     pressed: { outline: "none" },
                   }}

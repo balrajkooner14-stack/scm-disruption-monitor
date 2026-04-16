@@ -4,12 +4,7 @@ import { useEffect, useState } from "react"
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false)
-  const dateString = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+  const [now, setNow] = useState(new Date())
 
   useEffect(() => {
     const saved = localStorage.getItem("theme")
@@ -18,6 +13,23 @@ export default function Navbar() {
       setIsDark(true)
     }
   }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const dateStr = now.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+  const timeStr = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  })
 
   function toggleDark() {
     const next = !isDark
@@ -57,7 +69,7 @@ export default function Navbar() {
 
         <div className="w-px h-5 bg-slate-600 mx-1" />
 
-        <span className="hidden sm:block text-slate-300 text-sm">{dateString}</span>
+        <span className="hidden sm:block text-slate-300 text-sm">{dateStr} · {timeStr}</span>
 
         <button
           onClick={toggleDark}
