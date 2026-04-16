@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v1.1 live
+- Status: v1.2 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -56,6 +56,10 @@ v1.1 — Fixed map choropleth coloring, category assignment, region mapping,
         premium UI redesign, category bar chart, cross-filtering between
         map and feed, critical event pulse animation, connected GitHub
         to Vercel for auto-deploy (Apr 14, 2026)
+v1.2 — Interactivity overhaul: staggered card animations, clickable KPI
+        filters, live search bar, refresh button with spinner, improved
+        card hover states, live real-time clock, micro-animations on all
+        interactive elements (Apr 15, 2026)
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free) — completed
@@ -65,5 +69,17 @@ v1.1 — Fixed map choropleth coloring, category assignment, region mapping,
 - [x] Category filter tabs fixed (completed Apr 14, 2026)
 - [x] Cross-filtering map ↔ feed (completed Apr 14, 2026)
 - [x] Connected GitHub to Vercel auto-deploy (completed Apr 14, 2026)
+- [x] Staggered card entrance animations (completed Apr 15, 2026)
+- [x] Clickable KPI filters (Critical + Most Affected Region) (completed Apr 15, 2026)
+- [x] Live search bar with clear button and result count (completed Apr 15, 2026)
+- [x] Refresh button with spinner (completed Apr 15, 2026)
+- [x] Improved card hover states with border expansion (completed Apr 15, 2026)
+- [x] Live real-time clock in Navbar (completed Apr 15, 2026)
+- [x] Micro-animations on pills, map fill, KPI cards (completed Apr 15, 2026)
+- [ ] AI Chat Panel — interactive chat with full feed as context (NEXT)
+- [ ] Per-event "Why This Matters" AI brief on card click
+- [ ] Company Impact Analyzer — type a company, get risk assessment
+- [ ] 7-day trend sparklines per category
+- [ ] Grounded Deep Dive button per event
 - [ ] Add 30-day historical chart
 - [ ] Add country-level filter
