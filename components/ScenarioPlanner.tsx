@@ -8,6 +8,7 @@ import type { ScenarioInput } from "@/app/api/scenario/route"
 
 interface ScenarioPlannerProps {
   events: ScoredEvent[]
+  defaultOpen?: boolean
 }
 
 const DISRUPTION_TYPES = [
@@ -42,9 +43,9 @@ const RESPONSE_ACTIONS = [
   "Custom response (describe below)",
 ]
 
-export default function ScenarioPlanner({ events }: ScenarioPlannerProps) {
+export default function ScenarioPlanner({ events, defaultOpen }: ScenarioPlannerProps) {
   const { profile, isLoaded } = useCompanyProfile()
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(defaultOpen ?? false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [result, setResult] = useState<string>("")
   const [hasResult, setHasResult] = useState(false)
