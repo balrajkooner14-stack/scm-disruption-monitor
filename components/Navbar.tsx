@@ -1,10 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false)
   const [now, setNow] = useState(new Date())
+  const { profile, isLoaded } = useCompanyProfile()
 
   useEffect(() => {
     const saved = localStorage.getItem("theme")
@@ -70,6 +73,28 @@ export default function Navbar() {
         <div className="w-px h-5 bg-slate-600 mx-1" />
 
         <span className="hidden sm:block text-slate-300 text-sm">{dateStr} · {timeStr}</span>
+
+        {isLoaded && (
+          <Link
+            href="/profile"
+            className="flex items-center gap-1.5 border border-slate-600 hover:border-slate-400 rounded-md px-2 py-1 transition-colors text-xs font-medium"
+          >
+            {profile ? (
+              <>
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-slate-300">My Profile</span>
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+                </span>
+                <span className="text-amber-400">Set Up Profile</span>
+              </>
+            )}
+          </Link>
+        )}
 
         <button
           onClick={toggleDark}

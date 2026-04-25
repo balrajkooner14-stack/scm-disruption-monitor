@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { Suspense } from "react"
 import Navbar from "@/components/Navbar"
 import AIInsightPanel from "@/components/AIInsightPanel"
 import CategoryChart from "@/components/CategoryChart"
@@ -20,7 +21,9 @@ export default async function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <AIInsightPanel headlines={top5Headlines} />
         <CategoryChart events={events} />
-        <DashboardClient events={events} />
+        <Suspense>
+          <DashboardClient events={events} />
+        </Suspense>
       </div>
       <footer className="text-center py-6 border-t border-slate-800 mt-6">
         <p className="text-xs text-slate-600">
