@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
-import { DisruptionEvent, Region } from "@/lib/types"
+import { Region } from "@/lib/types"
+import { ScoredEvent } from "@/lib/scoreEvents"
+import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
 
@@ -129,7 +131,7 @@ const COUNTRY_NAME_TO_REGION: Record<string, Region> = {
   "Zambia": "Africa",
 }
 
-function countByRegion(events: DisruptionEvent[]): Record<string, number> {
+function countByRegion(events: { region: string }[]): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const e of events) {
     counts[e.region] = (counts[e.region] ?? 0) + 1
@@ -140,27 +142,59 @@ function countByRegion(events: DisruptionEvent[]): Record<string, number> {
 function getCountryColor(
   geoName: string,
   regionCounts: Record<string, number>,
-  selectedRegion: string | null
+  selectedRegion: string | null,
+  supplierCountries: Set<string>,
+  supplierRegions: Set<string>
 ): string {
   const region = COUNTRY_NAME_TO_REGION[geoName]
-  if (!region) return "#1e293b"
+
+  // Priority 1: selected (clicked) — highest priority
   if (selectedRegion && region === selectedRegion) return "#2563eb"
-  const count = regionCounts[region] || 0
-  if (count === 0) return "#1e293b"
-  if (count <= 2) return "#854d0e"
-  if (count <= 5) return "#c2410c"
-  return "#991b1b"
+
+  // Priority 2: supplier country — amber
+  if (supplierCountries.has(geoName)) return "#d97706"
+
+  const count = region ? (regionCounts[region] || 0) : 0
+  const hasProfile = supplierRegions.size > 0 || supplierCountries.size > 0
+
+  if (count > 0) {
+    // Priority 3: supplier region with events — normal heat colors
+    if (!hasProfile || (region && supplierRegions.has(region))) {
+      if (count <= 2) return "#854d0e"
+      if (count <= 5) return "#c2410c"
+      return "#991b1b"
+    }
+    // Priority 4: has events but NOT in supplier regions — muted
+    if (count <= 2) return "#1e3a2f"
+    if (count <= 5) return "#2d3a1a"
+    return "#3a1a1a"
+  }
+
+  // Priority 5: no events, not supplier
+  return "#1e293b"
 }
 
 interface WorldMapProps {
-  events: DisruptionEvent[]
+  events: ScoredEvent[]
   selectedRegion: string | null
   onRegionSelect: (region: string | null) => void
 }
 
 export default function WorldMap({ events, selectedRegion, onRegionSelect }: WorldMapProps) {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
+  const { profile } = useCompanyProfile()
+
   const regionCounts = countByRegion(events)
+
+  const supplierCountries = useMemo(() => {
+    if (!profile) return new Set<string>()
+    return new Set(profile.suppliers.map(s => s.country))
+  }, [profile])
+
+  const supplierRegions = useMemo(() => {
+    if (!profile) return new Set<string>()
+    return new Set(profile.suppliers.map(s => s.region))
+  }, [profile])
 
   function handleCountryClick(geoName: string) {
     const region = COUNTRY_NAME_TO_REGION[geoName]
@@ -170,11 +204,21 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
 
   const hoveredRegion = hoveredCountry ? COUNTRY_NAME_TO_REGION[hoveredCountry] : null
   const hoveredCount = hoveredRegion ? (regionCounts[hoveredRegion] || 0) : 0
-  const hoverText = hoveredCountry
-    ? hoveredRegion
-      ? `${hoveredCountry} · ${hoveredRegion} · ${hoveredCount} event${hoveredCount !== 1 ? "s" : ""}`
-      : hoveredCountry
-    : "Hover or click a country to filter the feed"
+
+  const hoverText = (() => {
+    if (!hoveredCountry) return "Hover or click a country to filter the feed"
+
+    if (supplierCountries.has(hoveredCountry) && profile) {
+      const suppliersHere = profile.suppliers.filter(s => s.country === hoveredCountry)
+      const supplierDetail = suppliersHere.length > 0
+        ? `${suppliersHere[0].name} supplies ${suppliersHere[0].sharePercent}% of your ${suppliersHere[0].category}`
+        : ""
+      return `📍 ${hoveredCountry} — YOUR SUPPLIER — ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}${supplierDetail ? ` · ${supplierDetail}` : ""}`
+    }
+
+    if (!hoveredRegion) return hoveredCountry
+    return `${hoveredCountry} · ${hoveredRegion} · ${hoveredCount} event${hoveredCount !== 1 ? "s" : ""}`
+  })()
 
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
@@ -196,7 +240,13 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
-                  fill={getCountryColor(geo.properties.name, regionCounts, selectedRegion)}
+                  fill={getCountryColor(
+                    geo.properties.name,
+                    regionCounts,
+                    selectedRegion,
+                    supplierCountries,
+                    supplierRegions
+                  )}
                   stroke="#334155"
                   strokeWidth={0.5}
                   onMouseEnter={() => setHoveredCountry(geo.properties.name)}
@@ -220,6 +270,7 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
           { color: "#854d0e", label: "1–2 events" },
           { color: "#c2410c", label: "3–5 events" },
           { color: "#991b1b", label: "6+ events" },
+          { color: "#d97706", label: "Your supplier countries" },
           { color: "#2563eb", label: "Selected" },
         ].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1">

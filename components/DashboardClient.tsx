@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import WorldMap from "@/components/WorldMap"
 import DisruptionFeed from "@/components/DisruptionFeed"
 import KPIBar from "@/components/KPIBar"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
 import { DisruptionEvent } from "@/lib/types"
+import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 
 interface DashboardClientProps {
   events: DisruptionEvent[]
@@ -16,6 +18,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [kpiFilter, setKpiFilter] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
+  const { profile, isLoaded } = useCompanyProfile()
 
   const searchParams = useSearchParams()
 
@@ -27,6 +30,16 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     }
   }, [searchParams])
 
+  const scoredEvents = useMemo((): ScoredEvent[] => {
+    if (!profile || !isLoaded) return events.map(e => ({
+      ...e,
+      relevanceScore: 0,
+      relevanceReason: "Set up your profile for personalized scoring",
+      isProfileMatch: false,
+    }))
+    return scoreEventsForProfile(events, profile)
+  }, [events, profile, isLoaded])
+
   return (
     <>
       <ProfilePromptModal />
@@ -37,15 +50,21 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         </div>
       )}
 
-      <KPIBar events={events} kpiFilter={kpiFilter} onKpiFilter={setKpiFilter} />
+      <KPIBar
+        events={events}
+        kpiFilter={kpiFilter}
+        onKpiFilter={setKpiFilter}
+        scoredEvents={scoredEvents}
+        profile={profile}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <WorldMap
-          events={events}
+          events={scoredEvents}
           selectedRegion={selectedRegion}
           onRegionSelect={setSelectedRegion}
         />
         <DisruptionFeed
-          events={events}
+          events={scoredEvents}
           regionFilter={selectedRegion}
           onRegionClear={() => setSelectedRegion(null)}
           kpiFilter={kpiFilter}

@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { DisruptionEvent, DisruptionCategory } from "@/lib/types"
+import { DisruptionCategory } from "@/lib/types"
+import { ScoredEvent } from "@/lib/scoreEvents"
 
 interface DisruptionFeedProps {
-  events: DisruptionEvent[]
+  events: ScoredEvent[]
   regionFilter?: string | null
   onRegionClear?: () => void
   kpiFilter?: string | null
@@ -52,6 +53,9 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
   const [searchQuery, setSearchQuery] = useState("")
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(new Date())
+  const [sortMode, setSortMode] = useState<"relevance" | "recent">(
+    events[0]?.relevanceScore > 0 ? "relevance" : "recent"
+  )
 
   function handleRefresh() {
     setIsRefreshing(true)
@@ -68,7 +72,11 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
     timeZoneName: "short",
   })
 
-  let filtered = activeFilter === "All" ? events : events.filter((e) => e.category === activeFilter)
+  const hasProfileScoring =
+    events.length > 0 &&
+    events[0].relevanceReason !== "Set up your profile for personalized scoring"
+
+  let filtered = activeFilter === "All" ? [...events] : events.filter((e) => e.category === activeFilter)
 
   if (regionFilter) {
     filtered = filtered.filter((e) => e.region === regionFilter)
@@ -104,6 +112,16 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
     )
   }
 
+  // Sort
+  if (sortMode === "recent") {
+    filtered = [...filtered].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+  }
+  // "relevance" — events are already sorted by scoreEventsForProfile; filtering preserves order
+
+  const highlyRelevantCount = events.filter((e) => e.isProfileMatch).length
+
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-4 flex flex-col h-full">
 
@@ -113,7 +131,11 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
           Live Disruption Feed
         </h2>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">{events.length} events</span>
+          <span className="text-xs text-slate-500">
+            {hasProfileScoring && sortMode === "relevance"
+              ? `${events.length} events · ${highlyRelevantCount} highly relevant to you`
+              : `${events.length} events`}
+          </span>
           <button
             onClick={handleRefresh}
             className="text-slate-400 hover:text-white text-xs flex items-center gap-1 transition-colors"
@@ -137,6 +159,23 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
         </div>
       </div>
       <p className="text-xs text-slate-500 mb-3">Updated {timeStr}</p>
+
+      {/* Sort mode toggle */}
+      <div className="flex gap-1 mb-3">
+        {(["relevance", "recent"] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setSortMode(mode)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 ${
+              sortMode === mode
+                ? "bg-blue-600 text-white border-blue-500"
+                : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500"
+            }`}
+          >
+            {mode === "relevance" ? "Relevance" : "Recent"}
+          </button>
+        ))}
+      </div>
 
       {/* Region filter badge */}
       {regionFilter && (
@@ -205,6 +244,9 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
         ) : (
           filtered.map((event, index) => {
             const config = severityConfig[event.severity]
+            const showHighRelevance = event.isProfileMatch
+            const showMediumRelevance = !event.isProfileMatch && event.relevanceScore >= 20
+
             return (
               <div
                 key={event.id}
@@ -216,17 +258,32 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
                   animationDelay: `${index * 0.05}s`,
                 }}
               >
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${config.badgeClass}`}>
                     {config.label}
                   </span>
                   <span className="text-xs text-slate-400 bg-slate-700 px-2 py-0.5 rounded-full">
                     {event.category}
                   </span>
+                  {showHighRelevance && (
+                    <span className="text-xs text-green-400 bg-green-950 border border-green-800 rounded-full px-2 py-0.5">
+                      ● High relevance
+                    </span>
+                  )}
+                  {showMediumRelevance && (
+                    <span className="text-xs text-yellow-400 bg-yellow-950 border border-yellow-800 rounded-full px-2 py-0.5">
+                      ● Medium relevance
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm font-medium text-slate-100 line-clamp-2 mb-1">
                   {event.title}
                 </p>
+                {event.isProfileMatch && (
+                  <p className="text-xs text-slate-500 italic mb-1">
+                    {event.relevanceReason}
+                  </p>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500">
                     {event.sourceDomain} · {formatDate(event.date)}
