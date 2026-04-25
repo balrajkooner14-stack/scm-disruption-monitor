@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 
 interface AIInsightPanelProps {
   headlines: string[]
@@ -11,14 +12,18 @@ type Status = "loading" | "success" | "error"
 export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
   const [summary, setSummary] = useState<string[]>([])
   const [status, setStatus] = useState<Status>("loading")
+  const { profile, isLoaded } = useCompanyProfile()
 
   useEffect(() => {
+    // Wait until profile is loaded from localStorage before fetching
+    if (!isLoaded) return
+
     const fetchSummary = async () => {
       try {
         const res = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ headlines }),
+          body: JSON.stringify({ headlines, profile }),
         })
 
         if (!res.ok) {
@@ -44,8 +49,9 @@ export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
     } else {
       setStatus("error")
     }
+  // Re-fetch when profile loads — profile changes the prompt
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Only fetch once on mount — headlines are stable server-rendered values
+  }, [isLoaded, profile?.updatedAt])
 
   if (status === "loading") {
     return (
@@ -92,11 +98,16 @@ export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
 
   return (
     <div className="bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-400 rounded-r-lg p-4">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-lg">⚡</span>
         <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
           AI Risk Summary
         </span>
+        {profile && (
+          <span className="text-xs text-blue-400 bg-blue-950 border border-blue-800 px-2 py-0.5 rounded-full">
+            Personalized for {profile.companyName}
+          </span>
+        )}
       </div>
       <ul className="space-y-2">
         {summary.map((point, i) => (

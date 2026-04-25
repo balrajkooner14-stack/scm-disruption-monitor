@@ -96,6 +96,10 @@ export default function Navbar() {
           </Link>
         )}
 
+        <span className="hidden md:inline text-xs text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">
+          / to chat
+        </span>
+
         <button
           onClick={toggleDark}
           className="text-slate-400 hover:text-white transition text-lg ml-1"

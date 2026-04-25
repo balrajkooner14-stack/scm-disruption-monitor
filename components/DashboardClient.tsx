@@ -7,6 +7,7 @@ import DisruptionFeed from "@/components/DisruptionFeed"
 import KPIBar from "@/components/KPIBar"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
+import AIChatPanel from "@/components/AIChatPanel"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
@@ -72,6 +73,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
           kpiFilter={kpiFilter}
         />
       </div>
+      <AIChatPanel events={scoredEvents} />
     </>
   )
 }

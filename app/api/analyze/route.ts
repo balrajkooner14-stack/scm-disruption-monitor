@@ -1,16 +1,24 @@
 import { NextResponse } from "next/server"
 import { GoogleGenAI } from "@google/genai"
+import { CompanyProfile } from "@/lib/profile"
 
 // Module-level cache — persists between requests in the same serverless instance
-let cachedSummary: string[] | null = null
-let cacheTimestamp: number = 0
+// Key: "generic" or profile company name, value: cached bullets + timestamp
+const cache = new Map<string, { summary: string[]; timestamp: number }>()
 const CACHE_DURATION_MS = 10 * 60 * 1000 // 10 minutes
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json()
+    const headlines: string[] = body.headlines ?? []
+    const profile: CompanyProfile | null = body.profile ?? null
+
+    const cacheKey = profile ? `profile:${profile.companyName}:${profile.updatedAt}` : "generic"
+
     // Return cached result if still fresh
-    if (cachedSummary && (Date.now() - cacheTimestamp) < CACHE_DURATION_MS) {
-      return NextResponse.json({ summary: cachedSummary, cached: true })
+    const cached = cache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION_MS) {
+      return NextResponse.json({ summary: cached.summary, cached: true })
     }
 
     // Check API key exists and is not the placeholder
@@ -24,10 +32,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Parse request body
-    const body = await request.json()
-    const headlines: string[] = body.headlines ?? []
-
     if (headlines.length === 0) {
       return NextResponse.json(
         { summary: [], error: "No headlines provided" },
@@ -38,13 +42,31 @@ export async function POST(request: Request) {
     // Initialize Gemini client with the correct 2026 SDK
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-    // Build the prompt
-    const prompt = `You are a concise supply chain risk analyst. Be direct and professional.
+    // Build the prompt — personalized if profile exists
+    let prompt: string
+
+    if (profile) {
+      const supplierRegions = Array.from(new Set(profile.suppliers.map(s => s.country))).join(", ")
+      prompt = `You are a supply chain risk analyst generating a personalized daily brief for ${profile.companyName}, a ${profile.sector} company.
+
+Their supplier network spans: ${supplierRegions}
+Their key concerns: ${profile.painPoints.join(", ")}
+
+Based on today's ${headlines.length} disruption headlines, generate exactly 3 bullet points that are SPECIFIC to this company's situation.
+Each bullet must directly relate to their supplier regions or pain points.
+Start each bullet with a specific risk or opportunity, not a generic observation.
+Keep each bullet to 1-2 sentences. Start each bullet with •. Plain text only, no markdown.
+
+Headlines:
+${headlines.join("\n")}`
+    } else {
+      prompt = `You are a concise supply chain risk analyst. Be direct and professional.
 
 Based on these supply chain disruption headlines from the last 24 hours, provide exactly 3 bullet points summarizing the key risk themes. Start each bullet with •. Each bullet is one sentence only.
 
 Headlines:
 ${headlines.join("\n")}`
+    }
 
     // Call Gemini 2.5 Flash — free tier, fast, high quality
     const response = await ai.models.generateContent({
@@ -78,8 +100,7 @@ ${headlines.join("\n")}`
           .slice(0, 3)
 
     // Update cache
-    cachedSummary = finalBullets
-    cacheTimestamp = Date.now()
+    cache.set(cacheKey, { summary: finalBullets, timestamp: Date.now() })
 
     return NextResponse.json({ summary: finalBullets })
 
