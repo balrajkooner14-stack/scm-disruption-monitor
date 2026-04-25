@@ -47,9 +47,9 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-700 py-4 px-8 flex flex-row items-center justify-between">
-      {/* Left: Logo + title + subtitle */}
-      <div className="flex items-center gap-3">
+    <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-700 py-3 px-6 flex flex-row items-center justify-between gap-4">
+      {/* Left: Logo */}
+      <div className="flex items-center gap-3 flex-shrink-0">
         <span className="text-2xl">📡</span>
         <div className="flex flex-col">
           <div className="flex items-baseline gap-0">
@@ -60,8 +60,48 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Right: LIVE + separator + date + toggle */}
-      <div className="flex flex-row items-center gap-3">
+      {/* Centre: Nav links */}
+      <nav className="hidden md:flex items-center gap-1">
+        <Link
+          href="/"
+          className="text-xs text-slate-400 hover:text-white px-3 py-1.5
+                     rounded-md hover:bg-slate-800 transition-colors"
+        >
+          Dashboard
+        </Link>
+        <Link
+          href="/scenarios"
+          className="text-xs text-slate-400 hover:text-white px-3 py-1.5
+                     rounded-md hover:bg-slate-800 transition-colors"
+        >
+          🔮 Scenarios
+        </Link>
+        {isLoaded && (
+          <Link
+            href="/profile"
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white
+                       px-3 py-1.5 rounded-md hover:bg-slate-800 transition-colors"
+          >
+            {profile ? (
+              <>
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+                Profile
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+                </span>
+                <span className="text-amber-400">Set Up Profile</span>
+              </>
+            )}
+          </Link>
+        )}
+      </nav>
+
+      {/* Right: LIVE + date + shortcuts + dark mode */}
+      <div className="flex flex-row items-center gap-3 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -73,28 +113,6 @@ export default function Navbar() {
         <div className="w-px h-5 bg-slate-600 mx-1" />
 
         <span className="hidden sm:block text-slate-300 text-sm">{dateStr} · {timeStr}</span>
-
-        {isLoaded && (
-          <Link
-            href="/profile"
-            className="flex items-center gap-1.5 border border-slate-600 hover:border-slate-400 rounded-md px-2 py-1 transition-colors text-xs font-medium"
-          >
-            {profile ? (
-              <>
-                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-slate-300">My Profile</span>
-              </>
-            ) : (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                </span>
-                <span className="text-amber-400">Set Up Profile</span>
-              </>
-            )}
-          </Link>
-        )}
 
         <span className="hidden md:inline text-xs text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">
           / to chat

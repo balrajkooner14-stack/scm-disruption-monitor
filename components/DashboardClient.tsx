@@ -8,6 +8,7 @@ import KPIBar from "@/components/KPIBar"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
 import AIChatPanel from "@/components/AIChatPanel"
+import ScenarioPlanner from "@/components/ScenarioPlanner"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
@@ -60,6 +61,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         profile={profile}
       />
       <AIAdvisor events={scoredEvents} />
+      <ScenarioPlanner events={scoredEvents} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <WorldMap
           events={scoredEvents}
