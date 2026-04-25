@@ -6,6 +6,7 @@ import WorldMap from "@/components/WorldMap"
 import DisruptionFeed from "@/components/DisruptionFeed"
 import KPIBar from "@/components/KPIBar"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
+import AIAdvisor from "@/components/AIAdvisor"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
@@ -57,6 +58,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         scoredEvents={scoredEvents}
         profile={profile}
       />
+      <AIAdvisor events={scoredEvents} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <WorldMap
           events={scoredEvents}
