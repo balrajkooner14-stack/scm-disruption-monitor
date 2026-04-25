@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import WorldMap from "@/components/WorldMap"
 import DisruptionFeed from "@/components/DisruptionFeed"
 import KPIBar from "@/components/KPIBar"
-import CategoryChart from "@/components/CategoryChart"
+import AnalyticsTab from "@/components/AnalyticsTab"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
 import AIChatPanel from "@/components/AIChatPanel"
@@ -157,33 +157,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
         {/* ANALYTICS */}
         {activeTab === "analytics" && (
-          <div className="space-y-6">
-            <CategoryChart events={scoredEvents} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl
-                              p-6 flex flex-col items-center justify-center
-                              min-h-[200px] text-center">
-                <p className="text-2xl mb-2">📈</p>
-                <p className="text-slate-300 font-medium text-sm mb-1">
-                  Commodity Price Trends
-                </p>
-                <p className="text-slate-500 text-xs">
-                  World Bank commodity price index — coming in Phase 7
-                </p>
-              </div>
-              <div className="bg-slate-800 border border-slate-700 rounded-xl
-                              p-6 flex flex-col items-center justify-center
-                              min-h-[200px] text-center">
-                <p className="text-2xl mb-2">🚢</p>
-                <p className="text-slate-300 font-medium text-sm mb-1">
-                  Freight Rate Index
-                </p>
-                <p className="text-slate-500 text-xs">
-                  Container shipping spot rates by trade lane — coming in Phase 7
-                </p>
-              </div>
-            </div>
-          </div>
+          <AnalyticsTab events={scoredEvents} />
         )}
 
       </div>
