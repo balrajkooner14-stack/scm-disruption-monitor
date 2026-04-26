@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server"
 
+const CACHE_VERSION = "v3"
+
+// Yahoo Finance futures symbols — no API key required
+// scale converts Yahoo's native unit to the display unit
 const COMMODITIES = [
-  { id: "PNGASEUUSDM", name: "Natural Gas", unit: "$/mmbtu" },
-  { id: "PCOPP",       name: "Copper",      unit: "$/mt"    },
-  { id: "PWHEAMT",     name: "Wheat",        unit: "$/mt"    },
-  { id: "POILAPSP",    name: "Crude Oil",    unit: "$/bbl"   },
+  { id: "CL=F", name: "Crude Oil",   unit: "$/bbl",   scale: 1        }, // USD/bbl
+  { id: "NG=F", name: "Natural Gas", unit: "$/mmbtu", scale: 1        }, // USD/mmbtu
+  { id: "HG=F", name: "Copper",      unit: "$/mt",    scale: 2204.62  }, // USD/lb → USD/mt
+  { id: "ZW=F", name: "Wheat",       unit: "$/mt",    scale: 0.367437 }, // USc/bu → USD/mt (÷100 × 36.74 bu/mt)
 ]
 
 export interface DataPoint { date: string; value: number }
@@ -32,31 +36,54 @@ export interface MarketData {
 }
 
 // 24-hour server-side cache
-let cache: { data: MarketData; timestamp: number } | null = null
+let cache: { data: MarketData; timestamp: number; version: string } | null = null
 const CACHE_TTL = 24 * 60 * 60 * 1000
 
 async function fetchCommodity(
   id: string,
   name: string,
   unit: string,
+  scale: number,
 ): Promise<CommodityResult> {
-  const url = `https://api.worldbank.org/v2/en/indicator/${id}?format=json&mrv=13&frequency=M`
-  const res = await fetch(url, { cache: "no-store" })
-  if (!res.ok) throw new Error(`Failed to fetch ${id}`)
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(id)}?interval=1mo&range=13mo`
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 6000)
+
+  const res = await fetch(url, {
+    signal: controller.signal,
+    headers: { "User-Agent": "Mozilla/5.0" },
+    next: { revalidate: 86400 },
+  }).finally(() => clearTimeout(timeout))
+
+  if (!res.ok) throw new Error(`Yahoo Finance returned ${res.status} for ${id}`)
   const json = await res.json()
 
-  const rows: Array<{ date: string; value: number | null }> = json[1] ?? []
-  const data: DataPoint[] = rows
-    .filter((r) => r.value !== null)
-    .map((r) => ({ date: r.date, value: r.value as number }))
-    .reverse() // oldest→newest for sparkline
+  const result = json?.chart?.result?.[0]
+  if (!result) throw new Error(`No chart result for ${id}`)
+
+  const timestamps: number[] = result.timestamp ?? []
+  const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? []
+
+  // Deduplicate by date (current month appears twice: last close + live tick)
+  const seen = new Map<string, number>()
+  for (let i = 0; i < timestamps.length; i++) {
+    const raw = closes[i]
+    if (raw === null || raw <= 0) continue
+    const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 7)
+    seen.set(date, raw) // later value overwrites — keeps the freshest
+  }
+
+  const data: DataPoint[] = Array.from(seen.entries())
+    .map(([date, raw]) => ({ date, value: Math.round(raw * scale * 100) / 100 }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  if (data.length < 2) throw new Error(`Insufficient data for ${id}`)
 
   const change =
-    data.length >= 2
-      ? ((data[data.length - 1].value - data[data.length - 2].value) /
-          data[data.length - 2].value) *
-        100
-      : 0
+    ((data[data.length - 1].value - data[data.length - 2].value) /
+      data[data.length - 2].value) *
+    100
 
   return { id, name, unit, data, change }
 }
@@ -95,27 +122,39 @@ const FREIGHT_RATES: FreightRate[] = [
 
 export async function GET() {
   const now = Date.now()
-  if (cache && now - cache.timestamp < CACHE_TTL) {
+  if (
+    cache &&
+    cache.version === CACHE_VERSION &&
+    now - cache.timestamp < CACHE_TTL
+  ) {
     return NextResponse.json(cache.data)
   }
 
-  try {
-    const commodities = await Promise.all(
-      COMMODITIES.map((c) => fetchCommodity(c.id, c.name, c.unit)),
-    )
-    const data: MarketData = {
-      commodities,
-      freight: FREIGHT_RATES,
-      lastUpdated: new Date().toISOString(),
-    }
-    cache = { data, timestamp: now }
-    return NextResponse.json(data)
-  } catch {
-    // Serve stale cache rather than erroring out
+  const results = await Promise.allSettled(
+    COMMODITIES.map((c) => fetchCommodity(c.id, c.name, c.unit, c.scale)),
+  )
+
+  const commodities: CommodityResult[] = results
+    .map((r, i) => {
+      if (r.status === "fulfilled") return r.value
+      console.error(`Failed to fetch commodity ${COMMODITIES[i].id}:`, r.reason)
+      return null
+    })
+    .filter((c): c is CommodityResult => c !== null)
+
+  if (commodities.length === 0) {
     if (cache) return NextResponse.json(cache.data)
     return NextResponse.json(
       { error: "Failed to fetch market data" },
       { status: 502 },
     )
   }
+
+  const data: MarketData = {
+    commodities,
+    freight: FREIGHT_RATES,
+    lastUpdated: new Date().toISOString(),
+  }
+  cache = { data, timestamp: now, version: CACHE_VERSION }
+  return NextResponse.json(data)
 }
