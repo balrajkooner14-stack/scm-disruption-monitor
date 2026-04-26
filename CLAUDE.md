@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.0 live
+- Status: v2.1 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -17,12 +17,13 @@ trading and financial markets background.
 - News API: GDELT DOC 2.0 — https://api.gdeltproject.org/api/v2/doc/doc (FREE, no key)
 - AI summary: Google Gemini API — model: gemini-2.5-flash — env var: GEMINI_API_KEY
 - AI SDK: @google/genai (NOT the deprecated @google/generative-ai)
-- Commodity data: World Bank Pink Sheet API (FREE, no key)
+- Commodity data: Yahoo Finance futures API (FREE, no key) — CL=F, NG=F, HG=F, ZW=F
+- PDF export: jsPDF v4 (client-side, browser-only)
 - Hosting: Vercel Hobby (free tier)
 
 ## Folder structure
 /app
-  page.tsx                        → Home: fetches events, renders Navbar + AIInsightPanel + DashboardClient
+  page.tsx                        → Home: fetches events, renders Navbar + DashboardClient (AIInsightPanel now inside DashboardClient)
   /about/page.tsx                 → Static about page
   /profile/page.tsx               → 5-step company profile form
   /scenarios/page.tsx             → Standalone scenario planner page
@@ -30,15 +31,18 @@ trading and financial markets background.
   /api/advisor/route.ts           → Proactive AI recommendations (profile + events, 10min cache)
   /api/chat/route.ts              → Streaming multi-turn chat (profile + events context)
   /api/scenario/route.ts          → Streaming what-if analysis (5-section structured output)
-  /api/market-data/route.ts       → World Bank commodity prices + static freight rates (24hr cache)
+  /api/market-data/route.ts       → Yahoo Finance futures commodity prices + static freight rates (24hr cache)
+  /api/event-brief/route.ts       → Per-event Gemini brief (profile-aware, structured JSON: brief/impact/recommendation)
 
 /components
   Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode
   AIInsightPanel.tsx              → Gemini AI summary panel (profile-aware, 10min cache)
   DashboardClient.tsx             → 4-tab hub: Overview / Advisor / Scenarios / Analytics
   KPIBar.tsx                      → KPI cards (profile-aware: events affecting you, risk region)
-  WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted amber)
-  DisruptionFeed.tsx              → Event cards with relevance scores, search, sort toggle
+  WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted cyan #22d3ee)
+  DisruptionFeed.tsx              → Event cards with relevance scores, search, sort toggle, click-to-expand brief
+  EventBriefPanel.tsx             → Expandable per-event AI brief: impact badge, explanation, recommendation
+  DailyBriefButton.tsx            → PDF export trigger: loading state, success flash, auto-named download
   CategoryChart.tsx               → Bar chart: events by category (recharts)
   AIAdvisor.tsx                   → Proactive AI recommendations panel (collapsible cards)
   AIChatPanel.tsx                 → Floating chat bubble, streaming multi-turn AI chat
@@ -46,7 +50,7 @@ trading and financial markets background.
   ScenarioPageClient.tsx          → Client wrapper for /scenarios page
   ProfilePromptModal.tsx          → First-visit modal prompting profile setup
   AnalyticsTab.tsx                → Analytics tab: CategoryChart + CommodityChart + FreightRateCard
-  CommodityChart.tsx              → World Bank commodity sparklines (sector-relevant highlights)
+  CommodityChart.tsx              → Yahoo Finance commodity sparklines (sector-relevant highlights)
   FreightRateCard.tsx             → Container freight rates by trade lane
 
 /lib
@@ -54,6 +58,7 @@ trading and financial markets background.
   fetchDisruptions.ts             → GDELT fetcher (3 queries, deduplication, fallback)
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY
+  generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
 
 /hooks
   useCompanyProfile.ts            → "use client" hook: profile state, saveProfile, clearProfile
@@ -66,8 +71,10 @@ trading and financial markets background.
 - /api/advisor    — Proactive recommendations JSON array (profile + top 15 events, 10min Map cache)
 - /api/chat       — Streaming chat via ai.chats.create() + sendMessageStream (ReadableStream)
 - /api/scenario   — Streaming what-if analysis via generateContentStream (ReadableStream)
-- /api/market-data — World Bank indicators (PNGASEUUSDM/PCOPP/PWHEAMT/POILAPSP), 13 months,
-                     static freight rates for 4 lanes, 24hr module-level cache
+- /api/market-data — Yahoo Finance futures (CL=F/NG=F/HG=F/ZW=F), 13 months, unit-scaled,
+                     static freight rates for 4 lanes, 24hr module-level cache (CACHE_VERSION="v3")
+- /api/event-brief — Per-event Gemini brief, profile-aware context, returns {brief, impact, recommendation},
+                     graceful 200 fallback on error, client-side cached in DisruptionFeed state
 
 ## Severity scoring rules (DO NOT CHANGE without asking)
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
@@ -82,7 +89,7 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 ## Caching rules (DO NOT CHANGE)
 - /api/analyze: 10min module-level variable, key: profile ? `profile:${companyName}:${updatedAt}` : "generic"
 - /api/advisor: 10min Map<string, {data, timestamp}>, key: profile.updatedAt + events[0].title
-- /api/market-data: 24hr module-level variable, serves stale on World Bank API failure
+- /api/market-data: 24hr module-level variable, CACHE_VERSION="v3", serves stale on Yahoo Finance failure
 
 ## Key type notes
 - ScoredEvent extends DisruptionEvent — structural subtyping, passes wherever DisruptionEvent[] expected
@@ -131,6 +138,19 @@ v2.0 — Major platform rebuild across 7 phases (Apr 24–25, 2026):
                  /components/CommodityChart.tsx, /components/FreightRateCard.tsx,
                  /components/AnalyticsTab.tsx, World Bank commodity API,
                  sector-relevant commodity highlighting, 24hr server cache)
+v2.1 — Post-launch fixes and new features (Apr 26, 2026):
+        Fix: Commodity prices switched from broken World Bank API to Yahoo Finance
+             futures (CL=F, NG=F, HG=F, ZW=F) with unit-scale conversions
+        Fix: Supplier country map color changed to cyan #22d3ee for clear visual
+             distinction from heat map amber/orange/red colors
+        Feature: Per-event AI brief — clicking any event card expands a "Why This
+                 Matters" panel with impact rating (High/Medium/Low), supply chain
+                 explanation, and recommendation. Client-side cache (briefCache keyed
+                 by event.url) prevents repeat API calls.
+        Feature: PDF Daily Brief export — jsPDF-powered one-click download with dark
+                 header, KPI boxes, AI recommendations (up to 4), top events (up to 8),
+                 commodity snapshot, page numbers. Auto-named scm-brief-[company]-[date].pdf.
+                 AIInsightPanel moved inside DashboardClient to enable state lifting.
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free)
@@ -155,8 +175,8 @@ v2.0 — Major platform rebuild across 7 phases (Apr 24–25, 2026):
 - [x] Scenario Planner — streaming what-if analysis with inventory risk (Apr 24, 2026)
 - [x] Tabbed layout consolidation — 4-tab intelligence hub (Apr 25, 2026)
 - [x] External data feeds — World Bank commodity prices + freight rates (Apr 25, 2026)
-- [ ] Per-event "Why This Matters" AI brief on card click
-- [ ] Export / PDF daily brief generator
+- [x] Per-event "Why This Matters" AI brief on card click (Apr 26, 2026)
+- [x] Export / PDF daily brief generator (Apr 26, 2026)
 - [ ] Watchlist with new-event badges (localStorage)
 - [ ] 7-day disruption trend sparklines per category
 - [ ] Custom domain setup
