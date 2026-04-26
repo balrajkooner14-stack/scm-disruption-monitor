@@ -4,6 +4,9 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { DisruptionCategory } from "@/lib/types"
 import { ScoredEvent } from "@/lib/scoreEvents"
+import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import EventBriefPanel from "@/components/EventBriefPanel"
+import type { EventBriefResponse } from "@/app/api/event-brief/route"
 
 interface DisruptionFeedProps {
   events: ScoredEvent[]
@@ -49,7 +52,10 @@ const formatDate = (dateStr: string) => {
 
 export default function DisruptionFeed({ events, regionFilter, onRegionClear, kpiFilter }: DisruptionFeedProps) {
   const router = useRouter()
+  const { profile } = useCompanyProfile()
   const [activeFilter, setActiveFilter] = useState<"All" | DisruptionCategory>("All")
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
+  const [briefCache, setBriefCache] = useState<Record<string, EventBriefResponse>>({})
   const [searchQuery, setSearchQuery] = useState("")
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(new Date())
@@ -247,16 +253,21 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
             const showHighRelevance = event.isProfileMatch
             const showMediumRelevance = !event.isProfileMatch && event.relevanceScore >= 20
 
+            const isExpanded = expandedEventId === event.url
+
             return (
               <div
                 key={event.id}
-                className={`border-l-4 ${config.borderColor} pl-3 pr-2 py-3 rounded-r-lg bg-slate-800/50 cursor-pointer transition-all duration-150 ease-out hover:bg-slate-700/70 hover:border-l-[6px] hover:pl-[10px] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] ${event.severity === 3 ? "critical-card" : ""}`}
+                className={`group border-l-4 ${config.borderColor} pl-3 pr-2 py-3 rounded-r-lg bg-slate-800/50 cursor-pointer transition-all duration-150 ease-out hover:bg-slate-700/70 hover:border-l-[6px] hover:pl-[10px] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] ${event.severity === 3 ? "critical-card" : ""}`}
                 style={{
                   animationName: "cardEntrance",
                   animationDuration: "0.3s",
                   animationFillMode: "both",
                   animationDelay: `${index * 0.05}s`,
                 }}
+                onClick={() =>
+                  setExpandedEventId(isExpanded ? null : event.url)
+                }
               >
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${config.badgeClass}`}>
@@ -292,11 +303,27 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
                     href={event.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-400 hover:text-blue-300 font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-blue-400 hover:text-blue-300 text-xs flex-shrink-0 transition-colors"
                   >
                     Read →
                   </a>
                 </div>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-slate-600 group-hover:text-slate-400 transition-colors">
+                    {isExpanded ? "▲ Hide brief" : "▼ Why this matters"}
+                  </p>
+                </div>
+                {isExpanded && (
+                  <EventBriefPanel
+                    event={event}
+                    profile={profile}
+                    cachedBrief={briefCache[event.url] ?? null}
+                    onBriefLoaded={(brief) =>
+                      setBriefCache((prev) => ({ ...prev, [event.url]: brief }))
+                    }
+                  />
+                )}
               </div>
             )
           })
