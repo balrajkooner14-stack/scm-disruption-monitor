@@ -5,11 +5,12 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 
 interface AIInsightPanelProps {
   headlines: string[]
+  onSummaryLoaded?: (points: string[]) => void
 }
 
 type Status = "loading" | "success" | "error"
 
-export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
+export default function AIInsightPanel({ headlines, onSummaryLoaded }: AIInsightPanelProps) {
   const [summary, setSummary] = useState<string[]>([])
   const [status, setStatus] = useState<Status>("loading")
   const { profile, isLoaded } = useCompanyProfile()
@@ -36,6 +37,7 @@ export default function AIInsightPanel({ headlines }: AIInsightPanelProps) {
         if (data.summary && data.summary.length > 0) {
           setSummary(data.summary)
           setStatus("success")
+          onSummaryLoaded?.(data.summary)
         } else {
           setStatus("error")
         }

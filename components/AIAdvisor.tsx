@@ -5,9 +5,11 @@ import Link from "next/link"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import type { ScoredEvent } from "@/lib/scoreEvents"
 import type { AdvisorResponse, Recommendation } from "@/app/api/advisor/route"
+import type { BriefData } from "@/lib/generateBrief"
 
 interface AIAdvisorProps {
   events: ScoredEvent[]
+  onRecsLoaded?: (recs: BriefData["recommendations"]) => void
 }
 
 const PRIORITY_CONFIG: Record<
@@ -37,7 +39,7 @@ const PRIORITY_CONFIG: Record<
   },
 }
 
-export default function AIAdvisor({ events }: AIAdvisorProps) {
+export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
   const { profile, isLoaded } = useCompanyProfile()
   const [advisorData, setAdvisorData] = useState<AdvisorResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -59,6 +61,15 @@ export default function AIAdvisor({ events }: AIAdvisorProps) {
       const data: AdvisorResponse = await res.json()
       setAdvisorData(data)
       setLastFetched(new Date())
+      onRecsLoaded?.(
+        data.recommendations.map((r) => ({
+          title: r.title,
+          priority: r.priority,
+          problem: r.problem,
+          action: r.action,
+          timeframe: r.timeframe,
+        })),
+      )
     } catch (err) {
       setError("Unable to generate recommendations. Please try again.")
       console.error(err)

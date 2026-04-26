@@ -1,7 +1,6 @@
 import { Metadata } from "next"
 import { Suspense } from "react"
 import Navbar from "@/components/Navbar"
-import AIInsightPanel from "@/components/AIInsightPanel"
 import DashboardClient from "@/components/DashboardClient"
 import { fetchDisruptions } from "@/lib/fetchDisruptions"
 
@@ -12,13 +11,11 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const events = await fetchDisruptions()
-  const top5Headlines = events.slice(0, 5).map((e) => e.title)
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-slate-900">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <AIInsightPanel headlines={top5Headlines} />
         <Suspense>
           <DashboardClient events={events} />
         </Suspense>
