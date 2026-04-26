@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.1 live
+- Status: v2.2 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -151,6 +151,13 @@ v2.1 — Post-launch fixes and new features (Apr 26, 2026):
                  header, KPI boxes, AI recommendations (up to 4), top events (up to 8),
                  commodity snapshot, page numbers. Auto-named scm-brief-[company]-[date].pdf.
                  AIInsightPanel moved inside DashboardClient to enable state lifting.
+v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
+        Fix: AI Chat Panel streaming timeout resolved for Vercel Hobby tier.
+             Added export const maxDuration = 30 to /app/api/chat/route.ts and
+             /app/api/scenario/route.ts to extend serverless function timeout
+             from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
+             time-to-first-token from ~10s to ~2-3s. Chat panel now fully
+             functional in production.
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free)
