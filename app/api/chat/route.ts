@@ -3,6 +3,8 @@ import { NextRequest } from "next/server"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
 
+export const maxDuration = 30
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -81,6 +83,9 @@ specifically helpful. Write like a knowledgeable colleague, not a report.`
       history,
       config: {
         systemInstruction: systemPrompt,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
       },
     })
 

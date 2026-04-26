@@ -3,6 +3,8 @@ import { NextRequest } from "next/server"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
 
+export const maxDuration = 30
+
 export interface ScenarioInput {
   disruptionType: string    // e.g. "Port closure", "Supplier bankruptcy"
   affectedRegion: string    // e.g. "Asia Pacific", or a specific country
@@ -127,6 +129,11 @@ Total response: 400-600 words.`
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: prompt,
+      config: {
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
+      },
     })
 
     const encoder = new TextEncoder()
