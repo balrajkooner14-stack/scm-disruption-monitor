@@ -151,8 +151,8 @@ function getCountryColor(
   // Priority 1: selected (clicked) — highest priority
   if (selectedRegion && region === selectedRegion) return "#2563eb"
 
-  // Priority 2: supplier country — amber
-  if (supplierCountries.has(geoName)) return "#d97706"
+  // Priority 2: supplier country — cyan, distinct from heat map
+  if (supplierCountries.has(geoName)) return "#22d3ee"
 
   const count = region ? (regionCounts[region] || 0) : 0
   const hasProfile = supplierRegions.size > 0 || supplierCountries.size > 0
@@ -270,7 +270,7 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
           { color: "#854d0e", label: "1–2 events" },
           { color: "#c2410c", label: "3–5 events" },
           { color: "#991b1b", label: "6+ events" },
-          { color: "#d97706", label: "Your supplier countries" },
+          { color: "#22d3ee", label: "Your supplier countries" },
           { color: "#2563eb", label: "Selected" },
         ].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1">
