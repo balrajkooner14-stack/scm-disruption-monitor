@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.2 live
+- Status: v2.3 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -52,6 +52,7 @@ trading and financial markets background.
   AnalyticsTab.tsx                → Analytics tab: CategoryChart + CommodityChart + FreightRateCard
   CommodityChart.tsx              → Yahoo Finance commodity sparklines (sector-relevant highlights)
   FreightRateCard.tsx             → Container freight rates by trade lane
+  InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
@@ -59,6 +60,7 @@ trading and financial markets background.
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
+  inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor()
 
 /hooks
   useCompanyProfile.ts            → "use client" hook: profile state, saveProfile, clearProfile
@@ -158,6 +160,16 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
+v2.3 — Inventory Risk Calculator (Apr 28, 2026):
+        Feature: Inventory Risk Calculator with live reorder alerts.
+                 Pure calculation engine in /lib/inventoryRisk.ts compares
+                 inventory days on hand against supplier lead times and active
+                 disruptions. InventoryRiskPanel shows product risk cards with
+                 progress bars, color-coded risk levels, and a critical alert
+                 banner. KPI bar card 4 updates to show inventory status when
+                 profile exists. Profile page Step 3 shows amber reminder banner
+                 when editing existing inventory levels. localStorage log stored
+                 under scm_inventory_log key.
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free)
@@ -184,6 +196,11 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
 - [x] External data feeds — World Bank commodity prices + freight rates (Apr 25, 2026)
 - [x] Per-event "Why This Matters" AI brief on card click (Apr 26, 2026)
 - [x] Export / PDF daily brief generator (Apr 26, 2026)
+- [x] Inventory Risk Calculator with reorder alerts (Apr 28, 2026)
+- [ ] Supplier Health Scorecard (Feature 2)
+- [ ] Cost Impact Estimator (Feature 3)
+- [ ] Supplier Concentration Risk Score (Feature 4)
+- [ ] Disruption History Log (Feature 5)
 - [ ] Watchlist with new-event badges (localStorage)
 - [ ] 7-day disruption trend sparklines per category
 - [ ] Custom domain setup
