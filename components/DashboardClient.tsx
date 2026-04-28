@@ -12,9 +12,11 @@ import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
 import DailyBriefButton from "@/components/DailyBriefButton"
+import InventoryRiskPanel from "@/components/InventoryRiskPanel"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
+import { calculateInventoryRisk, getDaysSinceDate } from "@/lib/inventoryRisk"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
@@ -98,6 +100,16 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const criticalCount = scoredEvents.filter((e) => e.severity === 3).length
   const profileMatchCount = scoredEvents.filter((e) => e.isProfileMatch).length
 
+  const inventorySnapshot = useMemo(() => {
+    if (!profile) return undefined
+    const hasDisruptionByRegion: Record<string, boolean> = {}
+    scoredEvents
+      .filter(e => e.severity >= 2)
+      .forEach(e => { if (e.region) hasDisruptionByRegion[e.region] = true })
+    const daysSince = getDaysSinceDate(profile.updatedAt ?? new Date().toISOString())
+    return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSince)
+  }, [profile, scoredEvents])
+
   const top5Headlines = useMemo(
     () => scoredEvents.slice(0, 5).map((e) => e.title),
     [scoredEvents],
@@ -148,6 +160,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         onKpiFilter={setKpiFilter}
         scoredEvents={scoredEvents}
         profile={profile}
+        inventorySnapshot={inventorySnapshot}
       />
 
       {/* Tab navigation bar */}
@@ -186,18 +199,21 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       <div className="min-h-[600px]">
 
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <WorldMap
-              events={scoredEvents}
-              selectedRegion={selectedRegion}
-              onRegionSelect={setSelectedRegion}
-            />
-            <DisruptionFeed
-              events={scoredEvents}
-              regionFilter={selectedRegion}
-              onRegionClear={() => setSelectedRegion(null)}
-              kpiFilter={kpiFilter}
-            />
+          <div>
+            <InventoryRiskPanel events={scoredEvents} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <WorldMap
+                events={scoredEvents}
+                selectedRegion={selectedRegion}
+                onRegionSelect={setSelectedRegion}
+              />
+              <DisruptionFeed
+                events={scoredEvents}
+                regionFilter={selectedRegion}
+                onRegionClear={() => setSelectedRegion(null)}
+                kpiFilter={kpiFilter}
+              />
+            </div>
           </div>
         )}
 

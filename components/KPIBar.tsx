@@ -10,9 +10,10 @@ interface KPIBarProps {
   onKpiFilter: (filter: string | null) => void
   scoredEvents?: ScoredEvent[]
   profile?: CompanyProfile | null
+  inventorySnapshot?: { criticalCount: number; warningCount: number }
 }
 
-export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, profile }: KPIBarProps) {
+export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, profile, inventorySnapshot }: KPIBarProps) {
   const criticalCount = events.filter((e) => e.severity === 3).length
 
   const criticalProfileMatchCount = scoredEvents
@@ -123,12 +124,28 @@ export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, p
           )}
         </div>
 
-        {/* Card 4 — Data Window */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Data Window</p>
-          <p className="text-2xl font-black text-green-400">Last 24h</p>
-          <p className="text-xs text-slate-500 mt-1">↻ Live · GDELT 4,500+ sources</p>
-        </div>
+        {/* Card 4 — Inventory Alerts (when profile) or Data Window */}
+        {inventorySnapshot ? (
+          inventorySnapshot.criticalCount > 0 ? (
+            <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-red-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+              <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
+              <p className="text-3xl font-black text-red-400">{inventorySnapshot.criticalCount}</p>
+              <p className="text-xs text-slate-500 mt-1">items need reorder</p>
+            </div>
+          ) : (
+            <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+              <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Status</p>
+              <p className="text-2xl font-black text-green-400">Clear</p>
+              <p className="text-xs text-slate-500 mt-1">All stock levels adequate</p>
+            </div>
+          )
+        ) : (
+          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Data Window</p>
+            <p className="text-2xl font-black text-green-400">Last 24h</p>
+            <p className="text-xs text-slate-500 mt-1">↻ Live · GDELT 4,500+ sources</p>
+          </div>
+        )}
       </div>
 
       {/* Clear filter pill */}

@@ -428,6 +428,15 @@ export default function ProfilePage() {
           {/* Step 3 — Inventory Profile */}
           {step === 3 && (
             <div className="space-y-4">
+              {isLoaded && profile && (
+                <div className="bg-amber-950 border border-amber-700 rounded-lg p-3 mb-4 flex items-start gap-2">
+                  <span className="text-amber-400 text-sm flex-shrink-0">⚠</span>
+                  <p className="text-xs text-amber-300 leading-relaxed">
+                    Update your inventory days on hand to keep risk calculations accurate. These numbers were set on{" "}
+                    {new Date(profile.updatedAt).toLocaleDateString()} and may no longer reflect current stock levels.
+                  </p>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-2">
                 <span className="text-slate-400 text-sm">{productLines.length} of 5 product lines added</span>
                 <button
