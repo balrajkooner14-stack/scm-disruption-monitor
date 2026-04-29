@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.3 live
+- Status: v2.4 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -53,6 +53,7 @@ trading and financial markets background.
   CommodityChart.tsx              → Yahoo Finance commodity sparklines (sector-relevant highlights)
   FreightRateCard.tsx             → Container freight rates by trade lane
   InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators
+  SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, inline edit forms, live score preview, disruption+low-score compound warning
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
@@ -61,6 +62,7 @@ trading and financial markets background.
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor()
+  supplierHealth.ts               → Score calculation engine: calculateCompositeScore(), getGrade(), buildHealthScores(), loadHealthEntries(), saveHealthEntry(). Storage key: scm_supplier_health
 
 /hooks
   useCompanyProfile.ts            → "use client" hook: profile state, saveProfile, clearProfile
@@ -160,6 +162,18 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
+v2.4 — Supplier Health Scorecard (Apr 28, 2026):
+        Feature: Supplier Health Scorecard with performance logging and AI integration.
+                 Score calculation engine in /lib/supplierHealth.ts — composite score
+                 weighted: on-time delivery 50%, quality 35%, delay penalty 15%.
+                 Grade thresholds: Excellent (85+), Good (70+), Fair (55+), Poor (40+),
+                 Critical (<40). SupplierHealthScorecard component shows score circles,
+                 grade badges, metrics row, inline edit form with live score preview,
+                 and compound warning when low-score supplier is in disrupted region.
+                 Wired into Advisor tab below AIAdvisor. AIAdvisor passes health summary
+                 to /api/advisor — Gemini flags low-scoring suppliers in disrupted regions
+                 as CRITICAL compounding risk. Cache key includes health summary slice.
+
 v2.3 — Inventory Risk Calculator (Apr 28, 2026):
         Feature: Inventory Risk Calculator with live reorder alerts.
                  Pure calculation engine in /lib/inventoryRisk.ts compares
@@ -197,7 +211,7 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Per-event "Why This Matters" AI brief on card click (Apr 26, 2026)
 - [x] Export / PDF daily brief generator (Apr 26, 2026)
 - [x] Inventory Risk Calculator with reorder alerts (Apr 28, 2026)
-- [ ] Supplier Health Scorecard (Feature 2)
+- [x] Supplier Health Scorecard with performance logging and AI integration (Apr 28, 2026)
 - [ ] Cost Impact Estimator (Feature 3)
 - [ ] Supplier Concentration Risk Score (Feature 4)
 - [ ] Disruption History Log (Feature 5)
