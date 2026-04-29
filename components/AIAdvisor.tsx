@@ -6,6 +6,7 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import type { ScoredEvent } from "@/lib/scoreEvents"
 import type { AdvisorResponse, Recommendation } from "@/app/api/advisor/route"
 import type { BriefData } from "@/lib/generateBrief"
+import { buildHealthScores } from "@/lib/supplierHealth"
 
 interface AIAdvisorProps {
   events: ScoredEvent[]
@@ -52,10 +53,25 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
     setIsLoading(true)
     setError(null)
     try {
+      const healthScores = buildHealthScores(profile.suppliers)
+      const healthSummary = healthScores
+        .filter(s => s.hasData)
+        .map(
+          s =>
+            `${s.supplierName}: ${s.compositeScore}/100 (${s.grade}) — ` +
+            `On-time: ${s.onTimeDeliveryRate}%, Quality: ${s.qualityScore}%, ` +
+            `Last delay: ${s.lastShipmentDelayDays} days`
+        )
+        .join("\n")
+
       const res = await fetch("/api/advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile, events }),
+        body: JSON.stringify({
+          profile,
+          events,
+          healthSummary: healthSummary || "No supplier performance data logged yet.",
+        }),
       })
       if (!res.ok) throw new Error("Failed to fetch recommendations")
       const data: AdvisorResponse = await res.json()

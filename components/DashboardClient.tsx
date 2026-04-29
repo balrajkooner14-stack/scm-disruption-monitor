@@ -8,6 +8,7 @@ import KPIBar from "@/components/KPIBar"
 import AnalyticsTab from "@/components/AnalyticsTab"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
+import SupplierHealthScorecard from "@/components/SupplierHealthScorecard"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -218,11 +219,12 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         )}
 
         {activeTab === "advisor" && (
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto space-y-6">
             <AIAdvisor
               events={scoredEvents}
               onRecsLoaded={setAdvisorRecs}
             />
+            <SupplierHealthScorecard events={scoredEvents} />
           </div>
         )}
 

@@ -32,9 +32,10 @@ export interface AdvisorResponse {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { profile, events } = body as {
+    const { profile, events, healthSummary } = body as {
       profile: CompanyProfile
       events: ScoredEvent[]
+      healthSummary?: string
     }
 
     if (!profile || !events) {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check cache
-    const cacheKey = `${profile.updatedAt}-${events[0]?.title || "empty"}`
+    const cacheKey = `${profile.updatedAt}-${events[0]?.title || "empty"}-${(healthSummary || "").slice(0, 50)}`
     const cached = cache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return NextResponse.json(cached.data)
@@ -107,6 +108,9 @@ ${supplierSummary}
 THEIR INVENTORY STATUS:
 ${productSummary}
 
+SUPPLIER PERFORMANCE DATA (from manager's logs):
+${healthSummary || "No performance data available."}
+
 CURRENT DISRUPTION EVENTS (filtered for relevance):
 ${eventSummary || "No highly relevant events detected at this time."}
 
@@ -122,6 +126,9 @@ CRITICAL RULES:
 - Calculate URGENCY from their actual inventory days on hand vs lead times
 - If inventory days on hand < lead time days for a supplier region that has
   active disruptions, flag this as CRITICAL
+- If a supplier has a health score below 70 AND their region has active disruptions,
+  flag this as CRITICAL priority — a weak supplier in a disrupted region is a
+  critical compounding risk that must be the highest priority recommendation
 - If no highly relevant events exist, still provide 1-2 proactive recommendations
   based on their pain points and general risk management best practices
 - Do NOT give generic supply chain advice — every recommendation must reference
