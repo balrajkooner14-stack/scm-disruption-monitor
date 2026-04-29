@@ -7,6 +7,7 @@ import type { ScoredEvent } from "@/lib/scoreEvents"
 import type { AdvisorResponse, Recommendation } from "@/app/api/advisor/route"
 import type { BriefData } from "@/lib/generateBrief"
 import { buildHealthScores } from "@/lib/supplierHealth"
+import CostImpactPanel from "@/components/CostImpactPanel"
 
 interface AIAdvisorProps {
   events: ScoredEvent[]
@@ -47,6 +48,7 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
   const [error, setError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [lastFetched, setLastFetched] = useState<Date | null>(null)
+  const [costPanelOpenId, setCostPanelOpenId] = useState<string | null>(null)
 
   const fetchRecommendations = async () => {
     if (!profile) return
@@ -84,6 +86,7 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
           problem: r.problem,
           action: r.action,
           timeframe: r.timeframe,
+          affectedSuppliers: r.affectedSuppliers,
         })),
       )
     } catch (err) {
@@ -307,6 +310,57 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
                         </p>
                       </div>
                     )}
+
+                    {(() => {
+                      if (!profile) return null
+                      const affectedSupplier =
+                        profile.suppliers.find(s =>
+                          rec.affectedSuppliers.some(
+                            name =>
+                              name.toLowerCase().includes(s.name.toLowerCase()) ||
+                              s.name.toLowerCase().includes(name.toLowerCase())
+                          )
+                        ) ?? profile.suppliers[0]
+
+                      const relevantEvent =
+                        events.find(e =>
+                          rec.relatedEventTitles.some(title =>
+                            title
+                              .toLowerCase()
+                              .includes(e.title.toLowerCase().slice(0, 30))
+                          )
+                        ) ?? events[0]
+
+                      if (!affectedSupplier || !relevantEvent) return null
+
+                      const isPanelOpen = costPanelOpenId === rec.id
+
+                      return (
+                        <div className="pt-2 border-t border-slate-700/50">
+                          <button
+                            onClick={() =>
+                              setCostPanelOpenId(isPanelOpen ? null : rec.id)
+                            }
+                            className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
+                              isPanelOpen
+                                ? "bg-amber-950 border-amber-700 text-amber-400"
+                                : "bg-slate-700 border-slate-600 text-slate-300 hover:border-amber-700 hover:text-amber-400"
+                            }`}
+                          >
+                            <span>💰</span>
+                            {isPanelOpen
+                              ? "Hide cost estimate"
+                              : "View cost estimate"}
+                          </button>
+
+                          <CostImpactPanel
+                            event={relevantEvent}
+                            supplier={affectedSupplier}
+                            isVisible={isPanelOpen}
+                          />
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}

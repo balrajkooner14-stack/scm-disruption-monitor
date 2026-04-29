@@ -12,6 +12,7 @@ export interface BriefData {
     problem: string
     action: string
     timeframe: string
+    affectedSuppliers?: string[]
   }>
   commodityPrices: Array<{
     name: string
@@ -20,6 +21,19 @@ export interface BriefData {
     changePercent: number
     trend: "up" | "down" | "flat"
   }>
+  costEstimates?: Array<{
+    supplierName: string
+    revenueAtRiskLow: number
+    revenueAtRiskHigh: number
+    mitigationCost: number
+    mitigationAction: string
+  }>
+}
+
+function formatPDFCurrency(amount: number): string {
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`
+  return `$${amount.toLocaleString()}`
 }
 
 export function generateDailyBrief(data: BriefData): jsPDF {
@@ -253,7 +267,26 @@ export function generateDailyBrief(data: BriefData): jsPDF {
       const actionLines = doc.splitTextToSize(rec.action, contentWidth - 8) as string[]
       doc.text(actionLines, margin + 5, y + 14)
 
-      y += 14 + actionLines.length * 4 + 4
+      y += 14 + actionLines.length * 4 + 2
+
+      const costMatch = data.costEstimates?.find(
+        c => c.supplierName === rec.affectedSuppliers?.[0]
+      )
+      if (costMatch) {
+        y = checkPageBreak(y, 10)
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(245, 158, 11)
+        doc.text(
+          `Financial impact: ${formatPDFCurrency(costMatch.revenueAtRiskLow)}–${formatPDFCurrency(costMatch.revenueAtRiskHigh)} at risk · ` +
+          `${formatPDFCurrency(costMatch.mitigationCost)} mitigation (${costMatch.mitigationAction})`,
+          margin + 5,
+          y
+        )
+        y += 5
+      }
+
+      y += 2
     }
 
     y = addDivider(y)
