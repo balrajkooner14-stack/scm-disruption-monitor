@@ -28,6 +28,12 @@ export interface BriefData {
     mitigationCost: number
     mitigationAction: string
   }>
+  concentrationRisk?: {
+    hhi: number
+    label: string
+    largestCountry: string
+    largestCountryShare: number
+  }
 }
 
 function formatPDFCurrency(amount: number): string {
@@ -224,6 +230,33 @@ export function generateDailyBrief(data: BriefData): jsPDF {
   }
 
   y += 22
+
+  if (data.concentrationRisk) {
+    const { concentrationRisk } = data
+    y = checkPageBreak(y, 12)
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "bold")
+    setColor([30, 30, 30])
+    doc.text("Network Concentration:", margin + 2, y)
+    doc.setFont("helvetica", "normal")
+    const hhiColor: [number, number, number] =
+      concentrationRisk.hhi > 5000
+        ? [239, 68, 68]
+        : concentrationRisk.hhi > 2500
+        ? [249, 115, 22]
+        : concentrationRisk.hhi > 1500
+        ? [245, 158, 11]
+        : [34, 197, 94]
+    setColor(hhiColor)
+    doc.text(
+      `HHI ${concentrationRisk.hhi.toLocaleString()} — ${concentrationRisk.label} ` +
+        `(Largest: ${concentrationRisk.largestCountry} ${concentrationRisk.largestCountryShare}%)`,
+      margin + 45,
+      y
+    )
+    y += 8
+  }
+
   y = addDivider(y)
 
   // ── AI Advisor Recommendations ─────────────────────────

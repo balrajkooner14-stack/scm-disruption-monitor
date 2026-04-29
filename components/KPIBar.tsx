@@ -11,9 +11,15 @@ interface KPIBarProps {
   scoredEvents?: ScoredEvent[]
   profile?: CompanyProfile | null
   inventorySnapshot?: { criticalCount: number; warningCount: number }
+  concentrationResult?: {
+    hhi: number
+    label: string
+    level: string
+    colorClass: string
+  }
 }
 
-export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, profile, inventorySnapshot }: KPIBarProps) {
+export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, profile, inventorySnapshot, concentrationResult }: KPIBarProps) {
   const criticalCount = events.filter((e) => e.severity === 3).length
 
   const criticalProfileMatchCount = scoredEvents
@@ -124,21 +130,35 @@ export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, p
           )}
         </div>
 
-        {/* Card 4 — Inventory Alerts (when profile) or Data Window */}
-        {inventorySnapshot ? (
-          inventorySnapshot.criticalCount > 0 ? (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-red-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-              <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
-              <p className="text-3xl font-black text-red-400">{inventorySnapshot.criticalCount}</p>
-              <p className="text-xs text-slate-500 mt-1">items need reorder</p>
-            </div>
-          ) : (
-            <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-              <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Status</p>
-              <p className="text-2xl font-black text-green-400">Clear</p>
-              <p className="text-xs text-slate-500 mt-1">All stock levels adequate</p>
-            </div>
-          )
+        {/* Card 4 — Priority: inventory critical > concentration risk > inventory warning > HHI > data window */}
+        {inventorySnapshot && inventorySnapshot.criticalCount > 0 ? (
+          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-red-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
+            <p className="text-3xl font-black text-red-400">{inventorySnapshot.criticalCount}</p>
+            <p className="text-xs text-slate-500 mt-1">items need reorder</p>
+          </div>
+        ) : concentrationResult && (concentrationResult.level === "concentrated" || concentrationResult.level === "critical") ? (
+          <div className="bg-orange-950 rounded-lg border border-orange-800 border-t-2 border-t-orange-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Concentration Risk</p>
+            <p className={`text-3xl font-black ${concentrationResult.colorClass}`}>
+              {concentrationResult.hhi.toLocaleString()}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">{concentrationResult.label}</p>
+          </div>
+        ) : inventorySnapshot && inventorySnapshot.warningCount > 0 ? (
+          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-amber-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
+            <p className="text-3xl font-black text-amber-400">{inventorySnapshot.warningCount}</p>
+            <p className="text-xs text-slate-500 mt-1">items below reorder point</p>
+          </div>
+        ) : concentrationResult ? (
+          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-blue-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Network HHI</p>
+            <p className={`text-3xl font-black ${concentrationResult.colorClass}`}>
+              {concentrationResult.hhi.toLocaleString()}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">{concentrationResult.label}</p>
+          </div>
         ) : (
           <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
             <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Data Window</p>

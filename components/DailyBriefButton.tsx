@@ -10,6 +10,7 @@ interface DailyBriefButtonProps {
   aiSummaryPoints?: string[]
   recommendations?: BriefData["recommendations"]
   commodityPrices?: BriefData["commodityPrices"]
+  concentrationRisk?: BriefData["concentrationRisk"]
 }
 
 export default function DailyBriefButton({
@@ -17,6 +18,7 @@ export default function DailyBriefButton({
   aiSummaryPoints = [],
   recommendations = [],
   commodityPrices = [],
+  concentrationRisk,
 }: DailyBriefButtonProps) {
   const { profile } = useCompanyProfile()
   const [isGenerating, setIsGenerating] = useState(false)
@@ -36,6 +38,7 @@ export default function DailyBriefButton({
         aiSummaryPoints,
         recommendations,
         commodityPrices,
+        concentrationRisk,
       }
 
       const doc = generateDailyBrief(briefData)

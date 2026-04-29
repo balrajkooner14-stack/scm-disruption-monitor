@@ -9,6 +9,7 @@ import AnalyticsTab from "@/components/AnalyticsTab"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
 import SupplierHealthScorecard from "@/components/SupplierHealthScorecard"
+import ConcentrationRiskCard from "@/components/ConcentrationRiskCard"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -18,6 +19,7 @@ import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 import { calculateInventoryRisk, getDaysSinceDate } from "@/lib/inventoryRisk"
+import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
@@ -111,6 +113,19 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSince)
   }, [profile, scoredEvents])
 
+  const concentrationResult = useMemo(() => {
+    if (!profile) return undefined
+    const r = calculateConcentrationRisk(profile.suppliers)
+    return {
+      hhi: r.hhi,
+      label: r.label,
+      level: r.level,
+      colorClass: r.colorClass,
+      largestSingleCountry: r.breakdown.largestSingleCountry,
+      largestCountryShare: r.breakdown.largestCountryShare,
+    }
+  }, [profile])
+
   const top5Headlines = useMemo(
     () => scoredEvents.slice(0, 5).map((e) => e.title),
     [scoredEvents],
@@ -152,6 +167,12 @@ export default function DashboardClient({ events }: DashboardClientProps) {
           aiSummaryPoints={aiSummaryPoints}
           recommendations={advisorRecs}
           commodityPrices={commodityData}
+          concentrationRisk={concentrationResult ? {
+            hhi: concentrationResult.hhi,
+            label: concentrationResult.label,
+            largestCountry: concentrationResult.largestSingleCountry,
+            largestCountryShare: concentrationResult.largestCountryShare,
+          } : undefined}
         />
       </div>
 
@@ -162,6 +183,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         scoredEvents={scoredEvents}
         profile={profile}
         inventorySnapshot={inventorySnapshot}
+        concentrationResult={concentrationResult}
       />
 
       {/* Tab navigation bar */}
@@ -224,6 +246,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
               events={scoredEvents}
               onRecsLoaded={setAdvisorRecs}
             />
+            <ConcentrationRiskCard />
             <SupplierHealthScorecard events={scoredEvents} />
           </div>
         )}
