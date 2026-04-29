@@ -10,6 +10,7 @@ import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
 import SupplierHealthScorecard from "@/components/SupplierHealthScorecard"
 import ConcentrationRiskCard from "@/components/ConcentrationRiskCard"
+import DisruptionHistoryTab from "@/components/DisruptionHistoryTab"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -20,18 +21,20 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 import { calculateInventoryRisk, getDaysSinceDate } from "@/lib/inventoryRisk"
 import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
+import { saveEventsToHistory, loadHistory } from "@/lib/disruptionHistory"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
-type TabId = "overview" | "advisor" | "scenarios" | "analytics"
+type TabId = "overview" | "advisor" | "scenarios" | "analytics" | "history"
 
-const VALID_TABS: TabId[] = ["overview", "advisor", "scenarios", "analytics"]
+const VALID_TABS: TabId[] = ["overview", "advisor", "scenarios", "analytics", "history"]
 
 const TABS = [
   { id: "overview",  label: "Overview",  icon: "🗺️", description: "Live map & disruption feed" },
   { id: "advisor",   label: "Advisor",   icon: "🤖", description: "AI recommendations" },
   { id: "scenarios", label: "Scenarios", icon: "🔮", description: "What-if analysis" },
   { id: "analytics", label: "Analytics", icon: "📊", description: "Category breakdown" },
+  { id: "history",   label: "History",   icon: "🕐", description: "90-day disruption log" },
 ] as const
 
 interface DashboardClientProps {
@@ -48,6 +51,8 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [aiSummaryPoints, setAiSummaryPoints] = useState<string[]>([])
   const [advisorRecs, setAdvisorRecs] = useState<BriefData["recommendations"]>([])
   const [commodityData, setCommodityData] = useState<BriefData["commodityPrices"]>([])
+  const [historyCount, setHistoryCount] = useState(0)
+  const [historyForBrief, setHistoryForBrief] = useState<NonNullable<BriefData["historyEntries"]>>([])
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview"
@@ -89,6 +94,33 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       .catch(() => {}) // silently — PDF just omits commodity section
   }, [])
 
+  // Load history count on mount for tab badge
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("scm_disruption_history")
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        setHistoryCount(parsed.length)
+      }
+    } catch {}
+  }, [])
+
+  // Load recent history for PDF brief
+  useEffect(() => {
+    try {
+      const entries = loadHistory()
+        .slice(0, 10)
+        .map(e => ({
+          date: e.date,
+          title: e.title,
+          severityLabel: e.severityLabel,
+          category: e.category,
+          isProfileMatch: e.isProfileMatch,
+        }))
+      setHistoryForBrief(entries)
+    } catch {}
+  }, [])
+
   const scoredEvents = useMemo((): ScoredEvent[] => {
     if (!profile || !isLoaded)
       return events.map((e) => ({
@@ -125,6 +157,17 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       largestCountryShare: r.breakdown.largestCountryShare,
     }
   }, [profile])
+
+  // Auto-save events to history on every load (2s delay to avoid blocking render)
+  useEffect(() => {
+    if (scoredEvents.length === 0) return
+    const timer = setTimeout(() => {
+      saveEventsToHistory(scoredEvents)
+      setHistoryCount(prev => prev + 1)
+    }, 2000)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoredEvents.length])
 
   const top5Headlines = useMemo(
     () => scoredEvents.slice(0, 5).map((e) => e.title),
@@ -173,6 +216,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
             largestCountry: concentrationResult.largestSingleCountry,
             largestCountryShare: concentrationResult.largestCountryShare,
           } : undefined}
+          historyEntries={historyForBrief}
         />
       </div>
 
@@ -213,6 +257,12 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
             {tab.id === "advisor" && profile && profileMatchCount > 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+            )}
+
+            {tab.id === "history" && historyCount > 0 && (
+              <span className="text-xs bg-slate-600 text-slate-300 rounded-full px-1.5 py-0.5 flex-shrink-0">
+                {historyCount}
+              </span>
             )}
           </button>
         ))}
@@ -259,6 +309,10 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
         {activeTab === "analytics" && (
           <AnalyticsTab events={scoredEvents} />
+        )}
+
+        {activeTab === "history" && (
+          <DisruptionHistoryTab />
         )}
 
       </div>

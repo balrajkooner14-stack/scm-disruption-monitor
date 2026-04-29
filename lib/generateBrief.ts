@@ -34,6 +34,13 @@ export interface BriefData {
     largestCountry: string
     largestCountryShare: number
   }
+  historyEntries?: Array<{
+    date: string
+    title: string
+    severityLabel: string
+    category: string
+    isProfileMatch: boolean
+  }>
 }
 
 function formatPDFCurrency(amount: number): string {
@@ -382,6 +389,40 @@ export function generateDailyBrief(data: BriefData): jsPDF {
       doc.text(event.sourceDomain || "Source unavailable", margin + 2, y)
       y += 6
     }
+
+    y = addDivider(y)
+  }
+
+  // ── Historical Context ─────────────────────────────────
+
+  const todayIso = new Date().toISOString().split("T")[0]
+  const historicalEntries = (data.historyEntries ?? [])
+    .filter(e => e.date < todayIso)
+    .slice(0, 5)
+
+  if (historicalEntries.length > 0) {
+    y = checkPageBreak(y, 20)
+    y = addSectionHeader("Historical Context — Recent Past Events", y)
+    y += 4
+
+    historicalEntries.forEach(entry => {
+      y = checkPageBreak(y, 8)
+      const sevColor: [number, number, number] =
+        entry.severityLabel === "CRITICAL" ? [239, 68, 68] : [245, 158, 11]
+      doc.setFontSize(7)
+      doc.setFont("helvetica", "bold")
+      setColor(sevColor)
+      doc.text(`[${entry.severityLabel}]`, margin + 2, y)
+      doc.setFont("helvetica", "normal")
+      setColor([100, 116, 139])
+      doc.text(`${entry.date} · ${entry.category}`, margin + 22, y)
+      y += 4
+      doc.setFontSize(8)
+      setColor([30, 30, 30])
+      const titleLines = doc.splitTextToSize(entry.title, contentWidth - 6) as string[]
+      doc.text(titleLines, margin + 4, y)
+      y += titleLines.length * 3.5 + 3
+    })
 
     y = addDivider(y)
   }
