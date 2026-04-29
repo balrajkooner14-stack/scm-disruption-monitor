@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.5 live
+- Status: v2.6 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -55,6 +55,7 @@ trading and financial markets background.
   InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators
   SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, inline edit forms, live score preview, disruption+low-score compound warning
   CostImpactPanel.tsx             → Financial impact panel: 3-metric display (revenue at risk / mitigation cost / net risk reduction), urgency bar, lazy-fetch on first open
+  ConcentrationRiskCard.tsx       → Expandable HHI score card with scale bar, country/region breakdown bars, recommendation panel. No props — reads profile via useCompanyProfile
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
@@ -64,6 +65,7 @@ trading and financial markets background.
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor()
   supplierHealth.ts               → Score calculation engine: calculateCompositeScore(), getGrade(), buildHealthScores(), loadHealthEntries(), saveHealthEntry(). Storage key: scm_supplier_health
+  concentrationRisk.ts            → HHI calculation engine: calculateConcentrationRisk(), buildBreakdown(). 4 levels: diversified (<1500), moderate (1500-2500), concentrated (2500-5000), critical (>5000)
 
 /hooks
   useCompanyProfile.ts            → "use client" hook: profile state, saveProfile, clearProfile
@@ -165,6 +167,18 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
+v2.6 — Supplier Concentration Risk Score (Apr 28, 2026):
+        Feature: HHI-based concentration risk scoring.
+                 Pure calculation engine in /lib/concentrationRisk.ts —
+                 HHI = sum of squared supplier share percentages. Thresholds:
+                 <1500 diversified, 1500-2500 moderate, 2500-5000 concentrated,
+                 >5000 critical. ConcentrationRiskCard shows HHI score, scale bar
+                 with white position marker, country/region breakdown bars, and
+                 recommendation panel. KPI bar card 4 updated with 5-level priority
+                 logic (inventory critical > concentration risk > inventory warning >
+                 network HHI > data window). Wired into Advisor tab between AIAdvisor
+                 and SupplierHealthScorecard. concentrationRisk line added to PDF.
+
 v2.5 — Cost Impact Estimator (Apr 28, 2026):
         Feature: Financial framing for disruption recommendations.
                  /app/api/cost-estimate/route.ts — Gemini calculates revenue at risk
@@ -227,7 +241,7 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Inventory Risk Calculator with reorder alerts (Apr 28, 2026)
 - [x] Supplier Health Scorecard with performance logging and AI integration (Apr 28, 2026)
 - [x] Cost Impact Estimator with financial framing for recommendations (Apr 28, 2026)
-- [ ] Supplier Concentration Risk Score (Feature 4)
+- [x] Supplier Concentration Risk Score (HHI) with visual breakdown (Apr 28, 2026)
 - [ ] Disruption History Log (Feature 5)
 - [ ] Watchlist with new-event badges (localStorage)
 - [ ] 7-day disruption trend sparklines per category
