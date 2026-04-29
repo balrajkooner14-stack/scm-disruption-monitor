@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.4 live
+- Status: v2.5 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -54,6 +54,7 @@ trading and financial markets background.
   FreightRateCard.tsx             → Container freight rates by trade lane
   InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators
   SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, inline edit forms, live score preview, disruption+low-score compound warning
+  CostImpactPanel.tsx             → Financial impact panel: 3-metric display (revenue at risk / mitigation cost / net risk reduction), urgency bar, lazy-fetch on first open
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
@@ -79,6 +80,8 @@ trading and financial markets background.
                      static freight rates for 4 lanes, 24hr module-level cache (CACHE_VERSION="v3")
 - /api/event-brief — Per-event Gemini brief, profile-aware context, returns {brief, impact, recommendation},
                      graceful 200 fallback on error, client-side cached in DisruptionFeed state
+- /api/cost-estimate — Financial impact estimate per supplier+event: revenue at risk range, mitigation cost,
+                       net risk reduction, urgency days. 30min server cache keyed by supplier.id+event.url
 
 ## Severity scoring rules (DO NOT CHANGE without asking)
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
@@ -162,6 +165,17 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
+v2.5 — Cost Impact Estimator (Apr 28, 2026):
+        Feature: Financial framing for disruption recommendations.
+                 /app/api/cost-estimate/route.ts — Gemini calculates revenue at risk
+                 (low/high range), mitigation cost, net risk reduction, urgency days,
+                 confidence level, and assumptions. 30min server cache per supplier+event.
+                 CostImpactPanel — lazy-fetch on first open, 3-metric display, urgency
+                 progress bar. Wired into AIAdvisor expanded cards with "View cost
+                 estimate" toggle button. BriefData.recommendations extended with
+                 optional affectedSuppliers and costEstimates fields; PDF brief shows
+                 amber financial impact line per recommendation when cost data available.
+
 v2.4 — Supplier Health Scorecard (Apr 28, 2026):
         Feature: Supplier Health Scorecard with performance logging and AI integration.
                  Score calculation engine in /lib/supplierHealth.ts — composite score
@@ -212,7 +226,7 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Export / PDF daily brief generator (Apr 26, 2026)
 - [x] Inventory Risk Calculator with reorder alerts (Apr 28, 2026)
 - [x] Supplier Health Scorecard with performance logging and AI integration (Apr 28, 2026)
-- [ ] Cost Impact Estimator (Feature 3)
+- [x] Cost Impact Estimator with financial framing for recommendations (Apr 28, 2026)
 - [ ] Supplier Concentration Risk Score (Feature 4)
 - [ ] Disruption History Log (Feature 5)
 - [ ] Watchlist with new-event badges (localStorage)
