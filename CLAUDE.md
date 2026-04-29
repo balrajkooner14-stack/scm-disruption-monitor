@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.6 live
+- Status: v2.7 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -56,6 +56,7 @@ trading and financial markets background.
   SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, inline edit forms, live score preview, disruption+low-score compound warning
   CostImpactPanel.tsx             → Financial impact panel: 3-metric display (revenue at risk / mitigation cost / net risk reduction), urgency bar, lazy-fetch on first open
   ConcentrationRiskCard.tsx       → Expandable HHI score card with scale bar, country/region breakdown bars, recommendation panel. No props — reads profile via useCompanyProfile
+  DisruptionHistoryTab.tsx        → Full History tab: timeline grouped by month, severity dots, filter pills (All/Profile/Critical), expandable entries, Export CSV, Clear with confirm
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
@@ -66,6 +67,7 @@ trading and financial markets background.
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor()
   supplierHealth.ts               → Score calculation engine: calculateCompositeScore(), getGrade(), buildHealthScores(), loadHealthEntries(), saveHealthEntry(). Storage key: scm_supplier_health
   concentrationRisk.ts            → HHI calculation engine: calculateConcentrationRisk(), buildBreakdown(). 4 levels: diversified (<1500), moderate (1500-2500), concentrated (2500-5000), critical (>5000)
+  disruptionHistory.ts            → localStorage log engine: saveEventsToHistory(), loadHistory(), exportHistoryAsCSV(), groupEntriesByMonth(). Storage key: scm_disruption_history. 90-day retention, 500 entry cap, dedup by URL+date
 
 /hooks
   useCompanyProfile.ts            → "use client" hook: profile state, saveProfile, clearProfile
@@ -167,6 +169,17 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
+v2.7 — Disruption History Log (Apr 28, 2026):
+        Feature: 90-day rolling disruption history with CSV export.
+                 Pure engine in /lib/disruptionHistory.ts — saves severity>=2 and
+                 profile-match events; deduplicates by URL+date; 90-day retention;
+                 500 entry cap. DisruptionHistoryTab is the 5th tab with month
+                 grouping, severity dots, "Your network" badge, filter pills,
+                 expandable entries, Export CSV, Clear with confirmation. Auto-save
+                 runs 2s after dashboard load via useEffect in DashboardClient.
+                 History count badge on tab. loadHistory() called on mount to
+                 populate PDF brief's Historical Context section.
+
 v2.6 — Supplier Concentration Risk Score (Apr 28, 2026):
         Feature: HHI-based concentration risk scoring.
                  Pure calculation engine in /lib/concentrationRisk.ts —
@@ -242,7 +255,7 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Supplier Health Scorecard with performance logging and AI integration (Apr 28, 2026)
 - [x] Cost Impact Estimator with financial framing for recommendations (Apr 28, 2026)
 - [x] Supplier Concentration Risk Score (HHI) with visual breakdown (Apr 28, 2026)
-- [ ] Disruption History Log (Feature 5)
+- [x] Disruption History Log with 90-day timeline and CSV export (Apr 28, 2026)
 - [ ] Watchlist with new-event badges (localStorage)
 - [ ] 7-day disruption trend sparklines per category
 - [ ] Custom domain setup
