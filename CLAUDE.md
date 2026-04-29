@@ -102,6 +102,13 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 - /api/advisor: 10min Map<string, {data, timestamp}>, key: profile.updatedAt + events[0].title
 - /api/market-data: 24hr module-level variable, CACHE_VERSION="v3", serves stale on Yahoo Finance failure
 
+## localStorage keys
+- scm_company_profile — company profile data (CompanyProfile type)
+- scm_supplier_health — supplier performance scores (Record<supplierId, SupplierHealthEntry>)
+- scm_inventory_log — inventory risk alert log
+- scm_disruption_history — 90-day event history (HistoryEntry[], max 500 entries)
+- scm_active_tab — last active tab ("overview"|"advisor"|"scenarios"|"analytics"|"history")
+
 ## Key type notes
 - ScoredEvent extends DisruptionEvent — structural subtyping, passes wherever DisruptionEvent[] expected
 - import type {...} used in client components importing from API route files (prevents server code in client bundle)
@@ -169,16 +176,23 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
-v2.7 — Disruption History Log (Apr 28, 2026):
-        Feature: 90-day rolling disruption history with CSV export.
-                 Pure engine in /lib/disruptionHistory.ts — saves severity>=2 and
-                 profile-match events; deduplicates by URL+date; 90-day retention;
-                 500 entry cap. DisruptionHistoryTab is the 5th tab with month
-                 grouping, severity dots, "Your network" badge, filter pills,
-                 expandable entries, Export CSV, Clear with confirmation. Auto-save
-                 runs 2s after dashboard load via useEffect in DashboardClient.
-                 History count badge on tab. loadHistory() called on mount to
-                 populate PDF brief's Historical Context section.
+v2.7 — Disruption History Log + All 5 Operational Features Complete (Apr 28, 2026):
+        Feature 1: Inventory Risk Calculator — /lib/inventoryRisk.ts,
+          /components/InventoryRiskPanel.tsx, live reorder alerts,
+          disruption-aware risk levels, KPI bar integration
+        Feature 2: Supplier Health Scorecard — /lib/supplierHealth.ts,
+          /components/SupplierHealthScorecard.tsx, composite scoring,
+          inline edit forms, compound disruption warnings, AI Advisor
+          integration
+        Feature 3: Cost Impact Estimator — /app/api/cost-estimate/route.ts,
+          /components/CostImpactPanel.tsx, financial framing on advisor
+          cards, revenue at risk vs mitigation cost, urgency bar
+        Feature 4: Concentration Risk Score — /lib/concentrationRisk.ts,
+          /components/ConcentrationRiskCard.tsx, HHI calculation,
+          country/region breakdown, KPI bar priority logic
+        Feature 5: Disruption History Log — /lib/disruptionHistory.ts,
+          /components/DisruptionHistoryTab.tsx, 90-day rolling log,
+          CSV export, 5th History tab, PDF historical context section
 
 v2.6 — Supplier Concentration Risk Score (Apr 28, 2026):
         Feature: HHI-based concentration risk scoring.
@@ -256,6 +270,9 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Cost Impact Estimator with financial framing for recommendations (Apr 28, 2026)
 - [x] Supplier Concentration Risk Score (HHI) with visual breakdown (Apr 28, 2026)
 - [x] Disruption History Log with 90-day timeline and CSV export (Apr 28, 2026)
+- [ ] Supabase auth + database migration (Phase B)
+      Cross-device profile persistence, login/signup,
+      migrate all localStorage keys to database tables
 - [ ] Watchlist with new-event badges (localStorage)
 - [ ] 7-day disruption trend sparklines per category
 - [ ] Custom domain setup
