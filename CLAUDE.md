@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.7 live
+- Status: v2.8 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -194,6 +194,37 @@ v2.7 — Disruption History Log + All 5 Operational Features Complete (Apr 28, 2
           /components/DisruptionHistoryTab.tsx, 90-day rolling log,
           CSV export, 5th History tab, PDF historical context section
 
+v2.8 — Gemini Rate Limit Fix (Apr 30, 2026):
+        Fix: Comprehensive Gemini API rate limit handling built
+             into /lib/gemini.ts — shared utility used by all 5 routes.
+        Layer 1: Exponential backoff retry (2s/4s/8s) on 429 errors.
+        Layer 2: Persistent in-memory cache with stale fallback —
+                 serves last successful response during rate limit windows.
+                 Caches: analyze 15min/60min, advisor 30min/90min,
+                 event-brief 20min/60min, cost-estimate 60min/4hr.
+        Layer 3: Request deduplication — concurrent identical calls
+                 join the in-flight promise instead of each hitting the API.
+        Layer 4: Graceful degradation — stale cache served with amber
+                 "AI Cached" notice instead of error state.
+        All 6 routes updated: analyze, advisor, event-brief, cost-estimate,
+        chat (retry loop), scenario (retry loop).
+        Navbar: AI Live / AI Cached / AI Recovering status dot.
+        AIInsightPanel + AIAdvisor: stale data notice when serving cache.
+
+## Known issues / next session notes
+- Gemini free tier: 20 RPD (requests per day) limit, resets midnight PT
+- Permanent fix: enable Google billing at aistudio.google.com
+  (estimated cost under $5/month at current demo usage)
+- Alternative considered: OpenRouter free models (200 RPD)
+  but lower output quality — not recommended for portfolio demos
+- Next priorities:
+  [ ] Enable Google billing (permanent rate limit fix — do first, outside Claude Code)
+  [ ] Supplier-to-product mapping fix (all products currently default
+      to highest-share supplier — needs explicit mapping in profile)
+  [ ] Proactive performance alerts (professor feedback)
+  [ ] Order quantity recommendation engine
+  [ ] Supabase auth + database migration (Phase B)
+
 v2.6 — Supplier Concentration Risk Score (Apr 28, 2026):
         Feature: HHI-based concentration risk scoring.
                  Pure calculation engine in /lib/concentrationRisk.ts —
@@ -270,6 +301,11 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Cost Impact Estimator with financial framing for recommendations (Apr 28, 2026)
 - [x] Supplier Concentration Risk Score (HHI) with visual breakdown (Apr 28, 2026)
 - [x] Disruption History Log with 90-day timeline and CSV export (Apr 28, 2026)
+- [x] Gemini rate limit fix — retry, dedup, stale cache, status indicator (Apr 30, 2026)
+- [ ] Enable Google billing (permanent Gemini rate limit fix)
+- [ ] Supplier-to-product mapping fix
+- [ ] Proactive performance alerts (professor feedback)
+- [ ] Order quantity recommendation engine
 - [ ] Supabase auth + database migration (Phase B)
       Cross-device profile persistence, login/signup,
       migrate all localStorage keys to database tables
