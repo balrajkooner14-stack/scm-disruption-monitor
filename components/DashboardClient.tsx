@@ -47,6 +47,12 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [showToast, setShowToast] = useState(false)
   const { profile, isLoaded } = useCompanyProfile()
 
+  function handleAiStatusChange(status: "live" | "cached" | "error") {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ai-status-change", { detail: status }))
+    }
+  }
+
   // PDF brief data — lifted from child components via callbacks
   const [aiSummaryPoints, setAiSummaryPoints] = useState<string[]>([])
   const [advisorRecs, setAdvisorRecs] = useState<BriefData["recommendations"]>([])
@@ -193,6 +199,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       <AIInsightPanel
         headlines={top5Headlines}
         onSummaryLoaded={setAiSummaryPoints}
+        onStatusChange={handleAiStatusChange}
       />
 
       {/* Export bar — between AI summary and KPI bar */}

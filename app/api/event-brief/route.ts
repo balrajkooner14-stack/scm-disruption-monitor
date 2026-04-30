@@ -1,7 +1,9 @@
-import { GoogleGenAI } from "@google/genai"
 import { NextRequest, NextResponse } from "next/server"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { CompanyProfile } from "@/lib/profile"
+import { callGeminiWithRetry } from "@/lib/gemini"
+
+export const maxDuration = 30
 
 export interface EventBriefResponse {
   brief: string
@@ -15,8 +17,6 @@ export async function POST(req: NextRequest) {
       event: ScoredEvent
       profile: CompanyProfile | null
     }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
     const profileContext = profile
       ? `The user works at ${profile.companyName}, a ${profile.sector} company with suppliers in: ${profile.suppliers.map((s) => `${s.country} (${s.sharePercent}% of supply)`).join(", ")}. Their key concerns: ${profile.painPoints.join(", ")}.`
@@ -46,17 +46,21 @@ Respond ONLY with valid JSON matching this exact structure:
 
 No markdown. No backticks. Raw JSON only.`
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    const { result: text } = await callGeminiWithRetry({
+      cacheKey: `brief-${event.url}-${profile?.updatedAt ?? "noprofile"}`,
+      cacheDurationMs: 20 * 60 * 1000,
+      staleCacheDurationMs: 60 * 60 * 1000,
+      maxRetries: 2,
+      thinkingBudget: 0,
+      prompt,
     })
 
-    const text = (response.text ?? "")
+    const cleaned = text
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim()
 
-    const brief: EventBriefResponse = JSON.parse(text)
+    const brief: EventBriefResponse = JSON.parse(cleaned)
 
     return NextResponse.json(brief)
   } catch (error) {

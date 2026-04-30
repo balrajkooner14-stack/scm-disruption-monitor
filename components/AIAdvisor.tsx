@@ -370,6 +370,11 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
       </div>
 
       {/* Footer */}
+      {advisorData.isStale && (
+        <p className="text-xs text-slate-600 mt-1 italic">
+          ↻ Showing recent analysis — refreshing when quota resets
+        </p>
+      )}
       {lastFetched && (
         <p className="text-xs text-slate-600 mt-3 text-right">
           Generated {lastFetched.toLocaleTimeString()} · Powered by Gemini 2.5 Flash

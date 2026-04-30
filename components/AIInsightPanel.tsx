@@ -6,17 +6,18 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 interface AIInsightPanelProps {
   headlines: string[]
   onSummaryLoaded?: (points: string[]) => void
+  onStatusChange?: (status: "live" | "cached" | "error") => void
 }
 
 type Status = "loading" | "success" | "error"
 
-export default function AIInsightPanel({ headlines, onSummaryLoaded }: AIInsightPanelProps) {
+export default function AIInsightPanel({ headlines, onSummaryLoaded, onStatusChange }: AIInsightPanelProps) {
   const [summary, setSummary] = useState<string[]>([])
   const [status, setStatus] = useState<Status>("loading")
+  const [isStale, setIsStale] = useState(false)
   const { profile, isLoaded } = useCompanyProfile()
 
   useEffect(() => {
-    // Wait until profile is loaded from localStorage before fetching
     if (!isLoaded) return
 
     const fetchSummary = async () => {
@@ -29,6 +30,7 @@ export default function AIInsightPanel({ headlines, onSummaryLoaded }: AIInsight
 
         if (!res.ok) {
           setStatus("error")
+          onStatusChange?.("error")
           return
         }
 
@@ -36,13 +38,17 @@ export default function AIInsightPanel({ headlines, onSummaryLoaded }: AIInsight
 
         if (data.summary && data.summary.length > 0) {
           setSummary(data.summary)
+          setIsStale(!!data.isStale)
           setStatus("success")
           onSummaryLoaded?.(data.summary)
+          onStatusChange?.(data.isStale ? "cached" : "live")
         } else {
           setStatus("error")
+          onStatusChange?.("error")
         }
       } catch {
         setStatus("error")
+        onStatusChange?.("error")
       }
     }
 
@@ -50,6 +56,7 @@ export default function AIInsightPanel({ headlines, onSummaryLoaded }: AIInsight
       fetchSummary()
     } else {
       setStatus("error")
+      onStatusChange?.("error")
     }
   // Re-fetch when profile loads — profile changes the prompt
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,8 +126,13 @@ export default function AIInsightPanel({ headlines, onSummaryLoaded }: AIInsight
           </li>
         ))}
       </ul>
+      {isStale && (
+        <p className="text-xs text-slate-600 mt-2 italic">
+          ↻ Showing cached data — live analysis will refresh shortly
+        </p>
+      )}
       <p className="text-xs text-gray-400 mt-3 text-right">
-        Powered by Gemini 2.5 Flash · Refreshes every 10 min
+        Powered by Gemini 2.5 Flash · Refreshes every 15 min
       </p>
     </div>
   )

@@ -1,16 +1,16 @@
-import { GoogleGenAI } from "@google/genai"
 import { NextRequest } from "next/server"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
+import { geminiClient, isRateLimitError } from "@/lib/gemini"
 
 export const maxDuration = 30
 
 export interface ScenarioInput {
-  disruptionType: string    // e.g. "Port closure", "Supplier bankruptcy"
-  affectedRegion: string    // e.g. "Asia Pacific", or a specific country
-  durationWeeks: number     // 1, 2, 4, 8, 12
-  responseAction: string    // what the manager plans to do about it
-  customContext?: string    // optional free-text additional context
+  disruptionType: string
+  affectedRegion: string
+  durationWeeks: number
+  responseAction: string
+  customContext?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -32,9 +32,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-
-    // Find relevant current events for this scenario
     const relevantEvents = events
       .filter(e =>
         e.region.toLowerCase().includes(scenario.affectedRegion.toLowerCase()) ||
@@ -44,7 +41,6 @@ export async function POST(req: NextRequest) {
       .map(e => `- ${e.title} (${e.category}, ${e.severity === 3 ? "CRITICAL" : "WARNING"})`)
       .join("\n")
 
-    // Calculate inventory risk from profile data
     const inventoryRisk = profile.productLines.map(p => {
       const daysAtRisk = scenario.durationWeeks * 7
       const daysBuffer = p.inventoryDaysOnHand - p.reorderPointDays
@@ -61,7 +57,6 @@ export async function POST(req: NextRequest) {
       )
     }).join("\n")
 
-    // Find affected suppliers
     const affectedSuppliers = profile.suppliers.filter(s =>
       s.region.toLowerCase().includes(scenario.affectedRegion.toLowerCase()) ||
       s.country.toLowerCase().includes(scenario.affectedRegion.toLowerCase())
@@ -126,15 +121,42 @@ Use bullet points only in sections 3 and 4.
 Be specific to their company data — never give generic supply chain advice.
 Total response: 400-600 words.`
 
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        thinkingConfig: {
-          thinkingBudget: 0,
-        },
-      },
-    })
+    // Retry loop with exponential backoff for rate limit errors
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let stream: any = null
+    let lastError: unknown = null
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        stream = await geminiClient.models.generateContentStream({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        })
+        break
+      } catch (error: unknown) {
+        lastError = error
+        if (isRateLimitError(error) && attempt < 2) {
+          const waitMs = Math.pow(2, attempt + 1) * 1000
+          console.log(`[Scenario] Rate limited. Waiting ${waitMs}ms...`)
+          await new Promise(resolve => setTimeout(resolve, waitMs))
+          continue
+        }
+        break
+      }
+    }
+
+    if (!stream) {
+      const encoder = new TextEncoder()
+      const fallback = isRateLimitError(lastError)
+        ? "High demand right now — please wait 15 seconds and try again."
+        : "Couldn't run the scenario analysis. Please try again."
+      return new Response(encoder.encode(fallback), {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      })
+    }
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({

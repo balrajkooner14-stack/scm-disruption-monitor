@@ -1,24 +1,21 @@
-import { GoogleGenAI } from "@google/genai"
 import { NextRequest, NextResponse } from "next/server"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
+import { callGeminiWithRetry } from "@/lib/gemini"
 
-// Cache recommendations for 10 minutes to avoid repeated API calls
-// Key: hash of profile.updatedAt + first event title
-const cache = new Map<string, { data: AdvisorResponse; timestamp: number }>()
-const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
+export const maxDuration = 30
 
 export interface Recommendation {
   id: string
   priority: "CRITICAL" | "HIGH" | "MEDIUM"
-  title: string           // Short action title e.g. "Contact Vietnamese suppliers immediately"
-  problem: string         // What the specific problem is (1-2 sentences)
-  action: string          // The specific recommended action (2-3 sentences, concrete)
-  impact: string          // What happens if they act vs. don't act (1-2 sentences)
-  timeframe: string       // e.g. "Act within 24 hours", "Review within this week"
-  affectedSuppliers: string[]  // supplier names from their profile that are affected
+  title: string
+  problem: string
+  action: string
+  impact: string
+  timeframe: string
+  affectedSuppliers: string[]
   confidenceLevel: "High" | "Medium" | "Low"
-  relatedEventTitles: string[] // titles of events that triggered this recommendation
+  relatedEventTitles: string[]
 }
 
 export interface AdvisorResponse {
@@ -27,6 +24,7 @@ export interface AdvisorResponse {
   profileName: string
   totalEventsAnalyzed: number
   highRelevanceCount: number
+  isStale?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -45,13 +43,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check cache
-    const cacheKey = `${profile.updatedAt}-${events[0]?.title || "empty"}-${(healthSummary || "").slice(0, 50)}`
-    const cached = cache.get(cacheKey)
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return NextResponse.json(cached.data)
-    }
-
     if (
       !process.env.GEMINI_API_KEY ||
       process.env.GEMINI_API_KEY === "your_gemini_api_key_here"
@@ -62,12 +53,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    const cacheKey = `advisor-${profile.updatedAt}-${events[0]?.title?.slice(0, 20) ?? "empty"}`
 
-    // Build a focused context — only high relevance events to save tokens
     const relevantEvents = events
       .filter(e => e.isProfileMatch || e.severity === 3)
-      .slice(0, 15) // cap at 15 events
+      .slice(0, 15)
 
     const supplierSummary = profile.suppliers
       .map(s =>
@@ -153,14 +143,15 @@ Each recommendation must follow this exact structure:
   }
 ]`
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    const { result: text, isStale } = await callGeminiWithRetry({
+      cacheKey,
+      cacheDurationMs: 30 * 60 * 1000,
+      staleCacheDurationMs: 90 * 60 * 1000,
+      maxRetries: 3,
+      thinkingBudget: 0,
+      prompt,
     })
 
-    const text = response.text ?? ""
-
-    // Strip any markdown fences if present
     const cleaned = text
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
@@ -174,13 +165,8 @@ Each recommendation must follow this exact structure:
       profileName: profile.companyName,
       totalEventsAnalyzed: events.length,
       highRelevanceCount: events.filter(e => e.isProfileMatch).length,
+      isStale,
     }
-
-    // Store in cache
-    cache.set(cacheKey, {
-      data: advisorResponse,
-      timestamp: Date.now(),
-    })
 
     return NextResponse.json(advisorResponse)
   } catch (error) {

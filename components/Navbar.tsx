@@ -7,6 +7,7 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false)
   const [now, setNow] = useState(new Date())
+  const [aiStatus, setAiStatus] = useState<"live" | "cached" | "error">("live")
   const { profile, isLoaded } = useCompanyProfile()
 
   useEffect(() => {
@@ -20,6 +21,14 @@ export default function Navbar() {
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setAiStatus((e as CustomEvent<"live" | "cached" | "error">).detail)
+    }
+    window.addEventListener("ai-status-change", handler)
+    return () => window.removeEventListener("ai-status-change", handler)
   }, [])
 
   const dateStr = now.toLocaleDateString("en-US", {
@@ -74,6 +83,25 @@ export default function Navbar() {
           </span>
           <span className="text-green-400 text-sm font-bold tracking-widest">LIVE</span>
         </div>
+
+        {aiStatus === "live" && (
+          <span className="text-xs text-green-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+            AI Live
+          </span>
+        )}
+        {aiStatus === "cached" && (
+          <span className="text-xs text-amber-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            AI Cached
+          </span>
+        )}
+        {aiStatus === "error" && (
+          <span className="text-xs text-red-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+            AI Recovering
+          </span>
+        )}
 
         <div className="w-px h-5 bg-slate-600 mx-1" />
 

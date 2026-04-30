@@ -1,7 +1,7 @@
-import { GoogleGenAI } from "@google/genai"
 import { NextRequest } from "next/server"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
+import { geminiClient, isRateLimitError } from "@/lib/gemini"
 
 export const maxDuration = 30
 
@@ -24,9 +24,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-
-    // Build system context
     const topEvents = events
       .slice(0, 20)
       .map(e =>
@@ -69,8 +66,6 @@ YOUR ROLE:
 Respond in plain text. No markdown headers. No bullet lists unless
 specifically helpful. Write like a knowledgeable colleague, not a report.`
 
-    // Build conversation history for Gemini
-    // Gemini uses "user" and "model" roles; history is all messages except the last
     const history = messages.slice(0, -1).map(m => ({
       role: m.role === "assistant" ? ("model" as const) : ("user" as const),
       parts: [{ text: m.content }],
@@ -78,22 +73,47 @@ specifically helpful. Write like a knowledgeable colleague, not a report.`
 
     const lastMessage = messages[messages.length - 1]
 
-    const chat = ai.chats.create({
-      model: "gemini-2.5-flash",
-      history,
-      config: {
-        systemInstruction: systemPrompt,
-        thinkingConfig: {
-          thinkingBudget: 0,
-        },
-      },
-    })
+    // Retry loop with exponential backoff for rate limit errors
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let stream: any = null
+    let lastError: unknown = null
 
-    const stream = await chat.sendMessageStream({
-      message: lastMessage.content,
-    })
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const chat = geminiClient.chats.create({
+          model: "gemini-2.5-flash",
+          history,
+          config: {
+            systemInstruction: systemPrompt,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        })
+        stream = await chat.sendMessageStream({
+          message: lastMessage.content,
+        })
+        break
+      } catch (error: unknown) {
+        lastError = error
+        if (isRateLimitError(error) && attempt < 2) {
+          const waitMs = Math.pow(2, attempt + 1) * 1000
+          console.log(`[Chat] Rate limited. Waiting ${waitMs}ms...`)
+          await new Promise(resolve => setTimeout(resolve, waitMs))
+          continue
+        }
+        break
+      }
+    }
 
-    // Return a streaming text response
+    if (!stream) {
+      const encoder = new TextEncoder()
+      const fallback = isRateLimitError(lastError)
+        ? "I'm experiencing high demand right now. Please wait 15 seconds and try again."
+        : "I couldn't process your request. Please try again."
+      return new Response(encoder.encode(fallback), {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      })
+    }
+
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {

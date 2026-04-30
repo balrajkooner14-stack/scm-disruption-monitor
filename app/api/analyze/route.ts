@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server"
-import { GoogleGenAI } from "@google/genai"
 import { CompanyProfile } from "@/lib/profile"
+import { callGeminiWithRetry } from "@/lib/gemini"
 
-// Module-level cache — persists between requests in the same serverless instance
-// Key: "generic" or profile company name, value: cached bullets + timestamp
-const cache = new Map<string, { summary: string[]; timestamp: number }>()
-const CACHE_DURATION_MS = 10 * 60 * 1000 // 10 minutes
+export const maxDuration = 30
 
 export async function POST(request: Request) {
   try {
@@ -13,15 +10,6 @@ export async function POST(request: Request) {
     const headlines: string[] = body.headlines ?? []
     const profile: CompanyProfile | null = body.profile ?? null
 
-    const cacheKey = profile ? `profile:${profile.companyName}:${profile.updatedAt}` : "generic"
-
-    // Return cached result if still fresh
-    const cached = cache.get(cacheKey)
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION_MS) {
-      return NextResponse.json({ summary: cached.summary, cached: true })
-    }
-
-    // Check API key exists and is not the placeholder
     if (
       !process.env.GEMINI_API_KEY ||
       process.env.GEMINI_API_KEY === "your_gemini_api_key_here"
@@ -39,10 +27,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Initialize Gemini client with the correct 2026 SDK
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    const cacheKey = profile
+      ? `analyze-${profile.companyName}-${profile.updatedAt}`
+      : "analyze-generic"
 
-    // Build the prompt — personalized if profile exists
     let prompt: string
 
     if (profile) {
@@ -68,16 +56,14 @@ Headlines:
 ${headlines.join("\n")}`
     }
 
-    // Call Gemini 2.5 Flash — free tier, fast, high quality
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    const { result: responseText, isStale } = await callGeminiWithRetry({
+      cacheKey,
+      cacheDurationMs: 15 * 60 * 1000,
+      staleCacheDurationMs: 60 * 60 * 1000,
+      thinkingBudget: 0,
+      prompt,
     })
 
-    // Extract text from response
-    const responseText = response.text ?? ""
-
-    // Parse bullet points from the response
     const bullets = responseText
       .split("\n")
       .map((line: string) => line.trim())
@@ -90,7 +76,6 @@ ${headlines.join("\n")}`
       .filter((line: string) => line.length > 0)
       .slice(0, 3)
 
-    // If Gemini returned text but no bullets were parsed, try splitting by sentence
     const finalBullets = bullets.length > 0
       ? bullets
       : responseText
@@ -99,10 +84,7 @@ ${headlines.join("\n")}`
           .filter((s: string) => s.length > 20)
           .slice(0, 3)
 
-    // Update cache
-    cache.set(cacheKey, { summary: finalBullets, timestamp: Date.now() })
-
-    return NextResponse.json({ summary: finalBullets })
+    return NextResponse.json({ summary: finalBullets, isStale })
 
   } catch (error) {
     console.error("[API/analyze] Gemini error:", error)

@@ -1,18 +1,20 @@
-import { GoogleGenAI } from "@google/genai"
 import { NextRequest, NextResponse } from "next/server"
 import { CompanyProfile, Supplier } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
+import { callGeminiWithRetry } from "@/lib/gemini"
+
+export const maxDuration = 30
 
 export interface CostEstimate {
-  revenueAtRiskLow: number       // USD, low end of range
-  revenueAtRiskHigh: number      // USD, high end of range
-  mitigationCost: number         // USD, estimated cost of recommended action
-  netRiskReduction: number       // revenueAtRiskLow - mitigationCost
-  mitigationAction: string       // what the mitigation is e.g. "Air freight"
-  estimatedDurationDays: number  // how long disruption likely lasts
+  revenueAtRiskLow: number
+  revenueAtRiskHigh: number
+  mitigationCost: number
+  netRiskReduction: number
+  mitigationAction: string
+  estimatedDurationDays: number
   confidenceLevel: "High" | "Medium" | "Low"
-  assumptions: string            // key assumptions behind the estimate
-  urgencyDays: number            // how many days before cost escalates significantly
+  assumptions: string
+  urgencyDays: number
 }
 
 export interface CostEstimateResponse {
@@ -22,22 +24,12 @@ export interface CostEstimateResponse {
   generatedAt: string
 }
 
-// 30-minute server-side cache per supplier+event combination
-const cache = new Map<string, { data: CostEstimateResponse; timestamp: number }>()
-const CACHE_DURATION = 30 * 60 * 1000
-
 export async function POST(req: NextRequest) {
   try {
     const { profile, event, supplier } = (await req.json()) as {
       profile: CompanyProfile
       event: ScoredEvent
       supplier: Supplier
-    }
-
-    const cacheKey = `${supplier.id}-${event.url}`
-    const cached = cache.get(cacheKey)
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return NextResponse.json(cached.data)
     }
 
     if (
@@ -49,8 +41,6 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       )
     }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
     const revenueEstimates: Record<string, number> = {
       "$0–$10M": 5_000_000,
@@ -116,18 +106,21 @@ Respond ONLY with valid JSON. No markdown, no backticks.
   "urgencyDays": <number of days before cost escalates>
 }`
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: { thinkingConfig: { thinkingBudget: 0 } },
+    const { result: text } = await callGeminiWithRetry({
+      cacheKey: `cost-${supplier.id}-${(event.url ?? "").slice(0, 30)}`,
+      cacheDurationMs: 60 * 60 * 1000,
+      staleCacheDurationMs: 4 * 60 * 60 * 1000,
+      maxRetries: 3,
+      thinkingBudget: 0,
+      prompt,
     })
 
-    const text = (response.text ?? "")
+    const cleaned = text
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim()
 
-    const estimate: CostEstimate = JSON.parse(text)
+    const estimate: CostEstimate = JSON.parse(cleaned)
 
     const result: CostEstimateResponse = {
       estimate,
@@ -136,7 +129,6 @@ Respond ONLY with valid JSON. No markdown, no backticks.
       generatedAt: new Date().toISOString(),
     }
 
-    cache.set(cacheKey, { data: result, timestamp: Date.now() })
     return NextResponse.json(result)
   } catch (error) {
     console.error("Cost estimate error:", error)
