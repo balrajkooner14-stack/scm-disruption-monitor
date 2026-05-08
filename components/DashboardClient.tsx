@@ -105,8 +105,8 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     try {
       const raw = localStorage.getItem("scm_disruption_history")
       if (raw) {
-        const parsed = JSON.parse(raw)
-        setHistoryCount(parsed.length)
+        const entries = JSON.parse(raw)
+        setHistoryCount(Array.isArray(entries) ? entries.length : 0)
       }
     } catch {}
   }, [])
@@ -169,7 +169,15 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     if (scoredEvents.length === 0) return
     const timer = setTimeout(() => {
       saveEventsToHistory(scoredEvents)
-      setHistoryCount(prev => prev + 1)
+      try {
+        const raw = localStorage.getItem("scm_disruption_history")
+        if (raw) {
+          const entries = JSON.parse(raw)
+          setHistoryCount(Array.isArray(entries) ? entries.length : 0)
+        }
+      } catch {
+        // Silently fail
+      }
     }, 2000)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps

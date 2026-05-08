@@ -281,9 +281,15 @@ function ProductRiskCard({ product }: { product: ProductRisk }) {
       )}
 
       {product.primarySupplier && (
-        <p className="text-xs text-slate-600 mt-1">
-          Primary: {product.primarySupplier.name} ({product.primarySupplier.country})
-        </p>
+        product.supplierAssigned ? (
+          <p className="text-xs text-slate-600 mt-1">
+            Primary: {product.primarySupplier.name} ({product.primarySupplier.country})
+          </p>
+        ) : (
+          <p className="text-xs text-amber-500 mt-1">
+            ⚠ Defaulting to {product.primarySupplier.name} — assign a specific supplier in your profile for accuracy
+          </p>
+        )
       )}
     </div>
   )

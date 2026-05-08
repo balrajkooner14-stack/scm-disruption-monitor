@@ -15,6 +15,7 @@ export interface ProductRisk {
   daysUntilStockout: number
   hasActiveDisruption: boolean
   progressPercent: number
+  supplierAssigned: boolean
 }
 
 export interface InventorySnapshot {
@@ -36,11 +37,19 @@ export function calculateInventoryRisk(
       product.inventoryDaysOnHand - daysSinceProfileUpdate
     )
 
-    const primarySupplier = profile.suppliers.length > 0
-      ? profile.suppliers.reduce((a, b) =>
-          a.sharePercent > b.sharePercent ? a : b
+    const primarySupplier = (() => {
+      if (product.primarySupplierId) {
+        const assigned = profile.suppliers.find(
+          s => s.id === product.primarySupplierId
         )
-      : null
+        if (assigned) return assigned
+      }
+      return profile.suppliers.length > 0
+        ? profile.suppliers.reduce((a, b) =>
+            a.sharePercent > b.sharePercent ? a : b
+          )
+        : null
+    })()
 
     const primaryLeadTimeDays = primarySupplier?.leadTimeDays ?? 30
 
@@ -92,6 +101,7 @@ export function calculateInventoryRisk(
       daysUntilStockout,
       hasActiveDisruption,
       progressPercent,
+      supplierAssigned: !!product.primarySupplierId,
     }
   })
 

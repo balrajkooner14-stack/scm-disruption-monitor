@@ -57,6 +57,7 @@ export interface ProductLine {
   name: string
   inventoryDaysOnHand: number
   reorderPointDays: number  // trigger reorder when inventory hits this
+  primarySupplierId?: string
 }
 
 export interface CompanyProfile {

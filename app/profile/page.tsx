@@ -194,7 +194,7 @@ export default function ProfilePage() {
   }
 
   // ProductLine helpers
-  function updateProductLine(id: string, field: keyof ProductLine, value: string | number) {
+  function updateProductLine(id: string, field: keyof ProductLine, value: string | number | undefined) {
     setProductLines((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
     )
@@ -428,6 +428,14 @@ export default function ProfilePage() {
           {/* Step 3 — Inventory Profile */}
           {step === 3 && (
             <div className="space-y-4">
+              {isLoaded && profile && productLines.some(p => !p.primarySupplierId) && (
+                <div className="bg-amber-950 border border-amber-700 rounded-lg p-3 mb-4 flex items-start gap-2">
+                  <span className="text-amber-400 text-sm flex-shrink-0">⚠</span>
+                  <p className="text-xs text-amber-300 leading-relaxed">
+                    Assign a primary supplier to each product line for accurate inventory risk calculations. Without this, all products default to your highest-share supplier&apos;s lead time.
+                  </p>
+                </div>
+              )}
               {isLoaded && profile && (
                 <div className="bg-amber-950 border border-amber-700 rounded-lg p-3 mb-4 flex items-start gap-2">
                   <span className="text-amber-400 text-sm flex-shrink-0">⚠</span>
@@ -495,6 +503,28 @@ export default function ProfilePage() {
                         />
                       </div>
                     </div>
+                    {suppliers.length > 0 && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                          Primary Supplier
+                        </label>
+                        <select
+                          value={pl.primarySupplierId ?? ""}
+                          onChange={e => updateProductLine(pl.id, "primarySupplierId", e.target.value || undefined)}
+                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="">Select supplier (or leave as highest-share)</option>
+                          {suppliers.map(s => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.country}) — {s.sharePercent}% of supply
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Which supplier provides this product? Used for lead time risk calculations.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
