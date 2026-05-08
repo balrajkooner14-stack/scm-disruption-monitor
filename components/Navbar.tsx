@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function Navbar() {
   const [isDark, setIsDark] = useState(false)
   const [now, setNow] = useState(new Date())
   const [aiStatus, setAiStatus] = useState<"live" | "cached" | "error">("live")
   const { profile, isLoaded } = useCompanyProfile()
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     const saved = localStorage.getItem("theme")
@@ -127,6 +129,35 @@ export default function Navbar() {
               </>
             )}
           </Link>
+        )}
+
+        {user ? (
+          <div className="hidden md:flex items-center gap-2">
+            <span className="text-xs text-slate-400">
+              {user.email?.split("@")[0]}
+            </span>
+            <button
+              onClick={signOut}
+              className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="hidden md:flex items-center gap-2">
+            <Link
+              href="/login"
+              className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-md px-2 py-1 transition-colors"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/signup"
+              className="text-xs text-white bg-blue-600 hover:bg-blue-500 rounded-md px-2 py-1 transition-colors"
+            >
+              Sign up
+            </Link>
+          </div>
         )}
 
         <span className="hidden md:inline text-xs text-slate-700 border border-slate-800 rounded px-1.5 py-0.5 ml-1">

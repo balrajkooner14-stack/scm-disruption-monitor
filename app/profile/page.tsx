@@ -158,7 +158,7 @@ export default function ProfilePage() {
     setStep((s) => s - 1)
   }
 
-  function handleSave() {
+  async function handleSave() {
     const err = validateStep()
     if (err) { setError(err); return }
     setError("")
@@ -176,7 +176,7 @@ export default function ProfilePage() {
       createdAt: profile?.createdAt ?? now,
       updatedAt: now,
     }
-    saveProfile(newProfile)
+    await saveProfile(newProfile)
     router.push("/?profileSaved=true")
   }
 
