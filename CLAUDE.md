@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v2.8 live
+- Status: v3.1 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -19,13 +19,30 @@ trading and financial markets background.
 - AI SDK: @google/genai (NOT the deprecated @google/generative-ai)
 - Commodity data: Yahoo Finance futures API (FREE, no key) — CL=F, NG=F, HG=F, ZW=F
 - PDF export: jsPDF v4 (client-side, browser-only)
+- Auth & Database: Supabase (@supabase/ssr) — profiles, supplier health, history, alerts
 - Hosting: Vercel Hobby (free tier)
+
+## Environment variables
+- GEMINI_API_KEY — Google Gemini AI (billing enabled, no daily limit)
+- NEXT_PUBLIC_SUPABASE_URL — https://zekhnneilcploogfudsp.supabase.co
+- NEXT_PUBLIC_SUPABASE_ANON_KEY — anon public key (safe for client-side)
+
+## Supabase project
+- Project URL: https://zekhnneilcploogfudsp.supabase.co
+- Tables (all with Row Level Security — users only see their own data):
+  - profiles — company profile (JSONB columns for arrays)
+  - supplier_health — supplier performance entries per user
+  - lead_time_history — lead time snapshots per supplier per user
+  - disruption_history — 90-day event log per user
+  - performance_alerts — OTD/quality/lead time alerts per user
 
 ## Folder structure
 /app
-  page.tsx                        → Home: fetches events, renders Navbar + DashboardClient (AIInsightPanel now inside DashboardClient)
+  page.tsx                        → Home: fetches events, renders Navbar + DashboardClient
   /about/page.tsx                 → Static about page
-  /profile/page.tsx               → 5-step company profile form
+  /login/page.tsx                 → Supabase email+password sign in (force-dynamic)
+  /signup/page.tsx                → Supabase sign up with confirm password (force-dynamic)
+  /profile/page.tsx               → 5-step company profile form (force-dynamic)
   /scenarios/page.tsx             → Standalone scenario planner page
   /api/analyze/route.ts           → Gemini AI summary (profile-aware, 10min cache)
   /api/advisor/route.ts           → Proactive AI recommendations (profile + events, 10min cache)
@@ -33,11 +50,14 @@ trading and financial markets background.
   /api/scenario/route.ts          → Streaming what-if analysis (5-section structured output)
   /api/market-data/route.ts       → Yahoo Finance futures commodity prices + static freight rates (24hr cache)
   /api/event-brief/route.ts       → Per-event Gemini brief (profile-aware, structured JSON: brief/impact/recommendation)
+  /api/cost-estimate/route.ts     → Financial impact estimate per supplier+event (30min cache)
 
 /components
-  Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode
+  Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode,
+                                    auth state (Sign in/Sign up for guests; email + Sign out when logged in)
   AIInsightPanel.tsx              → Gemini AI summary panel (profile-aware, 10min cache)
-  DashboardClient.tsx             → 4-tab hub: Overview / Advisor / Scenarios / Analytics
+  DashboardClient.tsx             → 5-tab hub: Overview / Advisor / Scenarios / Analytics / History.
+                                    switchTab custom event listener. DisruptionUpdatePrompt + PerformanceAlertBanner on Overview.
   KPIBar.tsx                      → KPI cards (profile-aware: events affecting you, risk region)
   WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted cyan #22d3ee)
   DisruptionFeed.tsx              → Event cards with relevance scores, search, sort toggle, click-to-expand brief
@@ -52,25 +72,48 @@ trading and financial markets background.
   AnalyticsTab.tsx                → Analytics tab: CategoryChart + CommodityChart + FreightRateCard
   CommodityChart.tsx              → Yahoo Finance commodity sparklines (sector-relevant highlights)
   FreightRateCard.tsx             → Container freight rates by trade lane
-  InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators
-  SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, inline edit forms, live score preview, disruption+low-score compound warning
-  CostImpactPanel.tsx             → Financial impact panel: 3-metric display (revenue at risk / mitigation cost / net risk reduction), urgency bar, lazy-fetch on first open
-  ConcentrationRiskCard.tsx       → Expandable HHI score card with scale bar, country/region breakdown bars, recommendation panel. No props — reads profile via useCompanyProfile
-  DisruptionHistoryTab.tsx        → Full History tab: timeline grouped by month, severity dots, filter pills (All/Profile/Critical), expandable entries, Export CSV, Clear with confirm
+  InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators.
+                                    Amber warning on cards still defaulting to highest-share supplier.
+  SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, 4-column metrics row (OTD/quality/delay/lead time trend),
+                                    inline edit forms, OTD+quality alert triggering, lead time recording on save
+  CostImpactPanel.tsx             → Financial impact panel: 3-metric display, urgency bar, lazy-fetch on first open
+  ConcentrationRiskCard.tsx       → HHI score card with scale bar, country/region breakdown, recommendation panel
+  DisruptionHistoryTab.tsx        → History tab: timeline by month, severity dots, filter pills, Export CSV, Clear
+  PerformanceAlertBanner.tsx      → Dismissible amber alert banner on Overview tab for OTD/quality/lead time crossings.
+                                    Listens for "performanceAlertCreated" window event to refresh.
+  DisruptionUpdatePrompt.tsx      → Blue banner on Overview: detects new critical events in supplier regions since
+                                    last visit. Once-per-day dismissal. "Review AI recommendations" fires switchTab event.
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
   fetchDisruptions.ts             → GDELT fetcher (3 queries, deduplication, fallback)
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
-  profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY
+  profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY.
+                                    ProductLine now has optional primarySupplierId field.
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
-  inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor()
-  supplierHealth.ts               → Score calculation engine: calculateCompositeScore(), getGrade(), buildHealthScores(), loadHealthEntries(), saveHealthEntry(). Storage key: scm_supplier_health
-  concentrationRisk.ts            → HHI calculation engine: calculateConcentrationRisk(), buildBreakdown(). 4 levels: diversified (<1500), moderate (1500-2500), concentrated (2500-5000), critical (>5000)
-  disruptionHistory.ts            → localStorage log engine: saveEventsToHistory(), loadHistory(), exportHistoryAsCSV(), groupEntriesByMonth(). Storage key: scm_disruption_history. 90-day retention, 500 entry cap, dedup by URL+date
+  inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor().
+                                    Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
+                                    ProductRisk now includes supplierAssigned boolean.
+  supplierHealth.ts               → Score engine: calculateCompositeScore(), getGrade(), buildHealthScores(),
+                                    loadHealthEntries(), saveHealthEntry(). Storage key: scm_supplier_health
+  concentrationRisk.ts            → HHI engine: calculateConcentrationRisk(), buildBreakdown().
+                                    4 levels: diversified (<1500), moderate (1500-2500), concentrated (2500-5000), critical (>5000)
+  disruptionHistory.ts            → localStorage log: saveEventsToHistory(), loadHistory(), exportHistoryAsCSV(),
+                                    groupEntriesByMonth(). Storage key: scm_disruption_history. 90-day retention, 500 cap, dedup by URL+date
+  performanceAlerts.ts            → Alert storage+logic: loadAlerts(), saveAlerts(), dismissAlert(), getActiveAlerts(),
+                                    checkAndCreateAlerts(). Defaults: 85% OTD, 75% quality. Storage key: scm_performance_alerts
+  leadTimeHistory.ts              → Lead time history: recordLeadTime(), getLeadTimeHistory(), calculateLeadTimeDrift().
+                                    Max 12 entries/supplier. 20% drift = significant. Storage key: scm_lead_time_history
+  supabase.ts                     → createClient() — browser Supabase client (createBrowserClient, safe fallback during build)
+  supabase-server.ts              → createServerSupabaseClient() — server component client (createServerClient + CookieOptions)
 
 /hooks
-  useCompanyProfile.ts            → "use client" hook: profile state, saveProfile, clearProfile
+  useCompanyProfile.ts            → Supabase-first with localStorage fallback for guests.
+                                    Loads from Supabase when logged in, auto-migrates localStorage on first login.
+                                    saveProfile() and clearProfile() are now async.
+  useAuth.ts                      → useAuth() hook: user, session, isLoading, signOut. Uses onAuthStateChange listener.
+
+/middleware.ts                    → Session refresh on every request (getSession). Does NOT block unauthenticated routes.
 
 /data
   fallback.json                   → Fallback events if GDELT is down
@@ -103,17 +146,24 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 - /api/market-data: 24hr module-level variable, CACHE_VERSION="v3", serves stale on Yahoo Finance failure
 
 ## localStorage keys
-- scm_company_profile — company profile data (CompanyProfile type)
+- scm_company_profile — company profile data (CompanyProfile type). Supabase is primary when logged in; localStorage is backup/guest.
 - scm_supplier_health — supplier performance scores (Record<supplierId, SupplierHealthEntry>)
 - scm_inventory_log — inventory risk alert log
 - scm_disruption_history — 90-day event history (HistoryEntry[], max 500 entries)
 - scm_active_tab — last active tab ("overview"|"advisor"|"scenarios"|"analytics"|"history")
+- scm_performance_alerts — OTD and quality threshold alerts (PerformanceAlert[])
+- scm_lead_time_history — lead time history per supplier (LeadTimeHistory record)
+- scm_last_visit — ISO timestamp of last dashboard visit (for disruption-triggered prompts)
+- scm_prompt_dismissed — once-per-day dismissal key (scm_prompt_dismissed-YYYY-MM-DD)
 
 ## Key type notes
 - ScoredEvent extends DisruptionEvent — structural subtyping, passes wherever DisruptionEvent[] expected
 - import type {...} used in client components importing from API route files (prevents server code in client bundle)
 - Array.from(new Set(...)) required instead of [...new Set()] (TypeScript target compatibility)
-- useCompanyProfile() reads/writes localStorage via PROFILE_STORAGE_KEY
+- useCompanyProfile() is now Supabase-first: saveProfile/clearProfile return Promise<boolean>/Promise<void>
+- ProductLine.primarySupplierId is optional — if absent, inventoryRisk.ts falls back to highest-share supplier
+- ProductRisk.supplierAssigned boolean indicates whether lead time came from explicit assignment or fallback
+- useAuth() provides user (User | null), session, isLoading, signOut — consumed by useCompanyProfile and Navbar
 
 ## Coding rules
 - TypeScript strict — no implicit any
@@ -124,6 +174,7 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 - Never commit .env.local
 - Always run: npm run build before declaring any change done
 - Commit format: git commit -m "feat: [description]"
+- Do NOT modify /lib/profile.ts, /lib/scoreEvents.ts, /lib/gemini.ts, or any API routes without explicit instruction
 
 ## Version history
 v0.1 — Scaffold and config files
@@ -176,6 +227,48 @@ v2.2 — Chat streaming fix (Apr 26, 2026): [commit: 2c54817]
              from 10s to 30s. Added thinkingBudget: 0 to Gemini config to reduce
              time-to-first-token from ~10s to ~2-3s. Chat panel now fully
              functional in production.
+v2.3 — Inventory Risk Calculator (Apr 28, 2026):
+        Feature: Inventory Risk Calculator with live reorder alerts.
+                 Pure calculation engine in /lib/inventoryRisk.ts compares
+                 inventory days on hand against supplier lead times and active
+                 disruptions. InventoryRiskPanel shows product risk cards with
+                 progress bars, color-coded risk levels, and a critical alert
+                 banner. KPI bar card 4 updates to show inventory status when
+                 profile exists. Profile page Step 3 shows amber reminder banner
+                 when editing existing inventory levels. localStorage log stored
+                 under scm_inventory_log key.
+v2.4 — Supplier Health Scorecard (Apr 28, 2026):
+        Feature: Supplier Health Scorecard with performance logging and AI integration.
+                 Score calculation engine in /lib/supplierHealth.ts — composite score
+                 weighted: on-time delivery 50%, quality 35%, delay penalty 15%.
+                 Grade thresholds: Excellent (85+), Good (70+), Fair (55+), Poor (40+),
+                 Critical (<40). SupplierHealthScorecard component shows score circles,
+                 grade badges, metrics row, inline edit form with live score preview,
+                 and compound warning when low-score supplier is in disrupted region.
+                 Wired into Advisor tab below AIAdvisor. AIAdvisor passes health summary
+                 to /api/advisor — Gemini flags low-scoring suppliers in disrupted regions
+                 as CRITICAL compounding risk. Cache key includes health summary slice.
+v2.5 — Cost Impact Estimator (Apr 28, 2026):
+        Feature: Financial framing for disruption recommendations.
+                 /app/api/cost-estimate/route.ts — Gemini calculates revenue at risk
+                 (low/high range), mitigation cost, net risk reduction, urgency days,
+                 confidence level, and assumptions. 30min server cache per supplier+event.
+                 CostImpactPanel — lazy-fetch on first open, 3-metric display, urgency
+                 progress bar. Wired into AIAdvisor expanded cards with "View cost
+                 estimate" toggle button. BriefData.recommendations extended with
+                 optional affectedSuppliers and costEstimates fields; PDF brief shows
+                 amber financial impact line per recommendation when cost data available.
+v2.6 — Supplier Concentration Risk Score (Apr 28, 2026):
+        Feature: HHI-based concentration risk scoring.
+                 Pure calculation engine in /lib/concentrationRisk.ts —
+                 HHI = sum of squared supplier share percentages. Thresholds:
+                 <1500 diversified, 1500-2500 moderate, 2500-5000 concentrated,
+                 >5000 critical. ConcentrationRiskCard shows HHI score, scale bar
+                 with white position marker, country/region breakdown bars, and
+                 recommendation panel. KPI bar card 4 updated with 5-level priority
+                 logic (inventory critical > concentration risk > inventory warning >
+                 network HHI > data window). Wired into Advisor tab between AIAdvisor
+                 and SupplierHealthScorecard. concentrationRisk line added to PDF.
 v2.7 — Disruption History Log + All 5 Operational Features Complete (Apr 28, 2026):
         Feature 1: Inventory Risk Calculator — /lib/inventoryRisk.ts,
           /components/InventoryRiskPanel.tsx, live reorder alerts,
@@ -193,7 +286,6 @@ v2.7 — Disruption History Log + All 5 Operational Features Complete (Apr 28, 2
         Feature 5: Disruption History Log — /lib/disruptionHistory.ts,
           /components/DisruptionHistoryTab.tsx, 90-day rolling log,
           CSV export, 5th History tab, PDF historical context section
-
 v2.8 — Gemini Rate Limit Fix (Apr 30, 2026):
         Fix: Comprehensive Gemini API rate limit handling built
              into /lib/gemini.ts — shared utility used by all 5 routes.
@@ -210,66 +302,68 @@ v2.8 — Gemini Rate Limit Fix (Apr 30, 2026):
         chat (retry loop), scenario (retry loop).
         Navbar: AI Live / AI Cached / AI Recovering status dot.
         AIInsightPanel + AIAdvisor: stale data notice when serving cache.
+v2.9 — Session 1 fixes (May 8, 2026):
+        Fix: Supplier-to-product mapping — added primarySupplierId field to
+             ProductLine type in /lib/profile.ts. Step 3 of profile form now
+             has a supplier assignment dropdown per product. inventoryRisk.ts
+             uses the assigned supplier's lead time instead of defaulting to
+             highest-share supplier. Amber warning shown on cards still using
+             the default. ProductRisk.supplierAssigned boolean added.
+        Fix: History badge count — now reads actual localStorage count after
+             each auto-save instead of incrementing with +1. No more
+             discrepancy between badge and content count.
+v3.0 — Session 2 professor feedback features (May 8, 2026):
+        Feature: On-Time Delivery Threshold Alerts —
+          /lib/performanceAlerts.ts stores and checks OTD and quality
+          thresholds (default 85% OTD, 75% quality). When a supplier score
+          drops below threshold for the first time, a dismissible amber alert
+          banner appears on the Overview tab via PerformanceAlertBanner.tsx.
+          Stored in scm_performance_alerts localStorage key.
+        Feature: Lead Time Drift Tracking — /lib/leadTimeHistory.ts logs lead
+          time history per supplier on every health score save.
+          SupplierHealthScorecard shows a 4th column with lead time trend
+          (↑↓→ with % drift). If lead time exceeds inventory days on hand for
+          any assigned product, triggers a CRITICAL alert.
+          Stored in scm_lead_time_history key.
+        Feature: Disruption-Triggered Supplier Update Prompts —
+          DisruptionUpdatePrompt.tsx detects new critical events in supplier
+          regions since last visit (tracked via scm_last_visit). Shows a blue
+          notification banner on Overview tab with links to update supplier
+          data or review AI recommendations. Dismissed once per day.
+v3.1 — Session 3 Supabase auth + database (May 8, 2026):
+        Feature: Supabase authentication — email + password login via
+          @supabase/ssr. New pages: /app/login/page.tsx and
+          /app/signup/page.tsx with email confirmation flow.
+        Feature: Database migration — useCompanyProfile hook is now
+          Supabase-first with localStorage fallback for guests.
+          Profile saves to Supabase when logged in, auto-migrates
+          localStorage data on first login.
+        Feature: Cross-device persistence — profile persists across all
+          devices and browsers when signed in.
+        New files: /lib/supabase.ts, /lib/supabase-server.ts,
+          /hooks/useAuth.ts, /middleware.ts
+        New pages: /app/login/page.tsx, /app/signup/page.tsx
+        5 Supabase tables with Row Level Security:
+          profiles, supplier_health, lead_time_history,
+          disruption_history, performance_alerts
+        Fix: Supabase client safe fallback during Vercel build time
+          (placeholder values when env vars absent) + force-dynamic
+          on auth pages to prevent prerender failures.
+        Navbar updated: Sign in/Sign up for guests, email + Sign out
+          for authenticated users.
+        Guest mode preserved: app works fully without login using
+          localStorage exactly as before.
 
 ## Known issues / next session notes
-- Gemini free tier: 20 RPD (requests per day) limit, resets midnight PT
-- Permanent fix: enable Google billing at aistudio.google.com
-  (estimated cost under $5/month at current demo usage)
-- Alternative considered: OpenRouter free models (200 RPD)
-  but lower output quality — not recommended for portfolio demos
+- Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
+- Supabase env vars must be added to Vercel settings for production auth to work
+- Only profile is Supabase-synced so far — supplier health, lead time history,
+  disruption history, performance alerts still use localStorage only (Phase B)
 - Next priorities:
-  [ ] Enable Google billing (permanent rate limit fix — do first, outside Claude Code)
-  [ ] Supplier-to-product mapping fix (all products currently default
-      to highest-share supplier — needs explicit mapping in profile)
-  [ ] Proactive performance alerts (professor feedback)
+  [ ] Session 4: File import with AI interpretation
   [ ] Order quantity recommendation engine
-  [ ] Supabase auth + database migration (Phase B)
-
-v2.6 — Supplier Concentration Risk Score (Apr 28, 2026):
-        Feature: HHI-based concentration risk scoring.
-                 Pure calculation engine in /lib/concentrationRisk.ts —
-                 HHI = sum of squared supplier share percentages. Thresholds:
-                 <1500 diversified, 1500-2500 moderate, 2500-5000 concentrated,
-                 >5000 critical. ConcentrationRiskCard shows HHI score, scale bar
-                 with white position marker, country/region breakdown bars, and
-                 recommendation panel. KPI bar card 4 updated with 5-level priority
-                 logic (inventory critical > concentration risk > inventory warning >
-                 network HHI > data window). Wired into Advisor tab between AIAdvisor
-                 and SupplierHealthScorecard. concentrationRisk line added to PDF.
-
-v2.5 — Cost Impact Estimator (Apr 28, 2026):
-        Feature: Financial framing for disruption recommendations.
-                 /app/api/cost-estimate/route.ts — Gemini calculates revenue at risk
-                 (low/high range), mitigation cost, net risk reduction, urgency days,
-                 confidence level, and assumptions. 30min server cache per supplier+event.
-                 CostImpactPanel — lazy-fetch on first open, 3-metric display, urgency
-                 progress bar. Wired into AIAdvisor expanded cards with "View cost
-                 estimate" toggle button. BriefData.recommendations extended with
-                 optional affectedSuppliers and costEstimates fields; PDF brief shows
-                 amber financial impact line per recommendation when cost data available.
-
-v2.4 — Supplier Health Scorecard (Apr 28, 2026):
-        Feature: Supplier Health Scorecard with performance logging and AI integration.
-                 Score calculation engine in /lib/supplierHealth.ts — composite score
-                 weighted: on-time delivery 50%, quality 35%, delay penalty 15%.
-                 Grade thresholds: Excellent (85+), Good (70+), Fair (55+), Poor (40+),
-                 Critical (<40). SupplierHealthScorecard component shows score circles,
-                 grade badges, metrics row, inline edit form with live score preview,
-                 and compound warning when low-score supplier is in disrupted region.
-                 Wired into Advisor tab below AIAdvisor. AIAdvisor passes health summary
-                 to /api/advisor — Gemini flags low-scoring suppliers in disrupted regions
-                 as CRITICAL compounding risk. Cache key includes health summary slice.
-
-v2.3 — Inventory Risk Calculator (Apr 28, 2026):
-        Feature: Inventory Risk Calculator with live reorder alerts.
-                 Pure calculation engine in /lib/inventoryRisk.ts compares
-                 inventory days on hand against supplier lead times and active
-                 disruptions. InventoryRiskPanel shows product risk cards with
-                 progress bars, color-coded risk levels, and a critical alert
-                 banner. KPI bar card 4 updates to show inventory status when
-                 profile exists. Profile page Step 3 shows amber reminder banner
-                 when editing existing inventory levels. localStorage log stored
-                 under scm_inventory_log key.
+  [ ] Mobile responsiveness pass
+  [ ] Custom domain setup
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free)
@@ -293,7 +387,7 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Personalized AI summary in AIInsightPanel (Apr 24, 2026)
 - [x] Scenario Planner — streaming what-if analysis with inventory risk (Apr 24, 2026)
 - [x] Tabbed layout consolidation — 4-tab intelligence hub (Apr 25, 2026)
-- [x] External data feeds — World Bank commodity prices + freight rates (Apr 25, 2026)
+- [x] External data feeds — Yahoo Finance commodity prices + freight rates (Apr 25, 2026)
 - [x] Per-event "Why This Matters" AI brief on card click (Apr 26, 2026)
 - [x] Export / PDF daily brief generator (Apr 26, 2026)
 - [x] Inventory Risk Calculator with reorder alerts (Apr 28, 2026)
@@ -302,13 +396,17 @@ v2.3 — Inventory Risk Calculator (Apr 28, 2026):
 - [x] Supplier Concentration Risk Score (HHI) with visual breakdown (Apr 28, 2026)
 - [x] Disruption History Log with 90-day timeline and CSV export (Apr 28, 2026)
 - [x] Gemini rate limit fix — retry, dedup, stale cache, status indicator (Apr 30, 2026)
-- [ ] Enable Google billing (permanent Gemini rate limit fix)
-- [ ] Supplier-to-product mapping fix
-- [ ] Proactive performance alerts (professor feedback)
+- [x] Supplier-to-product mapping fix (May 8, 2026)
+- [x] History badge count fix (May 8, 2026)
+- [x] On-time delivery threshold alerts (May 8, 2026)
+- [x] Lead time drift tracking (May 8, 2026)
+- [x] Disruption-triggered supplier update prompts (May 8, 2026)
+- [x] Supabase auth + database migration (May 8, 2026)
+- [ ] Session 4: File import with AI interpretation
 - [ ] Order quantity recommendation engine
-- [ ] Supabase auth + database migration (Phase B)
-      Cross-device profile persistence, login/signup,
-      migrate all localStorage keys to database tables
+- [ ] Mobile responsiveness pass
 - [ ] Watchlist with new-event badges (localStorage)
 - [ ] 7-day disruption trend sparklines per category
 - [ ] Custom domain setup
+- [ ] Supabase Phase B: migrate supplier health, lead time history,
+      disruption history, performance alerts to database tables
