@@ -5,9 +5,21 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import {
   buildHealthScores,
   saveHealthEntry,
+  loadHealthEntries,
   SupplierHealthScore,
   SupplierHealthEntry,
 } from "@/lib/supplierHealth"
+import {
+  checkAndCreateAlerts,
+  loadAlerts,
+  saveAlerts,
+  PerformanceAlert,
+} from "@/lib/performanceAlerts"
+import {
+  recordLeadTime,
+  getLeadTimeHistory,
+  calculateLeadTimeDrift,
+} from "@/lib/leadTimeHistory"
 import type { ScoredEvent } from "@/lib/scoreEvents"
 
 interface SupplierHealthScorecardProps {
@@ -55,6 +67,12 @@ export default function SupplierHealthScorecard({
   }
 
   const handleSave = (supplierId: string, supplierName: string) => {
+    if (!profile) return
+
+    // Load previous data before saving so we can detect threshold crossings
+    const previousEntries = loadHealthEntries()
+    const previousEntry = previousEntries[supplierId]
+
     const entry: SupplierHealthEntry = {
       supplierId,
       supplierName,
@@ -65,7 +83,84 @@ export default function SupplierHealthScorecard({
       updatedAt: new Date().toISOString(),
     }
     saveHealthEntry(entry)
+
+    const supplier = profile.suppliers.find(s => s.id === supplierId)
+
+    // Check OTD and quality thresholds — creates alerts if crossed
+    checkAndCreateAlerts(
+      supplierId,
+      supplierName,
+      supplier?.country ?? "",
+      previousEntry?.onTimeDeliveryRate ?? null,
+      formValues.onTimeDeliveryRate,
+      previousEntry?.qualityScore ?? null,
+      formValues.qualityScore,
+    )
+
+    // Record lead time snapshot and check for significant drift
+    if (supplier) {
+      recordLeadTime(supplierId, supplierName, supplier.leadTimeDays)
+
+      const history = getLeadTimeHistory(supplierId)
+      const drift = calculateLeadTimeDrift(history)
+      const today = new Date().toISOString().split("T")[0]
+
+      if (drift.isSignificant && drift.trend === "increasing") {
+        const currentAlerts = loadAlerts()
+        const alertId = `${supplierId}-leadtime-${today}`
+        if (!currentAlerts.find(a => a.id === alertId)) {
+          const newAlert: PerformanceAlert = {
+            id: alertId,
+            supplierId,
+            supplierName,
+            supplierCountry: supplier.country,
+            metric: "leadTime",
+            previousValue: drift.baselineDays ?? 0,
+            currentValue: drift.currentDays ?? 0,
+            threshold: 20,
+            direction: "below",
+            message: `${supplierName} lead time has increased ${drift.driftPercent}% from ${drift.baselineDays} to ${drift.currentDays} days. Update your inventory safety stock to account for this change.`,
+            createdAt: new Date().toISOString(),
+            dismissed: false,
+          }
+          saveAlerts([newAlert, ...currentAlerts])
+          window.dispatchEvent(new Event("performanceAlertCreated"))
+        }
+      }
+
+      // Check if lead time now exceeds inventory on hand for assigned products
+      profile.productLines.forEach(product => {
+        if (
+          product.primarySupplierId === supplierId &&
+          drift.currentDays !== null &&
+          product.inventoryDaysOnHand <= drift.currentDays
+        ) {
+          const alertId = `${supplierId}-leadtime-inventory-${today}`
+          const freshAlerts = loadAlerts()
+          if (!freshAlerts.find(a => a.id === alertId)) {
+            const criticalAlert: PerformanceAlert = {
+              id: alertId,
+              supplierId,
+              supplierName,
+              supplierCountry: supplier.country,
+              metric: "leadTime",
+              previousValue: drift.baselineDays ?? 0,
+              currentValue: drift.currentDays ?? 0,
+              threshold: product.inventoryDaysOnHand,
+              direction: "below",
+              message: `CRITICAL: ${supplierName} lead time (${drift.currentDays}d) now exceeds ${product.name} inventory (${product.inventoryDaysOnHand}d on hand). You are at immediate stockout risk. Order now.`,
+              createdAt: new Date().toISOString(),
+              dismissed: false,
+            }
+            saveAlerts([criticalAlert, ...freshAlerts])
+            window.dispatchEvent(new Event("performanceAlertCreated"))
+          }
+        }
+      })
+    }
+
     refreshScores()
+    window.dispatchEvent(new Event("performanceAlertCreated"))
     setEditingSupplierId(null)
     setSavedId(supplierId)
     setTimeout(() => setSavedId(null), 2000)
@@ -226,7 +321,7 @@ export default function SupplierHealthScorecard({
 
                 {/* Metrics row — only if data exists and not editing */}
                 {score.hasData && !isEditing && (
-                  <div className="grid grid-cols-3 divide-x divide-slate-700 border-t border-slate-700">
+                  <div className="grid grid-cols-4 divide-x divide-slate-700 border-t border-slate-700">
                     <div className="px-4 py-2 text-center">
                       <p className="text-xs text-slate-500 mb-0.5">
                         On-time delivery
@@ -277,6 +372,37 @@ export default function SupplierHealthScorecard({
                           : `+${score.lastShipmentDelayDays}d`}
                       </p>
                     </div>
+                    {(() => {
+                      const history = getLeadTimeHistory(score.supplierId)
+                      const drift = calculateLeadTimeDrift(history)
+                      return (
+                        <div className="px-4 py-2 text-center">
+                          <p className="text-xs text-slate-500 mb-0.5">Lead time trend</p>
+                          {drift.trend === "insufficient_data" ? (
+                            <p className="text-sm text-slate-500">
+                              {supplier?.leadTimeDays ?? "—"}d
+                            </p>
+                          ) : (
+                            <p className={`text-sm font-bold ${
+                              drift.trend === "increasing" && drift.isSignificant
+                                ? "text-red-400"
+                                : drift.trend === "increasing"
+                                ? "text-amber-400"
+                                : drift.trend === "decreasing"
+                                ? "text-green-400"
+                                : "text-slate-400"
+                            }`}>
+                              {drift.currentDays}d{" "}
+                              {drift.trend === "increasing" ? "↑" :
+                               drift.trend === "decreasing" ? "↓" : "→"}
+                              {drift.driftPercent !== null && Math.abs(drift.driftPercent) >= 5
+                                ? ` ${Math.abs(drift.driftPercent)}%`
+                                : ""}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
 

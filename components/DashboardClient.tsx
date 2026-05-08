@@ -11,6 +11,8 @@ import AIAdvisor from "@/components/AIAdvisor"
 import SupplierHealthScorecard from "@/components/SupplierHealthScorecard"
 import ConcentrationRiskCard from "@/components/ConcentrationRiskCard"
 import DisruptionHistoryTab from "@/components/DisruptionHistoryTab"
+import PerformanceAlertBanner from "@/components/PerformanceAlertBanner"
+import DisruptionUpdatePrompt from "@/components/DisruptionUpdatePrompt"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -164,6 +166,19 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     }
   }, [profile])
 
+  // Listen for tab-switch events dispatched by child components
+  useEffect(() => {
+    const handleSwitchTab = (e: Event) => {
+      const tab = (e as CustomEvent<string>).detail
+      if (VALID_TABS.includes(tab as TabId)) {
+        setActiveTab(tab as TabId)
+        localStorage.setItem("scm_active_tab", tab)
+      }
+    }
+    window.addEventListener("switchTab", handleSwitchTab)
+    return () => window.removeEventListener("switchTab", handleSwitchTab)
+  }, [])
+
   // Auto-save events to history on every load (2s delay to avoid blocking render)
   useEffect(() => {
     if (scoredEvents.length === 0) return
@@ -288,6 +303,8 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
         {activeTab === "overview" && (
           <div>
+            <DisruptionUpdatePrompt events={scoredEvents} />
+            <PerformanceAlertBanner />
             <InventoryRiskPanel events={scoredEvents} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <WorldMap
