@@ -14,6 +14,7 @@ import {
   ProductLine,
 } from "@/lib/profile"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import ImportProfileFlow from "@/components/ImportProfileFlow"
 
 const INDUSTRY_SECTORS: IndustrySector[] = [
   "Automotive", "Electronics", "Pharmaceuticals", "Retail",
@@ -84,6 +85,7 @@ export default function ProfilePage() {
 
   const [step, setStep] = useState(1)
   const [error, setError] = useState("")
+  const [showImport, setShowImport] = useState(false)
 
   // Step 1
   const [companyName, setCompanyName] = useState("")
@@ -254,6 +256,48 @@ export default function ProfilePage() {
           <p className="text-slate-400 text-sm mt-2">
             Step {step} of 5 — {STEP_NAMES[step - 1]}
           </p>
+        </div>
+
+        {/* Import from file */}
+        {!showImport ? (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">📂</span>
+                  <h3 className="text-sm font-semibold text-slate-200">Import from Excel or CSV</h3>
+                  <span className="text-xs bg-blue-950 text-blue-400 border border-blue-800 px-1.5 py-0.5 rounded-full">
+                    New
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Already have your supplier list or inventory data in a spreadsheet? Upload it and AI will automatically map your columns to the profile fields.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowImport(true)}
+                className="flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                Import file →
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
+            <ImportProfileFlow
+              onComplete={() => {
+                setShowImport(false)
+                router.push("/?profileSaved=true")
+              }}
+              onCancel={() => setShowImport(false)}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px bg-slate-700" />
+          <span className="text-xs text-slate-500">or enter manually</span>
+          <div className="flex-1 h-px bg-slate-700" />
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
