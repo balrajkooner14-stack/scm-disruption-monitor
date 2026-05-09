@@ -50,18 +50,39 @@ function parseExcel(file: File): Promise<ParsedFileData> {
         const workbook = XLSX.read(data, { type: "binary" })
         const sheetNames = workbook.SheetNames
 
-        const firstSheet = workbook.Sheets[sheetNames[0]]
-        const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(
-          firstSheet,
-          { defval: "" }
-        )
+        // Read ALL sheets and combine their data
+        const allSheetData: Record<string, Record<string, string>[]> = {}
+        const allHeaders: string[] = []
 
-        const headers = jsonData.length > 0 ? Object.keys(jsonData[0]) : []
+        sheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName]
+          const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(
+            sheet,
+            { defval: "" }
+          )
+
+          if (jsonData.length > 0) {
+            allSheetData[sheetName] = jsonData.slice(0, 30)
+            const sheetHeaders = Object.keys(jsonData[0])
+            sheetHeaders.forEach(h => {
+              if (!allHeaders.includes(h)) allHeaders.push(h)
+            })
+          }
+        })
+
+        // Build a combined rows array with a __sheet__ field
+        // so AI knows which sheet each row came from
+        const combinedRows: Record<string, string>[] = []
+        Object.entries(allSheetData).forEach(([sheetName, rows]) => {
+          rows.forEach(row => {
+            combinedRows.push({ ...row, __sheet__: sheetName })
+          })
+        })
 
         resolve({
-          headers,
-          rows: jsonData.slice(0, 50),
-          rowCount: jsonData.length,
+          headers: allHeaders,
+          rows: combinedRows.slice(0, 80),
+          rowCount: combinedRows.length,
           fileType: "excel",
           sheetNames,
         })
@@ -75,9 +96,47 @@ function parseExcel(file: File): Promise<ParsedFileData> {
 }
 
 export function prepareForAI(data: ParsedFileData): string {
+  // Group rows back by sheet for clearer AI context
+  if (data.sheetNames && data.sheetNames.length > 1) {
+    const bySheet: Record<string, Record<string, string>[]> = {}
+
+    data.rows.forEach(row => {
+      const sheet = (row.__sheet__ as string) ?? "Sheet1"
+      if (!bySheet[sheet]) bySheet[sheet] = []
+      // Remove the __sheet__ meta field before sending to AI
+      const { __sheet__, ...cleanRow } = row as Record<string, string>
+      void __sheet__
+      bySheet[sheet].push(cleanRow)
+    })
+
+    const preview = {
+      fileType: data.fileType,
+      totalSheets: data.sheetNames.length,
+      sheetNames: data.sheetNames,
+      totalRows: data.rowCount,
+      sheets: Object.fromEntries(
+        Object.entries(bySheet).map(([name, rows]) => [
+          name,
+          {
+            rowCount: rows.length,
+            columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+            sampleRows: rows.slice(0, 20),
+          },
+        ])
+      ),
+    }
+    return JSON.stringify(preview, null, 2)
+  }
+
+  // Single sheet — use original format
+  const cleanRows = data.rows.map(row => {
+    const { __sheet__, ...rest } = row as Record<string, string>
+    void __sheet__
+    return rest
+  })
   const preview = {
     columns: data.headers,
-    sampleRows: data.rows.slice(0, 20),
+    sampleRows: cleanRows.slice(0, 20),
     totalRows: data.rowCount,
   }
   return JSON.stringify(preview, null, 2)

@@ -42,78 +42,89 @@ export async function POST(req: NextRequest) {
 
     const prompt = `You are an expert supply chain data analyst.
 A supply chain manager has uploaded a file named "${fileName}"
-containing their company's supply chain data.
+containing their company's supply chain data across multiple sheets.
 
-Here is the extracted table data in JSON format:
+Here is the extracted data from ALL sheets:
 ${extractedData}
 
-Your task is to intelligently interpret this data and map it
-to a supply chain profile. Column names may be abbreviated,
-in different languages, or use company-specific terminology.
+IMPORTANT: This file may have MULTIPLE SHEETS. Each sheet may
+contain different types of data:
+- A "Supplier" or "Vendor" sheet → extract supplier information
+- An "Inventory" or "Stock" sheet → extract product line data
+- A "PO History" or "Purchase Orders" sheet → calculate on-time
+  delivery rates per supplier from Order/Delivery date columns
+- A "Products" sheet → extract product lines
 
-MAPPING RULES:
-- Supplier name: look for columns like "supplier", "vendor",
-  "company", "name", "partner", "manufacturer"
-- Country: look for "country", "location", "origin", "source",
-  "nation", "geo", or country codes (US, CN, DE, etc.)
-- What they supply: look for "category", "type", "product",
-  "material", "component", "item", "description", "goods"
-- Share percentage: look for "share", "%", "percent",
-  "allocation", "split", "portion", "weight"
-- Lead time: look for "lead", "days", "LT", "lead time",
-  "delivery days", "transit", "cycle time"
-- Product name: look for "product", "SKU", "item", "line",
-  "part", "model", "description"
-- Inventory days on hand: look for "DOH", "days on hand",
-  "inventory", "stock", "on hand", "current stock"
-- Reorder point: look for "reorder", "ROP", "safety stock",
-  "min stock", "trigger", "order point"
+YOUR TASK: Extract ALL useful supply chain data from ALL sheets.
 
-REGION MAPPING (map countries to these exact regions):
-- "North America": US, USA, Canada, Mexico, CA, MX
-- "Europe": UK, Germany, France, Italy, Spain, Netherlands,
-  Poland, Sweden, Switzerland, DE, GB, FR, IT, ES, NL
-- "Asia Pacific": China, Japan, South Korea, India, Vietnam,
-  Thailand, Indonesia, Singapore, Taiwan, CN, JP, KR, IN, VN
-- "Middle East": UAE, Saudi Arabia, Iran, Israel, Turkey, AE, SA
-- "Latin America": Brazil, Argentina, Colombia, Chile, BR, AR
-- "Africa": Nigeria, South Africa, Kenya, Morocco, NG, ZA
+SUPPLIER EXTRACTION RULES:
+- Supplier name: "vendor", "supplier", "company", "partner", "name"
+- Country: "country", "origin", "location", "source", country codes
+- What they supply: "category", "type", "product", "material",
+  "component", "description", "goods", "item"
+- Share %: "share", "%", "percent", "allocation", "split", "portion"
+  If no share % exists, distribute evenly across all suppliers
+- Lead time: "lead time", "LT", "days", "delivery days", "transit"
+  If in weeks, multiply by 7
+  If missing, estimate: North America=14d, Europe=21d,
+  Asia Pacific=35d, Middle East=28d
 
-IMPORTANT RULES:
-- If share percentages don't add to ~100%, normalize them
-- If lead time is in weeks, convert to days (multiply by 7)
-- If lead time is missing, estimate based on region:
-  North America: 14 days, Europe: 21 days, Asia Pacific: 35 days,
-  Middle East: 28 days
-- Cap suppliers at 10 maximum
-- Cap product lines at 5 maximum
-- If you cannot determine a value, use sensible defaults
-- Always explain ambiguities clearly
+PRODUCT LINE EXTRACTION RULES:
+- Product name: "product", "SKU", "item", "line", "part", "model"
+- Days on hand: "DOH", "days on hand", "inventory days", "stock days"
+  If given as units+daily rate: divide units by daily rate
+- Reorder point: "reorder", "ROP", "safety stock", "min stock"
+  If missing, use 30% of days on hand as default
 
-Respond ONLY with valid JSON matching this exact structure.
-No markdown, no backticks, no explanation outside the JSON:
+PO HISTORY EXTRACTION (if a PO/orders sheet exists):
+- Calculate on-time delivery rate per supplier:
+  Count rows where actual delivery <= expected delivery
+  Divide by total rows for that supplier × 100
+- Report these rates in the ambiguities field as:
+  "On-time delivery rates from PO history: [Supplier]: X%"
+- This helps the manager set up their health scorecard
+
+REGION MAPPING (map to exactly one of these):
+"North America": US, USA, United States, Canada, Mexico
+"Europe": UK, Germany, France, Italy, Spain, Netherlands,
+  Poland, Sweden, Switzerland, Belgium, DE, GB, FR, IT
+"Asia Pacific": China, Japan, South Korea, India, Vietnam,
+  Thailand, Indonesia, Singapore, Taiwan, Bangladesh, CN, JP, KR
+"Middle East": UAE, Saudi Arabia, Israel, Turkey, Iran, AE, SA
+"Latin America": Brazil, Argentina, Colombia, Chile, Peru
+"Africa": Nigeria, South Africa, Kenya, Morocco, Egypt
+
+Respond ONLY with valid JSON — no markdown, no backticks:
 
 {
-  "detectedType": "suppliers",
+  "detectedType": "suppliers" | "inventory" | "mixed" | "unknown",
   "companyName": null,
   "suppliers": [
     {
       "name": "string",
       "country": "string",
-      "region": "North America",
+      "region": "North America" | "Europe" | "Asia Pacific" | "Middle East" | "Latin America" | "Africa",
       "category": "string",
       "sharePercent": 0,
       "leadTimeDays": 0,
-      "confidence": "high",
+      "confidence": "high" | "medium" | "low",
       "notes": null
     }
   ],
-  "productLines": [],
-  "missingFields": [],
-  "ambiguities": [],
-  "rawColumnNames": [],
-  "confidence": "high",
-  "message": "string"
+  "productLines": [
+    {
+      "name": "string",
+      "inventoryDaysOnHand": 0,
+      "reorderPointDays": 0,
+      "confidence": "high" | "medium" | "low",
+      "notes": null
+    }
+  ],
+  "missingFields": ["array of field names not found"],
+  "ambiguities": ["array including on-time delivery rates if calculated from PO history"],
+  "rawColumnNames": ["all column names found across all sheets"],
+  "confidence": "high" | "medium" | "low",
+  "message": "Brief summary of what was extracted from which sheets"
 }`
 
     const { result } = await callGeminiWithRetry({
