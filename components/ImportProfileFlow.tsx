@@ -81,8 +81,10 @@ export default function ImportProfileFlow({
     setIsSaving(true)
 
     try {
+      const ts = Date.now()
+
       const newSuppliers: Supplier[] = editedSuppliers.map((s, i) => ({
-        id: `imported_${Date.now()}_${i}`,
+        id: `imported_${ts}_${i}`,
         name: s.name,
         country: s.country,
         region: s.region as Supplier["region"],
@@ -91,12 +93,30 @@ export default function ImportProfileFlow({
         leadTimeDays: s.leadTimeDays,
       }))
 
-      const newProductLines: ProductLine[] = editedProducts.map((p, i) => ({
-        id: `imported_prod_${Date.now()}_${i}`,
-        name: p.name,
-        inventoryDaysOnHand: p.inventoryDaysOnHand,
-        reorderPointDays: p.reorderPointDays,
-      }))
+      const newProductLines: ProductLine[] = editedProducts.map((p, i) => {
+        let primarySupplierId: string | undefined = undefined
+
+        if (p.primarySupplierName) {
+          const targetLower = p.primarySupplierName.toLowerCase()
+          const matched = newSuppliers.find(s => {
+            const supplierLower = s.name.toLowerCase()
+            return (
+              supplierLower.includes(targetLower) ||
+              targetLower.includes(supplierLower) ||
+              supplierLower.split(" ")[0] === targetLower.split(" ")[0]
+            )
+          })
+          if (matched) primarySupplierId = matched.id
+        }
+
+        return {
+          id: `imported_prod_${ts}_${i}`,
+          name: p.name,
+          inventoryDaysOnHand: p.inventoryDaysOnHand,
+          reorderPointDays: p.reorderPointDays,
+          primarySupplierId,
+        }
+      })
 
       const now = new Date().toISOString()
       const updatedProfile: CompanyProfile = {
@@ -391,6 +411,31 @@ export default function ImportProfileFlow({
                       />
                     </div>
                   </div>
+                  {product.primarySupplierName && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-slate-500">Primary supplier:</span>
+                      {(() => {
+                        const targetLower = product.primarySupplierName.toLowerCase()
+                        const matched = editedSuppliers.find(s => {
+                          const supplierLower = s.name.toLowerCase()
+                          return (
+                            supplierLower.includes(targetLower) ||
+                            targetLower.includes(supplierLower) ||
+                            supplierLower.split(" ")[0] === targetLower.split(" ")[0]
+                          )
+                        })
+                        return matched ? (
+                          <span className="text-xs text-cyan-400 font-medium">
+                            ✓ {matched.name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-amber-400">
+                            ⚠ &quot;{product.primarySupplierName}&quot; — no match found in supplier list
+                          </span>
+                        )
+                      })()}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

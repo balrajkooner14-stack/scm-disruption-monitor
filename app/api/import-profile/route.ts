@@ -16,6 +16,7 @@ export interface ImportedProductLine {
   name: string
   inventoryDaysOnHand: number
   reorderPointDays: number
+  primarySupplierName?: string
   confidence: "high" | "medium" | "low"
   notes?: string
 }
@@ -75,6 +76,12 @@ PRODUCT LINE EXTRACTION RULES:
   If given as units+daily rate: divide units by daily rate
 - Reorder point: "reorder", "ROP", "safety stock", "min stock"
   If missing, use 30% of days on hand as default
+- Primary supplier name: look for columns like "primary supplier",
+  "supplier", "vendor", "source", "supplied by", "manufacturer".
+  Extract the exact supplier name string as it appears in the file —
+  this will be matched against the extracted supplier names to create
+  the link. Only include this if you can confidently identify which
+  supplier provides this specific product.
 
 PO HISTORY EXTRACTION (if a PO/orders sheet exists):
 - Calculate on-time delivery rate per supplier:
@@ -116,6 +123,7 @@ Respond ONLY with valid JSON — no markdown, no backticks:
       "name": "string",
       "inventoryDaysOnHand": 0,
       "reorderPointDays": 0,
+      "primarySupplierName": "string or null",
       "confidence": "high" | "medium" | "low",
       "notes": null
     }
