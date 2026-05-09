@@ -34,7 +34,10 @@ export function useCompanyProfile() {
 
         if (!error) {
           setProfile(updated)
-          localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updated))
+          try {
+            localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updated))
+            localStorage.setItem(`scm_profile_${user.id}`, JSON.stringify(updated))
+          } catch {}
           return true
         }
         return false
@@ -72,15 +75,14 @@ export function useCompanyProfile() {
             updatedAt: data.updated_at,
           }
           setProfile(loaded)
+          // Cache under user-scoped key so it survives brief network gaps
+          try { localStorage.setItem(`scm_profile_${user.id}`, JSON.stringify(loaded)) } catch {}
         } else {
-          // No Supabase profile yet — auto-migrate from localStorage on first login
-          const localRaw = localStorage.getItem(PROFILE_STORAGE_KEY)
-          if (localRaw) {
-            const localProfile = JSON.parse(localRaw) as CompanyProfile
-            await saveProfile(localProfile)
-          } else {
-            setProfile(null)
-          }
+          // No Supabase profile for this user — start fresh.
+          // Never inherit whatever a previous guest or different account
+          // left in the generic localStorage key.
+          setProfile(null)
+          try { localStorage.removeItem(PROFILE_STORAGE_KEY) } catch {}
         }
       } catch {
         setProfile(null)
