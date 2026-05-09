@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.1 live
+- Status: v3.2 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -51,6 +51,7 @@ trading and financial markets background.
   /api/market-data/route.ts       → Yahoo Finance futures commodity prices + static freight rates (24hr cache)
   /api/event-brief/route.ts       → Per-event Gemini brief (profile-aware, structured JSON: brief/impact/recommendation)
   /api/cost-estimate/route.ts     → Financial impact estimate per supplier+event (30min cache)
+  /api/import-profile/route.ts    → Gemini interprets uploaded file data, maps columns to profile schema (5min cache)
 
 /components
   Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode,
@@ -83,6 +84,8 @@ trading and financial markets background.
                                     Listens for "performanceAlertCreated" window event to refresh.
   DisruptionUpdatePrompt.tsx      → Blue banner on Overview: detects new critical events in supplier regions since
                                     last visit. Once-per-day dismissal. "Review AI recommendations" fires switchTab event.
+  ImportProfileFlow.tsx           → 4-step import flow: drag-and-drop upload → AI processing → editable review
+                                    with confidence indicators → confirm and save to Supabase or localStorage
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
@@ -106,6 +109,8 @@ trading and financial markets background.
                                     Max 12 entries/supplier. 20% drift = significant. Storage key: scm_lead_time_history
   supabase.ts                     → createClient() — browser Supabase client (createBrowserClient, safe fallback during build)
   supabase-server.ts              → createServerSupabaseClient() — server component client (createServerClient + CookieOptions)
+  parseImportFile.ts              → Client-side file parser: parseFile() for CSV (papaparse) and Excel (xlsx),
+                                    prepareForAI() trims to 20 rows for token efficiency. 50-row cap.
 
 /hooks
   useCompanyProfile.ts            → Supabase-first with localStorage fallback for guests.
@@ -129,6 +134,8 @@ trading and financial markets background.
                      graceful 200 fallback on error, client-side cached in DisruptionFeed state
 - /api/cost-estimate — Financial impact estimate per supplier+event: revenue at risk range, mitigation cost,
                        net risk reduction, urgency days. 30min server cache keyed by supplier.id+event.url
+- /api/import-profile — Accepts POST {extractedData, fileName}. Gemini maps columns to ImportResult schema
+                        (suppliers, productLines, missingFields, ambiguities, rawColumnNames). 5min cache.
 
 ## Severity scoring rules (DO NOT CHANGE without asking)
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
@@ -353,6 +360,22 @@ v3.1 — Session 3 Supabase auth + database (May 8, 2026):
           for authenticated users.
         Guest mode preserved: app works fully without login using
           localStorage exactly as before.
+v3.2 — Session 4: File Import with AI Interpretation (May 9, 2026):
+        Feature: File upload dropzone on /profile page above the manual form —
+          accepts Excel (.xlsx, .xls) and CSV files
+        Feature: Client-side file parsing using xlsx and papaparse libraries —
+          files never leave the browser
+        Feature: /api/import-profile route — Gemini interprets extracted table
+          data, maps columns to profile schema regardless of column naming
+          conventions (abbreviations, non-English, company-specific)
+        Feature: 4-step import flow (upload → processing → review → success)
+          with editable supplier and product line fields, confidence indicators
+          per field, ambiguity warnings
+        Feature: Auto-saves to Supabase if logged in, localStorage if guest —
+          consistent with rest of profile system
+        New packages: xlsx, papaparse, @types/papaparse
+        New files: /app/api/import-profile/route.ts,
+          /lib/parseImportFile.ts, /components/ImportProfileFlow.tsx
 
 ## Known issues / next session notes
 - Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
@@ -360,10 +383,11 @@ v3.1 — Session 3 Supabase auth + database (May 8, 2026):
 - Only profile is Supabase-synced so far — supplier health, lead time history,
   disruption history, performance alerts still use localStorage only (Phase B)
 - Next priorities:
-  [ ] Session 4: File import with AI interpretation
   [ ] Order quantity recommendation engine
   [ ] Mobile responsiveness pass
   [ ] Custom domain setup
+  [ ] Watchlist with notification badges
+  [ ] 7-day trend sparklines per category
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free)
@@ -402,11 +426,11 @@ v3.1 — Session 3 Supabase auth + database (May 8, 2026):
 - [x] Lead time drift tracking (May 8, 2026)
 - [x] Disruption-triggered supplier update prompts (May 8, 2026)
 - [x] Supabase auth + database migration (May 8, 2026)
-- [ ] Session 4: File import with AI interpretation
+- [x] Session 4: File import with AI interpretation (May 9, 2026)
 - [ ] Order quantity recommendation engine
 - [ ] Mobile responsiveness pass
-- [ ] Watchlist with new-event badges (localStorage)
-- [ ] 7-day disruption trend sparklines per category
+- [ ] Watchlist with notification badges
+- [ ] 7-day trend sparklines per category
 - [ ] Custom domain setup
 - [ ] Supabase Phase B: migrate supplier health, lead time history,
       disruption history, performance alerts to database tables
