@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.2 live
+- Status: v3.3 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -376,6 +376,30 @@ v3.2 — Session 4: File Import with AI Interpretation (May 9, 2026):
         New packages: xlsx, papaparse, @types/papaparse
         New files: /app/api/import-profile/route.ts,
           /lib/parseImportFile.ts, /components/ImportProfileFlow.tsx
+v3.3 — Profile isolation + multi-sheet import fixes (May 9, 2026):
+        Fix: Profile isolation — sign out now clears all SCM localStorage
+          keys (scm_company_profile, scm_supplier_health, scm_inventory_log,
+          scm_disruption_history, scm_active_tab, scm_performance_alerts,
+          scm_lead_time_history, scm_last_visit, scm_prompt_dismissed) so
+          next visitor starts with a clean slate.
+        Fix: New sign-ins no longer inherit localStorage profile from a
+          previous guest or different account. Each Supabase account starts
+          with an empty profile, loaded from the database only.
+        Fix: User-scoped localStorage cache key (scm_profile_{user.id})
+          added for performance caching of logged-in user profiles.
+        Fix: File import now reads ALL sheets from Excel files, not just
+          the first sheet. Rows tagged with __sheet__ metadata field so AI
+          knows which sheet each row came from.
+        Fix: Gemini prompt updated to handle multi-sheet files — explicitly
+          processes supplier sheets, inventory sheets, and PO history sheets.
+          Calculates on-time delivery rates per supplier from PO history.
+        Fix: ImportedProductLine now includes primarySupplierName field.
+          Gemini extracts the primary supplier column per product.
+          ImportProfileFlow fuzzy-matches supplier names to generated IDs
+          after import. Review screen shows cyan ✓ or amber ⚠ per product.
+        Changed files: /hooks/useAuth.ts, /hooks/useCompanyProfile.ts,
+          /lib/parseImportFile.ts, /app/api/import-profile/route.ts,
+          /components/ImportProfileFlow.tsx
 
 ## Known issues / next session notes
 - Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
@@ -427,10 +451,13 @@ v3.2 — Session 4: File Import with AI Interpretation (May 9, 2026):
 - [x] Disruption-triggered supplier update prompts (May 8, 2026)
 - [x] Supabase auth + database migration (May 8, 2026)
 - [x] Session 4: File import with AI interpretation (May 9, 2026)
+- [x] Profile isolation fix — sign out clears localStorage (May 9, 2026)
+- [x] Multi-sheet Excel import (May 9, 2026)
+- [x] Primary supplier auto-assignment from imported file (May 9, 2026)
 - [ ] Order quantity recommendation engine
 - [ ] Mobile responsiveness pass
+- [ ] Custom domain setup
 - [ ] Watchlist with notification badges
 - [ ] 7-day trend sparklines per category
-- [ ] Custom domain setup
 - [ ] Supabase Phase B: migrate supplier health, lead time history,
       disruption history, performance alerts to database tables
