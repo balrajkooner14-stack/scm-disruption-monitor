@@ -4,6 +4,13 @@ import { useState, useEffect } from "react"
 import CategoryChart from "@/components/CategoryChart"
 import CommodityChart from "@/components/CommodityChart"
 import FreightRateCard from "@/components/FreightRateCard"
+import CategorySparkline from "@/components/CategorySparkline"
+import {
+  loadRawHistory,
+  buildCategoryTrends,
+  getTrendColor,
+  type CategoryTrend,
+} from "@/lib/categoryTrends"
 import type { MarketData } from "@/app/api/market-data/route"
 import type { ScoredEvent } from "@/lib/scoreEvents"
 
@@ -15,6 +22,16 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
   const [marketData, setMarketData] = useState<MarketData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [trends, setTrends] = useState<Record<string, CategoryTrend>>({})
+  const [historyDays, setHistoryDays] = useState(0)
+
+  useEffect(() => {
+    const history = loadRawHistory()
+    setHistoryDays(history.length)
+    if (events.length > 0) {
+      setTrends(buildCategoryTrends(events))
+    }
+  }, [events.length])
 
   useEffect(() => {
     fetch("/api/market-data")
@@ -31,6 +48,79 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
     <div className="space-y-6">
       {/* Events by category — always shown */}
       <CategoryChart events={events} />
+
+      {/* 7-Day Category Trends */}
+      {Object.keys(trends).length > 0 && (
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">📈</span>
+              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                7-Day Category Trends
+              </h2>
+            </div>
+            <span className="text-xs text-slate-500">
+              {historyDays < 2
+                ? "Building trend data — check back tomorrow"
+                : `${historyDays} days of data`}
+            </span>
+          </div>
+
+          {historyDays < 2 ? (
+            <div className="text-center py-4">
+              <p className="text-slate-500 text-sm mb-1">
+                Trend data builds automatically with each visit
+              </p>
+              <p className="text-xs text-slate-600">
+                Come back tomorrow to see your first trend lines
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {Object.values(trends).map((trend) => {
+                const colors = getTrendColor(trend.trend)
+                return (
+                  <div
+                    key={trend.category}
+                    className="bg-slate-700/50 border border-slate-700 rounded-lg px-3 py-3"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-slate-300">
+                        {trend.category}
+                      </span>
+                      <span className={`text-xs font-bold ${colors.text}`}>
+                        {trend.changePercent > 0 ? "+" : ""}
+                        {trend.changePercent}%
+                      </span>
+                    </div>
+                    <div className="flex items-end justify-between gap-2">
+                      <div>
+                        <span className="text-xl font-black text-slate-100">
+                          {trend.currentCount}
+                        </span>
+                        <span className="text-xs text-slate-500 ml-1">events</span>
+                      </div>
+                      {trend.history.length >= 2 && (
+                        <CategorySparkline trend={trend} className="mb-0.5" />
+                      )}
+                    </div>
+                    <p className={`text-xs mt-1 ${colors.text}`}>
+                      {trend.trend === "rising" ? "↑ Increasing"
+                       : trend.trend === "falling" ? "↓ Decreasing"
+                       : "→ Stable"}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <p className="text-xs text-slate-700 mt-3">
+            Trend data saved locally · Updates on each dashboard visit ·
+            Red = more disruptions this week · Green = fewer disruptions
+          </p>
+        </div>
+      )}
 
       {/* Market data — loading skeleton */}
       {loading && (

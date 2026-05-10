@@ -1,12 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DisruptionCategory } from "@/lib/types"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import EventBriefPanel from "@/components/EventBriefPanel"
 import type { EventBriefResponse } from "@/app/api/event-brief/route"
+import {
+  saveCategorySnapshot,
+  buildCategoryTrends,
+  getTrendColor,
+  type CategoryTrend,
+} from "@/lib/categoryTrends"
+import CategorySparkline from "@/components/CategorySparkline"
 
 interface DisruptionFeedProps {
   events: ScoredEvent[]
@@ -62,6 +69,17 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
   const [sortMode, setSortMode] = useState<"relevance" | "recent">(
     events[0]?.relevanceScore > 0 ? "relevance" : "recent"
   )
+  const [categoryTrends, setCategoryTrends] = useState<Record<string, CategoryTrend>>({})
+
+  useEffect(() => {
+    if (events.length === 0) return
+    const timer = setTimeout(() => {
+      saveCategorySnapshot(events)
+      const trends = buildCategoryTrends(events)
+      setCategoryTrends(trends)
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [events.length])
 
   function handleRefresh() {
     setIsRefreshing(true)
@@ -225,19 +243,44 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
 
       {/* Category filter pills */}
       <div className="flex flex-wrap gap-2 mb-3">
-        {FILTERS.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 ${
-              activeFilter === filter
-                ? "bg-blue-600 text-white border-blue-500"
-                : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500"
-            }`}
-          >
-            {filter}
-          </button>
-        ))}
+        {FILTERS.map((filter) => {
+          const trend = filter !== "All" ? categoryTrends[filter] : undefined
+          const trendColors = trend ? getTrendColor(trend.trend) : null
+          const tooltipText = trend
+            ? trend.history.length >= 2
+              ? `${filter} events: ${trend.changePercent > 0 ? "+" : ""}${trend.changePercent}% vs 7 days ago`
+              : `${filter} — building trend data...`
+            : filter
+
+          return (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              title={tooltipText}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all duration-150 ${
+                activeFilter === filter
+                  ? "bg-blue-600 text-white border-blue-500"
+                  : "bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500 hover:text-slate-200"
+              }`}
+            >
+              <span>{filter}</span>
+              {trend && trend.history.length >= 2 && (
+                <CategorySparkline trend={trend} />
+              )}
+              {trend && trend.history.length >= 2 && (
+                <span className={`text-xs leading-none flex-shrink-0 ${
+                  activeFilter === filter
+                    ? "text-blue-200"
+                    : trendColors?.text ?? "text-slate-500"
+                }`}>
+                  {trend.trend === "rising" ? "↑"
+                   : trend.trend === "falling" ? "↓"
+                   : "→"}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Event list */}
