@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.3 live
+- Status: v3.4 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -400,6 +400,25 @@ v3.3 — Profile isolation + multi-sheet import fixes (May 9, 2026):
         Changed files: /hooks/useAuth.ts, /hooks/useCompanyProfile.ts,
           /lib/parseImportFile.ts, /app/api/import-profile/route.ts,
           /components/ImportProfileFlow.tsx
+v3.4 — Order Quantity Recommendation Engine (May 9, 2026):
+        Feature: calculateOrderRecommendation() added to /lib/inventoryRisk.ts.
+          Formula: lead time days + safety stock target − current inventory
+          days remaining. Safety stock targets: Critical=30d, Warning=21d.
+          Three urgency levels: Order Today (at/below reorder point),
+          Order This Week (within 7 days of reorder), Plan Ahead.
+        Feature: InventoryRiskPanel.tsx — recommendation panel added to each
+          CRITICAL/WARNING product card showing urgency label, recommended
+          days of supply, and one-sentence rationale naming supplier and lead
+          time. Critical alert banner shows quick-reference pills per product.
+        Feature: /lib/generateBrief.ts — Inventory Action Required section
+          added to PDF with dark red section header, urgency badges, and
+          order quantities per product. Inserted between Situation Snapshot
+          and AI Advisor Recommendations.
+        Feature: DashboardClient.tsx — inventoryRecs state computed from
+          inventorySnapshot via useEffect, passed to DailyBriefButton as
+          inventoryRecommendations prop. BriefData interface extended.
+        Note: Expressed in days of supply (not units) since profile stores
+          inventory in days, not unit quantities.
 
 ## Known issues / next session notes
 - Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
@@ -407,11 +426,10 @@ v3.3 — Profile isolation + multi-sheet import fixes (May 9, 2026):
 - Only profile is Supabase-synced so far — supplier health, lead time history,
   disruption history, performance alerts still use localStorage only (Phase B)
 - Next priorities:
-  [ ] Order quantity recommendation engine
-  [ ] Mobile responsiveness pass
-  [ ] Custom domain setup
+  [ ] 7-day trend sparklines per disruption category
   [ ] Watchlist with notification badges
-  [ ] 7-day trend sparklines per category
+  [ ] Custom domain setup
+  [ ] Mobile responsiveness (deferred — desktop only for now)
 
 ## Backlog
 - [x] Switched to Gemini 2.5 Flash (free)
@@ -454,10 +472,10 @@ v3.3 — Profile isolation + multi-sheet import fixes (May 9, 2026):
 - [x] Profile isolation fix — sign out clears localStorage (May 9, 2026)
 - [x] Multi-sheet Excel import (May 9, 2026)
 - [x] Primary supplier auto-assignment from imported file (May 9, 2026)
-- [ ] Order quantity recommendation engine
-- [ ] Mobile responsiveness pass
-- [ ] Custom domain setup
+- [x] Order quantity recommendation engine (May 9, 2026)
+- [ ] 7-day trend sparklines per disruption category
 - [ ] Watchlist with notification badges
-- [ ] 7-day trend sparklines per category
+- [ ] Custom domain setup
+- [ ] Mobile responsiveness (deferred — desktop only for now)
 - [ ] Supabase Phase B: migrate supplier health, lead time history,
       disruption history, performance alerts to database tables
