@@ -21,7 +21,7 @@ import InventoryRiskPanel from "@/components/InventoryRiskPanel"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
-import { calculateInventoryRisk, getDaysSinceDate } from "@/lib/inventoryRisk"
+import { calculateInventoryRisk, getDaysSinceDate, calculateOrderRecommendation } from "@/lib/inventoryRisk"
 import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
 import { saveEventsToHistory, loadHistory } from "@/lib/disruptionHistory"
 import type { BriefData } from "@/lib/generateBrief"
@@ -61,6 +61,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [commodityData, setCommodityData] = useState<BriefData["commodityPrices"]>([])
   const [historyCount, setHistoryCount] = useState(0)
   const [historyForBrief, setHistoryForBrief] = useState<NonNullable<BriefData["historyEntries"]>>([])
+  const [inventoryRecs, setInventoryRecs] = useState<NonNullable<BriefData["inventoryRecommendations"]>>([])
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview"
@@ -152,6 +153,26 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     const daysSince = getDaysSinceDate(profile.updatedAt ?? new Date().toISOString())
     return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSince)
   }, [profile, scoredEvents])
+
+  useEffect(() => {
+    if (!inventorySnapshot) return
+    const recs = inventorySnapshot.products
+      .filter(p => p.riskLevel === "critical" || p.riskLevel === "warning")
+      .flatMap(p => {
+        const rec = calculateOrderRecommendation(p)
+        if (!rec) return []
+        return [{
+          productName: p.productName,
+          riskLevel: p.riskLevel,
+          daysRemaining: p.daysRemaining,
+          recommendedOrderDays: rec.recommendedOrderQty,
+          urgencyLabel: rec.urgencyLabel,
+          supplierName: p.primarySupplier?.name ?? "Primary supplier",
+          leadTimeDays: p.primaryLeadTimeDays,
+        }]
+      })
+    setInventoryRecs(recs)
+  }, [inventorySnapshot])
 
   const concentrationResult = useMemo(() => {
     if (!profile) return undefined
@@ -247,6 +268,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
             largestCountryShare: concentrationResult.largestCountryShare,
           } : undefined}
           historyEntries={historyForBrief}
+          inventoryRecommendations={inventoryRecs}
         />
       </div>
 

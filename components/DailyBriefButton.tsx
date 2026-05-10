@@ -12,6 +12,7 @@ interface DailyBriefButtonProps {
   commodityPrices?: BriefData["commodityPrices"]
   concentrationRisk?: BriefData["concentrationRisk"]
   historyEntries?: BriefData["historyEntries"]
+  inventoryRecommendations?: BriefData["inventoryRecommendations"]
 }
 
 export default function DailyBriefButton({
@@ -21,6 +22,7 @@ export default function DailyBriefButton({
   commodityPrices = [],
   concentrationRisk,
   historyEntries,
+  inventoryRecommendations,
 }: DailyBriefButtonProps) {
   const { profile } = useCompanyProfile()
   const [isGenerating, setIsGenerating] = useState(false)
@@ -42,6 +44,7 @@ export default function DailyBriefButton({
         commodityPrices,
         concentrationRisk,
         historyEntries,
+        inventoryRecommendations,
       }
 
       const doc = generateDailyBrief(briefData)

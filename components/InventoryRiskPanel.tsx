@@ -7,6 +7,7 @@ import {
   calculateInventoryRisk,
   getDaysSinceDate,
   getInventoryBarColor,
+  calculateOrderRecommendation,
   ProductRisk,
   RiskLevel,
 } from "@/lib/inventoryRisk"
@@ -161,6 +162,23 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
               {snapshot.products.find(p => p.riskLevel === "critical")?.hasActiveDisruption &&
                 "— active disruption in supplier region compounds risk"}
             </p>
+            {(() => {
+              const criticalProducts = snapshot.products.filter(p => p.riskLevel === "critical")
+              return criticalProducts.length > 0 ? (
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {criticalProducts.map(product => {
+                    const rec = calculateOrderRecommendation(product)
+                    if (!rec) return null
+                    return (
+                      <span key={product.productId}
+                        className="text-xs bg-red-900/50 border border-red-800 text-red-300 px-2 py-0.5 rounded-full">
+                        {product.productName}: order {rec.recommendedOrderQty}d supply
+                      </span>
+                    )
+                  })}
+                </div>
+              ) : null
+            })()}
           </div>
           <Link
             href="/profile"
@@ -270,6 +288,35 @@ function ProductRiskCard({ product }: { product: ProductRisk }) {
       <p className="text-xs text-slate-400 leading-relaxed">
         {product.riskReason}
       </p>
+
+      {(() => {
+        const recommendation = calculateOrderRecommendation(product)
+        if (!recommendation) return null
+        return (
+          <div className="mt-2 pt-2 border-t border-slate-700/50">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className={`text-xs font-bold uppercase tracking-wider ${recommendation.urgencyColor}`}>
+                {recommendation.urgencyLabel}
+              </span>
+              <span className="text-xs text-slate-500">
+                {recommendation.coverageDays}d coverage
+              </span>
+            </div>
+            <div className="bg-slate-900/60 rounded-lg px-3 py-2">
+              <p className="text-xs text-slate-400 mb-0.5">Recommended order</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className={`text-lg font-black ${recommendation.urgencyColor}`}>
+                  {recommendation.recommendedOrderQty}
+                </span>
+                <span className="text-xs text-slate-500">days of supply</span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                {recommendation.rationale}
+              </p>
+            </div>
+          </div>
+        )
+      })()}
 
       {product.hasActiveDisruption && (
         <div className="mt-2 flex items-center gap-1">

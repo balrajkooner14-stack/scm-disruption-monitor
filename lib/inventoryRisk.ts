@@ -129,3 +129,68 @@ export function getInventoryBarColor(riskLevel: RiskLevel): string {
     default:         return "#94a3b8"
   }
 }
+
+export interface OrderRecommendation {
+  recommendedOrderQty: number
+  dailyConsumptionRate: number
+  safetyStockDays: number
+  coverageDays: number
+  urgencyLabel: "Order Today" | "Order This Week" | "Plan Ahead"
+  urgencyColor: string
+  rationale: string
+}
+
+const SAFETY_STOCK_DAYS: Record<RiskLevel, number> = {
+  critical: 30,
+  warning: 21,
+  safe: 14,
+  unknown: 14,
+}
+
+export function calculateOrderRecommendation(
+  product: ProductRisk,
+): OrderRecommendation | null {
+  if (product.riskLevel === "safe" || product.riskLevel === "unknown") {
+    return null
+  }
+
+  const leadTimeDays = product.primaryLeadTimeDays
+  const currentInventoryDays = product.daysRemaining
+  const safetyStockDays = SAFETY_STOCK_DAYS[product.riskLevel]
+
+  const daysOfSupplyToOrder = Math.max(
+    0,
+    leadTimeDays + safetyStockDays - currentInventoryDays
+  )
+
+  const coverageDays = leadTimeDays + safetyStockDays
+
+  let urgencyLabel: OrderRecommendation["urgencyLabel"]
+  let urgencyColor: string
+
+  if (currentInventoryDays <= product.reorderPointDays) {
+    urgencyLabel = "Order Today"
+    urgencyColor = "text-red-400"
+  } else if (currentInventoryDays <= product.reorderPointDays + 7) {
+    urgencyLabel = "Order This Week"
+    urgencyColor = "text-amber-400"
+  } else {
+    urgencyLabel = "Plan Ahead"
+    urgencyColor = "text-yellow-400"
+  }
+
+  const rationale =
+    `Covers ${leadTimeDays}-day lead time from ` +
+    `${product.primarySupplier?.name ?? "primary supplier"} ` +
+    `plus ${safetyStockDays}-day safety stock buffer.`
+
+  return {
+    recommendedOrderQty: daysOfSupplyToOrder,
+    dailyConsumptionRate: 0,
+    safetyStockDays,
+    coverageDays,
+    urgencyLabel,
+    urgencyColor,
+    rationale,
+  }
+}

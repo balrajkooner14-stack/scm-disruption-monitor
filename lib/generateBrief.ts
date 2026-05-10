@@ -41,6 +41,15 @@ export interface BriefData {
     category: string
     isProfileMatch: boolean
   }>
+  inventoryRecommendations?: Array<{
+    productName: string
+    riskLevel: string
+    daysRemaining: number
+    recommendedOrderDays: number
+    urgencyLabel: string
+    supplierName: string
+    leadTimeDays: number
+  }>
 }
 
 function formatPDFCurrency(amount: number): string {
@@ -265,6 +274,45 @@ export function generateDailyBrief(data: BriefData): jsPDF {
   }
 
   y = addDivider(y)
+
+  // ── Inventory Action Required ──────────────────────────
+
+  if (data.inventoryRecommendations && data.inventoryRecommendations.length > 0) {
+    y = checkPageBreak(y, 25)
+    y = addSectionHeader("Inventory Action Required", y, [139, 0, 0])
+    y += 4
+
+    data.inventoryRecommendations.forEach(item => {
+      y = checkPageBreak(y, 12)
+
+      const urgencyColor: [number, number, number] =
+        item.urgencyLabel === "Order Today"
+          ? [239, 68, 68]
+          : item.urgencyLabel === "Order This Week"
+          ? [245, 158, 11]
+          : [234, 179, 8]
+
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "bold")
+      setColor(urgencyColor)
+      doc.text(`[${item.urgencyLabel.toUpperCase()}]`, margin + 2, y)
+
+      doc.setFont("helvetica", "bold")
+      setColor([30, 30, 30])
+      doc.text(item.productName, margin + 35, y)
+
+      doc.setFont("helvetica", "normal")
+      setColor([71, 85, 105])
+      doc.text(
+        `${item.daysRemaining}d remaining → order ${item.recommendedOrderDays}d supply from ${item.supplierName}`,
+        margin + 4,
+        y + 5
+      )
+      y += 11
+    })
+
+    y = addDivider(y)
+  }
 
   // ── AI Advisor Recommendations ─────────────────────────
 
