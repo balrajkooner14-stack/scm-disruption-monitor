@@ -44,6 +44,11 @@ const severityConfig = {
   },
 }
 
+function buildFallbackSearchUrl(title: string, domain: string): string {
+  const query = domain ? `${title} site:${domain}` : title
+  return `https://news.google.com/search?q=${encodeURIComponent(query)}`
+}
+
 const formatDate = (dateStr: string) => {
   try {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -301,7 +306,7 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
             return (
               <div
                 key={event.id}
-                className={`group border-l-4 ${config.borderColor} pl-3 pr-2 py-3 rounded-r-lg bg-slate-800/50 cursor-pointer transition-all duration-150 ease-out hover:bg-slate-700/70 hover:border-l-[6px] hover:pl-[10px] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)] ${event.severity === 3 ? "critical-card" : ""}`}
+                className={`group border-l-4 ${config.borderColor} pl-3 pr-2 py-3 rounded-r-lg bg-slate-800/50 cursor-pointer transition-all duration-150 ease-out hover:bg-slate-700/70 hover:border-l-[6px] hover:pl-[10px] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]`}
                 style={{
                   animationName: "cardEntrance",
                   animationDuration: "0.3s",
@@ -340,17 +345,33 @@ export default function DisruptionFeed({ events, regionFilter, onRegionClear, kp
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-500">
-                    {event.sourceDomain} · {formatDate(event.date)}
+                    <span className="text-slate-400">{event.sourceDomain}</span>
+                    {" · "}{formatDate(event.date)}
                   </span>
-                  <a
-                    href={event.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-blue-400 hover:text-blue-300 text-xs flex-shrink-0 transition-colors"
-                  >
-                    Read →
-                  </a>
+                  {(() => {
+                    const hasGoodUrl = !!(
+                      event.url &&
+                      !event.url.includes("example.com") &&
+                      event.url.startsWith("http")
+                    )
+                    const fallbackUrl = buildFallbackSearchUrl(event.title, event.sourceDomain ?? "")
+                    const linkUrl = hasGoodUrl ? event.url : fallbackUrl
+                    return (
+                      <a
+                        href={linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        title={hasGoodUrl
+                          ? "Read the original article"
+                          : "Search for this article on Google News"
+                        }
+                        className="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0 transition-colors flex items-center gap-0.5"
+                      >
+                        {hasGoodUrl ? "Read →" : "Search →"}
+                      </a>
+                    )
+                  })()}
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-xs text-slate-600 group-hover:text-slate-400 transition-colors">

@@ -91,6 +91,24 @@ interface GdeltResponse {
   articles?: GdeltArticle[]
 }
 
+function isUsableUrl(url: string): boolean {
+  if (!url || url.trim() === "") return false
+  try {
+    const parsed = new URL(url)
+    const hostname = parsed.hostname.toLowerCase()
+    const BAD_DOMAINS = [
+      "example.com", "example.org", "example.net",
+      "localhost", "127.0.0.1",
+    ]
+    if (BAD_DOMAINS.some(d => hostname === d || hostname.endsWith("." + d))) {
+      return false
+    }
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 function parseGdeltDate(seendate: string): string {
   // Format: YYYYMMDDTHHMMSSZ → ISO string
   const match = seendate.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/)
@@ -142,10 +160,11 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
     articles.forEach((article, i) => {
       if (seenUrls.has(article.url)) return
       seenUrls.add(article.url)
+      const bestUrl = isUsableUrl(article.url ?? "") ? (article.url ?? "") : ""
       events.push({
         id: `gdelt-${queryIndex}-${i}-${Date.now()}`,
         title: article.title,
-        url: article.url,
+        url: bestUrl,
         date: parseGdeltDate(article.seendate),
         sourceDomain: article.domain,
         sourceCountry: article.sourcecountry,
