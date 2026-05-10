@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.4 live
+- Status: v3.5 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -419,6 +419,26 @@ v3.4 — Order Quantity Recommendation Engine (May 9, 2026):
           inventoryRecommendations prop. BriefData interface extended.
         Note: Expressed in days of supply (not units) since profile stores
           inventory in days, not unit quantities.
+v3.5 — 7-Day Category Trend Sparklines (May 9, 2026):
+        Feature: /lib/categoryTrends.ts — snapshot storage engine. Saves
+          daily event counts per category to scm_category_trends localStorage
+          key on each dashboard visit. Keeps 7-day rolling history. Calculates
+          trend (rising/falling/stable) based on % change from oldest to newest
+          entry. Generates SVG polyline points for sparkline rendering.
+          Color coded: red=rising, green=falling, slate=stable.
+        Feature: /components/CategorySparkline.tsx — 36×14px inline SVG
+          sparkline component. Renders as polyline with no fill, 1.5px stroke,
+          rounded caps. Only renders with 2+ data points.
+        Feature: DisruptionFeed.tsx — sparkline and trend arrow (↑↓→) added
+          inside each category filter pill. Hover tooltip shows 7-day percentage
+          change. Existing filter functionality unchanged.
+        Feature: AnalyticsTab.tsx — 7-Day Category Trends panel added below
+          CategoryChart. 6 category cards each showing current event count,
+          percentage change vs 7 days ago, sparkline, and trend direction label.
+          Shows "building trend data" message on first visit until 2+ days of
+          data are available.
+        Data accumulates passively — no API calls, no user action required.
+          Gets richer with every daily dashboard visit.
 
 ## Known issues / next session notes
 - Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
@@ -426,7 +446,6 @@ v3.4 — Order Quantity Recommendation Engine (May 9, 2026):
 - Only profile is Supabase-synced so far — supplier health, lead time history,
   disruption history, performance alerts still use localStorage only (Phase B)
 - Next priorities:
-  [ ] 7-day trend sparklines per disruption category
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
   [ ] Mobile responsiveness (deferred — desktop only for now)
@@ -473,7 +492,7 @@ v3.4 — Order Quantity Recommendation Engine (May 9, 2026):
 - [x] Multi-sheet Excel import (May 9, 2026)
 - [x] Primary supplier auto-assignment from imported file (May 9, 2026)
 - [x] Order quantity recommendation engine (May 9, 2026)
-- [ ] 7-day trend sparklines per disruption category
+- [x] 7-day trend sparklines per disruption category (May 9, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
