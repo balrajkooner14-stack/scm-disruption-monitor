@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.5 live
+- Status: v3.6 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -439,6 +439,28 @@ v3.5 — 7-Day Category Trend Sparklines (May 9, 2026):
           data are available.
         Data accumulates passively — no API calls, no user action required.
           Gets richer with every daily dashboard visit.
+v3.6 — UI fixes: badge animation + article links (May 10, 2026):
+        Fix: Removed animate-pulse from all text-bearing severity badges
+          throughout the app. CRITICAL/WARNING/MONITOR badges in
+          DisruptionFeed, KPIBar, InventoryRiskPanel, PerformanceAlertBanner,
+          Navbar, and DisruptionUpdatePrompt are now static and fully readable.
+          LIVE dot in navbar and small colored dot indicators retain their
+          pulse animation. Root cause was criticalPulse keyframe + .critical-card
+          CSS rule in globals.css — removed entirely. critical-card class
+          reference removed from DisruptionFeed card div.
+        Fix: Article links in the Live Disruption Feed no longer go to
+          broken/placeholder pages. Events are NEVER removed from the feed
+          regardless of URL quality. Good URLs show "Read →" linking directly
+          to the article. Bad or empty URLs show "Search →" linking to a Google
+          News search for that exact headline and source domain — user always
+          reaches the content. Source domain displayed prominently in
+          text-slate-400 on each card so users know the source before clicking.
+        Added isUsableUrl() helper in /lib/fetchDisruptions.ts to detect
+          placeholder domains (example.com etc.) without filtering events.
+        Added buildFallbackSearchUrl() helper in /components/DisruptionFeed.tsx
+          that constructs a Google News search URL from title + source domain.
+        Updated DisruptionFeed.tsx to conditionally render "Read →" or
+          "Search →" based on URL validity.
 
 ## Known issues / next session notes
 - Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
@@ -493,6 +515,8 @@ v3.5 — 7-Day Category Trend Sparklines (May 9, 2026):
 - [x] Primary supplier auto-assignment from imported file (May 9, 2026)
 - [x] Order quantity recommendation engine (May 9, 2026)
 - [x] 7-day trend sparklines per disruption category (May 9, 2026)
+- [x] Remove pulse animation from text-bearing severity badges (May 10, 2026)
+- [x] Google News fallback links for broken article URLs (May 10, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
