@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.6 live
+- Status: v3.7 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -97,16 +97,16 @@ trading and financial markets background.
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor().
                                     Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
                                     ProductRisk now includes supplierAssigned boolean.
-  supplierHealth.ts               → Score engine: calculateCompositeScore(), getGrade(), buildHealthScores(),
-                                    loadHealthEntries(), saveHealthEntry(). Storage key: scm_supplier_health
+  supplierHealth.ts               → Pure types + calc: calculateCompositeScore(), getGrade().
+                                    Storage I/O lives in /hooks/useSupplierHealth.ts
   concentrationRisk.ts            → HHI engine: calculateConcentrationRisk(), buildBreakdown().
                                     4 levels: diversified (<1500), moderate (1500-2500), concentrated (2500-5000), critical (>5000)
-  disruptionHistory.ts            → localStorage log: saveEventsToHistory(), loadHistory(), exportHistoryAsCSV(),
-                                    groupEntriesByMonth(). Storage key: scm_disruption_history. 90-day retention, 500 cap, dedup by URL+date
-  performanceAlerts.ts            → Alert storage+logic: loadAlerts(), saveAlerts(), dismissAlert(), getActiveAlerts(),
-                                    checkAndCreateAlerts(). Defaults: 85% OTD, 75% quality. Storage key: scm_performance_alerts
-  leadTimeHistory.ts              → Lead time history: recordLeadTime(), getLeadTimeHistory(), calculateLeadTimeDrift().
-                                    Max 12 entries/supplier. 20% drift = significant. Storage key: scm_lead_time_history
+  disruptionHistory.ts            → Pure types + exportHistoryAsCSV(), groupEntriesByMonth().
+                                    Storage I/O lives in /hooks/useDisruptionHistory.ts. 90-day retention, 500 cap, dedup by URL+date
+  performanceAlerts.ts            → Pure PerformanceAlert type only.
+                                    Storage I/O + threshold logic lives in /hooks/usePerformanceAlerts.ts. Defaults: 85% OTD, 75% quality
+  leadTimeHistory.ts              → Pure types + calculateLeadTimeDrift().
+                                    Storage I/O lives in /hooks/useLeadTimeHistory.ts. Max 12 entries/supplier. 20% drift = significant
   supabase.ts                     → createClient() — browser Supabase client (createBrowserClient, safe fallback during build)
   supabase-server.ts              → createServerSupabaseClient() — server component client (createServerClient + CookieOptions)
   parseImportFile.ts              → Client-side file parser: parseFile() for CSV (papaparse) and Excel (xlsx),
@@ -117,6 +117,17 @@ trading and financial markets background.
                                     Loads from Supabase when logged in, auto-migrates localStorage on first login.
                                     saveProfile() and clearProfile() are now async.
   useAuth.ts                      → useAuth() hook: user, session, isLoading, signOut. Uses onAuthStateChange listener.
+  useSupplierHealth.ts            → Supabase-first + localStorage fallback for guests. useSupplierHealth(suppliers) →
+                                    { scores, entries, saveEntry(), isLoaded }. One-time migration of existing guest
+                                    localStorage data into Supabase on first login (per-hook, guarded, idempotent).
+  useLeadTimeHistory.ts           → Same Supabase-first pattern. recordEntry() returns the updated per-supplier
+                                    array directly (avoids stale-closure reads after await). Caps at 12 entries/supplier.
+  useDisruptionHistory.ts         → Same Supabase-first pattern. saveEvents() diffs against already-loaded entries
+                                    to insert only genuinely new rows. 90-day window, 500-row cap.
+  usePerformanceAlerts.ts         → Same Supabase-first pattern. Internally listens for the "performanceAlertCreated"
+                                    window event to stay in sync across component instances (e.g. SupplierHealthScorecard
+                                    creating an alert → PerformanceAlertBanner picking it up). checkAndCreate() mirrors
+                                    the original threshold-crossing logic; persistAlerts() for one-off alerts.
 
 /middleware.ts                    → Session refresh on every request (getSession). Does NOT block unauthenticated routes.
 
@@ -154,12 +165,16 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 
 ## localStorage keys
 - scm_company_profile — company profile data (CompanyProfile type). Supabase is primary when logged in; localStorage is backup/guest.
-- scm_supplier_health — supplier performance scores (Record<supplierId, SupplierHealthEntry>)
+- scm_supplier_health — supplier performance scores (Record<supplierId, SupplierHealthEntry>). Supabase is primary when logged in;
+  localStorage is guest-only fallback (Phase B, v3.7). One-time migration to Supabase on first login if present.
 - scm_inventory_log — inventory risk alert log
-- scm_disruption_history — 90-day event history (HistoryEntry[], max 500 entries)
+- scm_disruption_history — 90-day event history (HistoryEntry[], max 500 entries). Supabase is primary when logged in;
+  localStorage is guest-only fallback (Phase B, v3.7). One-time migration to Supabase on first login if present.
 - scm_active_tab — last active tab ("overview"|"advisor"|"scenarios"|"analytics"|"history")
-- scm_performance_alerts — OTD and quality threshold alerts (PerformanceAlert[])
-- scm_lead_time_history — lead time history per supplier (LeadTimeHistory record)
+- scm_performance_alerts — OTD and quality threshold alerts (PerformanceAlert[]). Supabase is primary when logged in;
+  localStorage is guest-only fallback (Phase B, v3.7). One-time migration to Supabase on first login if present.
+- scm_lead_time_history — lead time history per supplier (LeadTimeHistory record). Supabase is primary when logged in;
+  localStorage is guest-only fallback (Phase B, v3.7). One-time migration to Supabase on first login if present.
 - scm_last_visit — ISO timestamp of last dashboard visit (for disruption-triggered prompts)
 - scm_prompt_dismissed — once-per-day dismissal key (scm_prompt_dismissed-YYYY-MM-DD)
 
@@ -461,12 +476,52 @@ v3.6 — UI fixes: badge animation + article links (May 10, 2026):
           that constructs a Google News search URL from title + source domain.
         Updated DisruptionFeed.tsx to conditionally render "Read →" or
           "Search →" based on URL validity.
+v3.7 — Supabase Phase B: supplier health, lead time, disruption history,
+        performance alerts migrated to database (Jul 12, 2026):
+        Feature: All 4 remaining localStorage-only datasets are now
+          Supabase-backed for logged-in users, matching the pattern
+          established by useCompanyProfile.ts — Supabase-first, localStorage
+          fallback for guests, async save/load with an isLoaded flag.
+        New files: /hooks/useSupplierHealth.ts, /hooks/useLeadTimeHistory.ts,
+          /hooks/useDisruptionHistory.ts, /hooks/usePerformanceAlerts.ts —
+          each owns all storage I/O for its dataset. The corresponding
+          /lib/*.ts files were trimmed to pure types + calculation functions
+          only (calculateCompositeScore, getGrade, calculateLeadTimeDrift,
+          groupEntriesByMonth, exportHistoryAsCSV) — mirrors the existing
+          lib/profile.ts (types) vs hooks/useCompanyProfile.ts (storage) split.
+        Feature: One-time auto-migration — if a user has existing guest-mode
+          localStorage data for any of these 4 features and Supabase has no
+          rows yet on first login, it's bulk-copied once, then Supabase
+          becomes the source of truth. Guest data is never silently discarded.
+        DB migration: added UNIQUE(user_id, supplier_id) on supplier_health
+          and UNIQUE(user_id, event_id) on disruption_history to support
+          upsert-based dedup (all 4 tables already existed from the v3.1
+          Supabase setup but were never wired into the app).
+        Rewired components: PerformanceAlertBanner, DisruptionHistoryTab,
+          SupplierHealthScorecard (handleSave is now async, added a
+          "Saving…" disabled state), AIAdvisor, DashboardClient (removed
+          duplicate localStorage reads for the History tab badge count).
+        Fix (found during smoke testing): usePerformanceAlerts.ts's guest
+          path eagerly evaluated loadLocalAlerts() at the moment its own
+          "performanceAlertCreated" event listener fired, racing ahead of
+          an in-flight localStorage write queued just before it in the same
+          synchronous burst (e.g. two alerts created back-to-back in one
+          handleSave call) — the second alert would silently overwrite the
+          first in both React state and localStorage. Fixed by making that
+          setState call functional (`setAlerts(() => loadLocalAlerts())`)
+          so the read is deferred to match write ordering.
+        Guest mode confirmed unaffected — verified end-to-end via browser
+          automation (profile setup, health score save with threshold-
+          crossing alerts, dismiss, history auto-save) since account
+          creation/login could not be performed by the agent per policy;
+          the logged-in Supabase path should be spot-checked manually.
 
 ## Known issues / next session notes
-- Supabase tables must be created manually via SQL Editor (DDL in session 3 notes)
 - Supabase env vars must be added to Vercel settings for production auth to work
-- Only profile is Supabase-synced so far — supplier health, lead time history,
-  disruption history, performance alerts still use localStorage only (Phase B)
+- Logged-in Supabase path for supplier health / lead time / disruption
+  history / performance alerts (v3.7) has not been manually verified in
+  production — guest/localStorage path was verified via browser automation,
+  but sign-in flows are outside what the agent can drive. Spot-check after deploy.
 - Next priorities:
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
@@ -517,8 +572,8 @@ v3.6 — UI fixes: badge animation + article links (May 10, 2026):
 - [x] 7-day trend sparklines per disruption category (May 9, 2026)
 - [x] Remove pulse animation from text-bearing severity badges (May 10, 2026)
 - [x] Google News fallback links for broken article URLs (May 10, 2026)
+- [x] Supabase Phase B: migrate supplier health, lead time history,
+      disruption history, performance alerts to database tables (Jul 12, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
-- [ ] Supabase Phase B: migrate supplier health, lead time history,
-      disruption history, performance alerts to database tables
