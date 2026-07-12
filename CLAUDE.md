@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.7 live
+- Status: v3.8 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -30,7 +30,7 @@ trading and financial markets background.
 ## Supabase project
 - Project URL: https://zekhnneilcploogfudsp.supabase.co
 - Tables (all with Row Level Security — users only see their own data):
-  - profiles — company profile (JSONB columns for arrays)
+  - profiles — company profile (JSONB columns for arrays; headquarters_country text column added v3.8)
   - supplier_health — supplier performance entries per user
   - lead_time_history — lead time snapshots per supplier per user
   - disruption_history — 90-day event log per user
@@ -186,6 +186,9 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 - ProductLine.primarySupplierId is optional — if absent, inventoryRisk.ts falls back to highest-share supplier
 - ProductRisk.supplierAssigned boolean indicates whether lead time came from explicit assignment or fallback
 - useAuth() provides user (User | null), session, isLoading, signOut — consumed by useCompanyProfile and Navbar
+- CompanyProfile.headquartersCountry is a required free-text field (v3.8) — same pattern as Supplier.country
+  (plain string, not an enum). Collected in Step 1 of the profile form. Fed into /api/advisor and /api/analyze
+  prompts. Existing profiles saved before v3.8 read back as "" via ?? "" fallbacks in useCompanyProfile.ts.
 
 ## Coding rules
 - TypeScript strict — no implicit any
@@ -515,13 +518,33 @@ v3.7 — Supabase Phase B: supplier health, lead time, disruption history,
           crossing alerts, dismiss, history auto-save) since account
           creation/login could not be performed by the agent per policy;
           the logged-in Supabase path should be spot-checked manually.
+v3.8 — Headquarters country field (Jul 12, 2026):
+        Feature: CompanyProfile gained a required headquartersCountry field
+          (free-text, same pattern as Supplier.country) — suggested by an
+          Inventory Manager as context to sharpen AI insights. Added to
+          Step 1 of the profile setup form (/app/profile/page.tsx), right
+          after Company Name, with its own required-field validation.
+        Feature: Wired into /api/advisor and /api/analyze prompts — the AI
+          advisor and daily summary now know the company's headquarters
+          location. /api/chat, /api/scenario, /api/event-brief, and
+          /api/cost-estimate were intentionally left untouched (out of
+          scope for this change).
+        DB migration: added headquarters_country text column to the
+          profiles table. useCompanyProfile.ts reads/writes it alongside
+          the existing JSONB profile columns; existing rows read back as ""
+          via a nullish-coalescing fallback.
+        Note: primaryMarkets (region-level "where you sell") and HQ
+          location were evaluated together — HQ location was judged low
+          value for scoring (doesn't predict physical disruption exposure)
+          and was added as AI context only, not wired into scoreEvents.ts.
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
 - Logged-in Supabase path for supplier health / lead time / disruption
-  history / performance alerts (v3.7) has not been manually verified in
-  production — guest/localStorage path was verified via browser automation,
-  but sign-in flows are outside what the agent can drive. Spot-check after deploy.
+  history / performance alerts (v3.7) and headquarters_country (v3.8) has
+  not been manually verified in production — guest/localStorage path was
+  verified via browser automation, but sign-in flows are outside what the
+  agent can drive. Spot-check after deploy.
 - Next priorities:
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
@@ -574,6 +597,7 @@ v3.7 — Supabase Phase B: supplier health, lead time, disruption history,
 - [x] Google News fallback links for broken article URLs (May 10, 2026)
 - [x] Supabase Phase B: migrate supplier health, lead time history,
       disruption history, performance alerts to database tables (Jul 12, 2026)
+- [x] Headquarters country field on profile, wired into AI advisor/analyze prompts (Jul 12, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
