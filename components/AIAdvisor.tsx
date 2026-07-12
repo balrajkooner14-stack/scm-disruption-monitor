@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { useSupplierHealth } from "@/hooks/useSupplierHealth"
 import type { ScoredEvent } from "@/lib/scoreEvents"
 import type { AdvisorResponse, Recommendation } from "@/app/api/advisor/route"
 import type { BriefData } from "@/lib/generateBrief"
-import { buildHealthScores } from "@/lib/supplierHealth"
 import CostImpactPanel from "@/components/CostImpactPanel"
 
 interface AIAdvisorProps {
@@ -43,6 +43,9 @@ const PRIORITY_CONFIG: Record<
 
 export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
   const { profile, isLoaded } = useCompanyProfile()
+  const { scores: healthScores, isLoaded: healthLoaded } = useSupplierHealth(
+    profile?.suppliers ?? []
+  )
   const [advisorData, setAdvisorData] = useState<AdvisorResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +58,6 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
     setIsLoading(true)
     setError(null)
     try {
-      const healthScores = buildHealthScores(profile.suppliers)
       const healthSummary = healthScores
         .filter(s => s.hasData)
         .map(
@@ -98,10 +100,10 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
   }
 
   useEffect(() => {
-    if (!profile || !isLoaded || events.length === 0) return
+    if (!profile || !isLoaded || !healthLoaded || events.length === 0) return
     fetchRecommendations()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.updatedAt, events.length, isLoaded])
+  }, [profile?.updatedAt, events.length, isLoaded, healthLoaded])
 
   // No profile state
   if (isLoaded && !profile) {

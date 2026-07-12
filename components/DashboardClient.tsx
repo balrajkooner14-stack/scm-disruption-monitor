@@ -20,10 +20,10 @@ import DailyBriefButton from "@/components/DailyBriefButton"
 import InventoryRiskPanel from "@/components/InventoryRiskPanel"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { useDisruptionHistory } from "@/hooks/useDisruptionHistory"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 import { calculateInventoryRisk, getDaysSinceDate, calculateOrderRecommendation } from "@/lib/inventoryRisk"
 import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
-import { saveEventsToHistory, loadHistory } from "@/lib/disruptionHistory"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
@@ -48,6 +48,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [kpiFilter, setKpiFilter] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
   const { profile, isLoaded } = useCompanyProfile()
+  const { entries: historyEntries, saveEvents: saveEventsToHistory } = useDisruptionHistory()
 
   function handleAiStatusChange(status: "live" | "cached" | "error") {
     if (typeof window !== "undefined") {
@@ -59,9 +60,20 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [aiSummaryPoints, setAiSummaryPoints] = useState<string[]>([])
   const [advisorRecs, setAdvisorRecs] = useState<BriefData["recommendations"]>([])
   const [commodityData, setCommodityData] = useState<BriefData["commodityPrices"]>([])
-  const [historyCount, setHistoryCount] = useState(0)
-  const [historyForBrief, setHistoryForBrief] = useState<NonNullable<BriefData["historyEntries"]>>([])
   const [inventoryRecs, setInventoryRecs] = useState<NonNullable<BriefData["inventoryRecommendations"]>>([])
+
+  const historyCount = historyEntries.length
+  const historyForBrief = useMemo(
+    () =>
+      historyEntries.slice(0, 10).map(e => ({
+        date: e.date,
+        title: e.title,
+        severityLabel: e.severityLabel,
+        category: e.category,
+        isProfileMatch: e.isProfileMatch,
+      })),
+    [historyEntries]
+  )
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === "undefined") return "overview"
@@ -101,33 +113,6 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         )
       })
       .catch(() => {}) // silently — PDF just omits commodity section
-  }, [])
-
-  // Load history count on mount for tab badge
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("scm_disruption_history")
-      if (raw) {
-        const entries = JSON.parse(raw)
-        setHistoryCount(Array.isArray(entries) ? entries.length : 0)
-      }
-    } catch {}
-  }, [])
-
-  // Load recent history for PDF brief
-  useEffect(() => {
-    try {
-      const entries = loadHistory()
-        .slice(0, 10)
-        .map(e => ({
-          date: e.date,
-          title: e.title,
-          severityLabel: e.severityLabel,
-          category: e.category,
-          isProfileMatch: e.isProfileMatch,
-        }))
-      setHistoryForBrief(entries)
-    } catch {}
   }, [])
 
   const scoredEvents = useMemo((): ScoredEvent[] => {
@@ -205,15 +190,6 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     if (scoredEvents.length === 0) return
     const timer = setTimeout(() => {
       saveEventsToHistory(scoredEvents)
-      try {
-        const raw = localStorage.getItem("scm_disruption_history")
-        if (raw) {
-          const entries = JSON.parse(raw)
-          setHistoryCount(Array.isArray(entries) ? entries.length : 0)
-        }
-      } catch {
-        // Silently fail
-      }
     }, 2000)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,26 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import {
-  getActiveAlerts,
-  dismissAlert,
-  PerformanceAlert,
-} from "@/lib/performanceAlerts"
+import { usePerformanceAlerts } from "@/hooks/usePerformanceAlerts"
 
 export default function PerformanceAlertBanner() {
-  const [alerts, setAlerts] = useState<PerformanceAlert[]>([])
-
-  const loadAlerts = () => {
-    setAlerts(getActiveAlerts())
-  }
-
-  useEffect(() => {
-    loadAlerts()
-    window.addEventListener("performanceAlertCreated", loadAlerts)
-    return () => {
-      window.removeEventListener("performanceAlertCreated", loadAlerts)
-    }
-  }, [])
+  const { activeAlerts: alerts, dismiss } = usePerformanceAlerts()
 
   if (alerts.length === 0) return null
 
@@ -54,10 +37,7 @@ export default function PerformanceAlertBanner() {
           </div>
 
           <button
-            onClick={() => {
-              dismissAlert(alert.id)
-              loadAlerts()
-            }}
+            onClick={() => dismiss(alert.id)}
             className="flex-shrink-0 text-amber-600 hover:text-amber-400 text-lg leading-none transition-colors px-1"
             title="Dismiss this alert"
           >

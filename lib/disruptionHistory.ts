@@ -1,5 +1,3 @@
-import { ScoredEvent } from "@/lib/scoreEvents"
-
 export interface HistoryEntry {
   id: string
   title: string
@@ -14,74 +12,6 @@ export interface HistoryEntry {
   relevanceReason: string
   savedAt: string
   date: string
-}
-
-const STORAGE_KEY = "scm_disruption_history"
-const MAX_ENTRIES = 500
-const RETENTION_DAYS = 90
-
-export function loadHistory(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const entries: HistoryEntry[] = JSON.parse(raw)
-    const cutoff = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000
-    return entries
-      .filter(e => new Date(e.savedAt).getTime() > cutoff)
-      .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
-  } catch {
-    return []
-  }
-}
-
-export function saveEventsToHistory(events: ScoredEvent[]): void {
-  try {
-    const existing = loadHistory()
-    const existingIds = new Set(existing.map(e => e.id))
-
-    const toSave = events.filter(e => e.severity >= 2 || e.isProfileMatch)
-
-    const now = new Date()
-    const dateStr = now.toISOString().split("T")[0]
-    const savedAtStr = now.toISOString()
-
-    const newEntries: HistoryEntry[] = []
-
-    toSave.forEach(event => {
-      const id = `${btoa(event.url).slice(0, 16)}-${dateStr}`
-      if (existingIds.has(id)) return
-
-      newEntries.push({
-        id,
-        title: event.title,
-        category: event.category,
-        region: event.region,
-        severity: event.severity,
-        severityLabel:
-          event.severity === 3 ? "CRITICAL" : event.severity === 2 ? "WARNING" : "MONITOR",
-        sourceDomain: event.sourceDomain ?? "",
-        eventUrl: event.url,
-        isProfileMatch: event.isProfileMatch,
-        relevanceScore: event.relevanceScore,
-        relevanceReason: event.relevanceReason ?? "",
-        savedAt: savedAtStr,
-        date: dateStr,
-      })
-    })
-
-    if (newEntries.length === 0) return
-
-    const merged = [...newEntries, ...existing].slice(0, MAX_ENTRIES)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
-  } catch {
-    // Silently fail — logging is non-critical
-  }
-}
-
-export function clearHistory(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch {}
 }
 
 export function exportHistoryAsCSV(entries: HistoryEntry[]): void {

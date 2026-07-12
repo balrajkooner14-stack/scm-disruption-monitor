@@ -1,5 +1,3 @@
-import { Supplier } from "@/lib/profile"
-
 export interface SupplierHealthEntry {
   supplierId: string
   supplierName: string
@@ -25,8 +23,6 @@ export interface SupplierHealthScore {
   updatedAt: string
   hasData: boolean              // false if no entry logged yet
 }
-
-const STORAGE_KEY = "scm_supplier_health"
 
 // Weighted: on-time delivery 50%, quality 35%, delay penalty 15%
 export function calculateCompositeScore(entry: SupplierHealthEntry): number {
@@ -80,66 +76,4 @@ export function getGrade(score: number): {
     gradeBg: "bg-red-950",
     gradeBorder: "border-red-700",
   }
-}
-
-export function loadHealthEntries(): Record<string, SupplierHealthEntry> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
-    return JSON.parse(raw)
-  } catch {
-    return {}
-  }
-}
-
-export function saveHealthEntry(entry: SupplierHealthEntry): void {
-  try {
-    const all = loadHealthEntries()
-    all[entry.supplierId] = entry
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
-  } catch {
-    // Silently fail
-  }
-}
-
-export function buildHealthScores(suppliers: Supplier[]): SupplierHealthScore[] {
-  const entries = loadHealthEntries()
-
-  return suppliers.map(supplier => {
-    const entry = entries[supplier.id]
-
-    if (!entry) {
-      return {
-        supplierId: supplier.id,
-        supplierName: supplier.name,
-        compositeScore: 0,
-        grade: "Fair" as const,
-        gradeColor: "text-slate-400",
-        gradeBg: "bg-slate-800",
-        gradeBorder: "border-slate-700",
-        onTimeDeliveryRate: 0,
-        qualityScore: 0,
-        lastShipmentDelayDays: 0,
-        notes: "",
-        updatedAt: "",
-        hasData: false,
-      }
-    }
-
-    const compositeScore = calculateCompositeScore(entry)
-    const gradeInfo = getGrade(compositeScore)
-
-    return {
-      supplierId: supplier.id,
-      supplierName: supplier.name,
-      compositeScore,
-      ...gradeInfo,
-      onTimeDeliveryRate: entry.onTimeDeliveryRate,
-      qualityScore: entry.qualityScore,
-      lastShipmentDelayDays: entry.lastShipmentDelayDays,
-      notes: entry.notes,
-      updatedAt: entry.updatedAt,
-      hasData: true,
-    }
-  })
 }

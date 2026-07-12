@@ -1,13 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import {
-  loadHistory,
-  exportHistoryAsCSV,
-  clearHistory,
-  groupEntriesByMonth,
-  HistoryEntry,
-} from "@/lib/disruptionHistory"
+import { useState } from "react"
+import { exportHistoryAsCSV, groupEntriesByMonth } from "@/lib/disruptionHistory"
+import { useDisruptionHistory } from "@/hooks/useDisruptionHistory"
+import { useAuth } from "@/hooks/useAuth"
 
 const SEVERITY_CONFIG = {
   CRITICAL: { badge: "bg-red-600 text-white", dot: "bg-red-500" },
@@ -16,16 +12,11 @@ const SEVERITY_CONFIG = {
 }
 
 export default function DisruptionHistoryTab() {
-  const [entries, setEntries] = useState<HistoryEntry[]>([])
-  const [isLoaded, setIsLoaded] = useState(false)
+  const { entries, isLoaded, clear } = useDisruptionHistory()
+  const { user } = useAuth()
   const [filter, setFilter] = useState<"all" | "profile" | "critical">("all")
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
-
-  useEffect(() => {
-    setEntries(loadHistory())
-    setIsLoaded(true)
-  }, [])
 
   const filtered = entries.filter(e => {
     if (filter === "profile") return e.isProfileMatch
@@ -38,8 +29,7 @@ export default function DisruptionHistoryTab() {
   const handleExport = () => exportHistoryAsCSV(filtered)
 
   const handleClear = () => {
-    clearHistory()
-    setEntries([])
+    clear()
     setShowClearConfirm(false)
   }
 
@@ -278,8 +268,8 @@ export default function DisruptionHistoryTab() {
       {/* Footer info */}
       {entries.length > 0 && (
         <p className="text-xs text-slate-700 text-center pb-2">
-          History stored locally in your browser · 90-day rolling window · Max
-          500 entries · Export CSV to preserve long-term records
+          {user ? "History synced to your account" : "History stored locally in your browser"}
+          {" "}· 90-day rolling window · Max 500 entries · Export CSV to preserve long-term records
         </p>
       )}
     </div>

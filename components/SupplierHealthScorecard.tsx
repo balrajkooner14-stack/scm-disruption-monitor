@@ -1,25 +1,14 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
-import {
-  buildHealthScores,
-  saveHealthEntry,
-  loadHealthEntries,
-  SupplierHealthScore,
-  SupplierHealthEntry,
-} from "@/lib/supplierHealth"
-import {
-  checkAndCreateAlerts,
-  loadAlerts,
-  saveAlerts,
-  PerformanceAlert,
-} from "@/lib/performanceAlerts"
-import {
-  recordLeadTime,
-  getLeadTimeHistory,
-  calculateLeadTimeDrift,
-} from "@/lib/leadTimeHistory"
+import { useAuth } from "@/hooks/useAuth"
+import { useSupplierHealth } from "@/hooks/useSupplierHealth"
+import { useLeadTimeHistory } from "@/hooks/useLeadTimeHistory"
+import { usePerformanceAlerts } from "@/hooks/usePerformanceAlerts"
+import { SupplierHealthEntry, SupplierHealthScore } from "@/lib/supplierHealth"
+import { PerformanceAlert } from "@/lib/performanceAlerts"
+import { calculateLeadTimeDrift } from "@/lib/leadTimeHistory"
 import type { ScoredEvent } from "@/lib/scoreEvents"
 
 interface SupplierHealthScorecardProps {
@@ -30,7 +19,24 @@ export default function SupplierHealthScorecard({
   events,
 }: SupplierHealthScorecardProps) {
   const { profile, isLoaded } = useCompanyProfile()
-  const [scores, setScores] = useState<SupplierHealthScore[]>([])
+  const { user } = useAuth()
+  const {
+    scores,
+    entries: healthEntries,
+    saveEntry,
+    isLoaded: healthLoaded,
+  } = useSupplierHealth(profile?.suppliers ?? [])
+  const {
+    history: leadTimeHistory,
+    recordEntry: recordLeadTime,
+    isLoaded: leadTimeLoaded,
+  } = useLeadTimeHistory()
+  const {
+    alerts: perfAlerts,
+    checkAndCreate,
+    persistAlerts,
+    isLoaded: alertsLoaded,
+  } = usePerformanceAlerts()
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null)
   const [formValues, setFormValues] = useState({
     onTimeDeliveryRate: 90,
@@ -39,15 +45,7 @@ export default function SupplierHealthScorecard({
     notes: "",
   })
   const [savedId, setSavedId] = useState<string | null>(null)
-
-  const refreshScores = useCallback(() => {
-    if (!profile) return
-    setScores(buildHealthScores(profile.suppliers))
-  }, [profile])
-
-  useEffect(() => {
-    refreshScores()
-  }, [refreshScores])
+  const [isSaving, setIsSaving] = useState(false)
 
   const disruptedRegions = new Set(
     events.filter(e => e.severity >= 2).map(e => e.region)
@@ -55,6 +53,7 @@ export default function SupplierHealthScorecard({
 
   if (!isLoaded || !profile) return null
   if (profile.suppliers.length === 0) return null
+  if (!healthLoaded || !leadTimeLoaded || !alertsLoaded) return null
 
   const openEdit = (score: SupplierHealthScore) => {
     setEditingSupplierId(score.supplierId)
@@ -66,12 +65,12 @@ export default function SupplierHealthScorecard({
     })
   }
 
-  const handleSave = (supplierId: string, supplierName: string) => {
+  const handleSave = async (supplierId: string, supplierName: string) => {
     if (!profile) return
+    setIsSaving(true)
 
-    // Load previous data before saving so we can detect threshold crossings
-    const previousEntries = loadHealthEntries()
-    const previousEntry = previousEntries[supplierId]
+    // Previous entry (before overwrite) so we can detect threshold crossings
+    const previousEntry = healthEntries[supplierId]
 
     const entry: SupplierHealthEntry = {
       supplierId,
@@ -82,12 +81,12 @@ export default function SupplierHealthScorecard({
       notes: formValues.notes,
       updatedAt: new Date().toISOString(),
     }
-    saveHealthEntry(entry)
+    await saveEntry(entry)
 
     const supplier = profile.suppliers.find(s => s.id === supplierId)
 
     // Check OTD and quality thresholds — creates alerts if crossed
-    checkAndCreateAlerts(
+    await checkAndCreate(
       supplierId,
       supplierName,
       supplier?.country ?? "",
@@ -99,16 +98,13 @@ export default function SupplierHealthScorecard({
 
     // Record lead time snapshot and check for significant drift
     if (supplier) {
-      recordLeadTime(supplierId, supplierName, supplier.leadTimeDays)
-
-      const history = getLeadTimeHistory(supplierId)
+      const history = await recordLeadTime(supplierId, supplierName, supplier.leadTimeDays)
       const drift = calculateLeadTimeDrift(history)
       const today = new Date().toISOString().split("T")[0]
 
       if (drift.isSignificant && drift.trend === "increasing") {
-        const currentAlerts = loadAlerts()
         const alertId = `${supplierId}-leadtime-${today}`
-        if (!currentAlerts.find(a => a.id === alertId)) {
+        if (!perfAlerts.find(a => a.id === alertId)) {
           const newAlert: PerformanceAlert = {
             id: alertId,
             supplierId,
@@ -123,21 +119,19 @@ export default function SupplierHealthScorecard({
             createdAt: new Date().toISOString(),
             dismissed: false,
           }
-          saveAlerts([newAlert, ...currentAlerts])
-          window.dispatchEvent(new Event("performanceAlertCreated"))
+          await persistAlerts([newAlert])
         }
       }
 
       // Check if lead time now exceeds inventory on hand for assigned products
-      profile.productLines.forEach(product => {
+      for (const product of profile.productLines) {
         if (
           product.primarySupplierId === supplierId &&
           drift.currentDays !== null &&
           product.inventoryDaysOnHand <= drift.currentDays
         ) {
           const alertId = `${supplierId}-leadtime-inventory-${today}`
-          const freshAlerts = loadAlerts()
-          if (!freshAlerts.find(a => a.id === alertId)) {
+          if (!perfAlerts.find(a => a.id === alertId)) {
             const criticalAlert: PerformanceAlert = {
               id: alertId,
               supplierId,
@@ -152,15 +146,13 @@ export default function SupplierHealthScorecard({
               createdAt: new Date().toISOString(),
               dismissed: false,
             }
-            saveAlerts([criticalAlert, ...freshAlerts])
-            window.dispatchEvent(new Event("performanceAlertCreated"))
+            await persistAlerts([criticalAlert])
           }
         }
-      })
+      }
     }
 
-    refreshScores()
-    window.dispatchEvent(new Event("performanceAlertCreated"))
+    setIsSaving(false)
     setEditingSupplierId(null)
     setSavedId(supplierId)
     setTimeout(() => setSavedId(null), 2000)
@@ -373,7 +365,7 @@ export default function SupplierHealthScorecard({
                       </p>
                     </div>
                     {(() => {
-                      const history = getLeadTimeHistory(score.supplierId)
+                      const history = leadTimeHistory[score.supplierId] ?? []
                       const drift = calculateLeadTimeDrift(history)
                       return (
                         <div className="px-4 py-2 text-center">
@@ -526,9 +518,10 @@ export default function SupplierHealthScorecard({
                         onClick={() =>
                           handleSave(score.supplierId, score.supplierName)
                         }
-                        className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                        disabled={isSaving}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                       >
-                        Save Performance Data
+                        {isSaving ? "Saving…" : "Save Performance Data"}
                       </button>
                     </div>
                   </div>
@@ -539,8 +532,8 @@ export default function SupplierHealthScorecard({
       </div>
 
       <p className="text-xs text-slate-600 mt-3">
-        Performance data stored locally in your browser · Scores weighted:
-        on-time delivery 50% · quality 35% · delay penalty 15%
+        {user ? "Performance data synced to your account" : "Performance data stored locally in your browser"}
+        {" "}· Scores weighted: on-time delivery 50% · quality 35% · delay penalty 15%
       </p>
     </div>
   )
