@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
 
 COMPANY PROFILE:
 Company: ${profile.companyName}
+Headquartered in: ${profile.headquartersCountry || "Unknown"}
 Sector: ${profile.sector}
 Revenue: ${profile.revenueRange}
 Primary Markets: ${profile.primaryMarkets.join(", ")}

@@ -21,6 +21,7 @@ export function useCompanyProfile() {
           .upsert({
             id: user.id,
             company_name: updated.companyName,
+            headquarters_country: updated.headquartersCountry,
             sector: updated.sector,
             revenue_range: updated.revenueRange,
             primary_markets: updated.primaryMarkets,
@@ -63,6 +64,7 @@ export function useCompanyProfile() {
         if (data && !error) {
           const loaded: CompanyProfile = {
             companyName: data.company_name ?? "",
+            headquartersCountry: data.headquarters_country ?? "",
             sector: data.sector ?? "Other",
             revenueRange: data.revenue_range ?? "$0–$10M",
             primaryMarkets: data.primary_markets ?? [],

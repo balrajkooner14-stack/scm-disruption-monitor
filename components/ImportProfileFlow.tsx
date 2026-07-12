@@ -122,6 +122,7 @@ export default function ImportProfileFlow({
       const updatedProfile: CompanyProfile = {
         ...(profile ?? {
           companyName: importResult.companyName ?? "",
+          headquartersCountry: "",
           sector: "Other" as const,
           revenueRange: "$0–$10M" as const,
           primaryMarkets: [],

@@ -62,6 +62,7 @@ export interface ProductLine {
 
 export interface CompanyProfile {
   companyName: string
+  headquartersCountry: string
   sector: IndustrySector
   revenueRange: "$0–$10M" | "$10M–$100M" | "$100M–$1B" | "$1B+"
   primaryMarkets: SupplyRegion[]

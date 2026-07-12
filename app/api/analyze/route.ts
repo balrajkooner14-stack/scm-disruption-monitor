@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     if (profile) {
       const supplierRegions = Array.from(new Set(profile.suppliers.map(s => s.country))).join(", ")
-      prompt = `You are a supply chain risk analyst generating a personalized daily brief for ${profile.companyName}, a ${profile.sector} company.
+      prompt = `You are a supply chain risk analyst generating a personalized daily brief for ${profile.companyName}, a ${profile.sector} company headquartered in ${profile.headquartersCountry || "an unspecified location"}.
 
 Their supplier network spans: ${supplierRegions}
 Their key concerns: ${profile.painPoints.join(", ")}

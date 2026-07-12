@@ -89,6 +89,7 @@ export default function ProfilePage() {
 
   // Step 1
   const [companyName, setCompanyName] = useState("")
+  const [headquartersCountry, setHeadquartersCountry] = useState("")
   const [sector, setSector] = useState<IndustrySector>("Automotive")
   const [revenueRange, setRevenueRange] = useState<CompanyProfile["revenueRange"]>("$0–$10M")
   const [primaryMarkets, setPrimaryMarkets] = useState<SupplyRegion[]>([])
@@ -110,6 +111,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (isLoaded && profile) {
       setCompanyName(profile.companyName)
+      setHeadquartersCountry(profile.headquartersCountry ?? "")
       setSector(profile.sector)
       setRevenueRange(profile.revenueRange)
       setPrimaryMarkets(profile.primaryMarkets)
@@ -124,6 +126,7 @@ export default function ProfilePage() {
   function validateStep(): string {
     if (step === 1) {
       if (!companyName.trim()) return "Company name is required."
+      if (!headquartersCountry.trim()) return "Headquarters country is required."
       if (primaryMarkets.length === 0) return "Select at least one primary market."
     }
     if (step === 2) {
@@ -168,6 +171,7 @@ export default function ProfilePage() {
     const now = new Date().toISOString()
     const newProfile: CompanyProfile = {
       companyName: companyName.trim(),
+      headquartersCountry: headquartersCountry.trim(),
       sector,
       revenueRange,
       primaryMarkets,
@@ -313,6 +317,20 @@ export default function ProfilePage() {
                   placeholder="e.g. Acme Corp"
                   className={inputCls}
                 />
+              </div>
+
+              <div>
+                <label className={labelCls}>Headquarters Country *</label>
+                <input
+                  type="text"
+                  value={headquartersCountry}
+                  onChange={(e) => setHeadquartersCountry(e.target.value)}
+                  placeholder="e.g. United States"
+                  className={inputCls}
+                />
+                <p className="text-xs text-slate-600 mt-1">
+                  Used to give the AI advisor context on your company&apos;s home base.
+                </p>
               </div>
 
               <div>
