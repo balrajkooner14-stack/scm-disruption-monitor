@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { parseFile, prepareForAI } from "@/lib/parseImportFile"
+import { computeDaysOnHand, distributeShareEvenly } from "@/lib/importCalculations"
 import type { ImportResult, ImportedSupplier, ImportedProductLine } from "@/app/api/import-profile/route"
 import type { CompanyProfile, Supplier, ProductLine } from "@/lib/profile"
 
@@ -51,9 +52,38 @@ export default function ImportProfileFlow({
       if (!res.ok) throw new Error("Failed to interpret file")
       const result: ImportResult = await res.json()
 
+      // Deterministic post-processing — Gemini extracts raw numbers and
+      // structure only; the arithmetic happens here, not in the prompt.
+      const allShareMissing =
+        result.suppliers.length > 0 &&
+        result.suppliers.every(s => !s.sharePercent || s.sharePercent === 0)
+      const evenShare = allShareMissing ? distributeShareEvenly(result.suppliers.length) : 0
+      const suppliersWithShares = allShareMissing
+        ? result.suppliers.map(s => ({ ...s, sharePercent: evenShare }))
+        : result.suppliers
+
+      const productsWithComputedDays = result.productLines.map(p => {
+        if ((!p.inventoryDaysOnHand || p.inventoryDaysOnHand === 0) &&
+            p.onHandValue && p.usageValue && p.usageWindowDays) {
+          // Gemini's JSON output isn't guaranteed to type these as numbers
+          // (observed as strings for CSV-sourced data) — coerce explicitly.
+          const onHand = Number(p.onHandValue)
+          const usage = Number(p.usageValue)
+          const windowDays = Number(p.usageWindowDays)
+          const computed = computeDaysOnHand(onHand, usage, windowDays)
+          const sourceNote = `Computed from $${onHand.toLocaleString()} on hand ÷ $${usage.toLocaleString()} usage over ${windowDays}d`
+          return {
+            ...p,
+            inventoryDaysOnHand: computed,
+            notes: p.notes ? `${p.notes} · ${sourceNote}` : sourceNote,
+          }
+        }
+        return p
+      })
+
       setImportResult(result)
-      setEditedSuppliers(result.suppliers)
-      setEditedProducts(result.productLines)
+      setEditedSuppliers(suppliersWithShares)
+      setEditedProducts(productsWithComputedDays)
       setStep("review")
 
     } catch (err: unknown) {
@@ -437,9 +467,32 @@ export default function ImportProfileFlow({
                       })()}
                     </div>
                   )}
+                  {product.notes && (
+                    <p className="text-xs text-amber-500 italic mt-1">⚠ {product.notes}</p>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {importResult.unmappedData.length > 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Data found but not imported
+            </p>
+            {importResult.unmappedData.map((entry, i) => (
+              <div key={i} className="text-xs border-l-2 border-slate-600 pl-2">
+                <p className="text-slate-300">
+                  <span className="font-medium">{entry.sheetOrSection}</span> — organized by{" "}
+                  <span className="text-slate-200">{entry.detectedDimension}</span>
+                  {entry.detectedMetrics.length > 0 && (
+                    <> · columns: {entry.detectedMetrics.join(", ")}</>
+                  )}
+                </p>
+                <p className="text-slate-500 mt-0.5">{entry.reason}</p>
+              </div>
+            ))}
           </div>
         )}
 
@@ -457,11 +510,20 @@ export default function ImportProfileFlow({
           </div>
         )}
 
-        {editedSuppliers.length === 0 && editedProducts.length === 0 && (
+        {editedSuppliers.length === 0 && editedProducts.length === 0 && importResult.unmappedData.length === 0 && (
           <div className="bg-red-950 border border-red-700 rounded-lg p-4 text-center">
             <p className="text-red-400 text-sm font-medium mb-1">Could not extract supply chain data</p>
             <p className="text-red-500 text-xs">
               The file doesn&apos;t appear to contain supplier or inventory data in a recognizable format. Try a different file or enter data manually.
+            </p>
+          </div>
+        )}
+
+        {editedSuppliers.length === 0 && editedProducts.length === 0 && importResult.unmappedData.length > 0 && (
+          <div className="bg-amber-950/50 border border-amber-800 rounded-lg p-4 text-center">
+            <p className="text-amber-400 text-sm font-medium mb-1">Nothing to import from this file</p>
+            <p className="text-amber-500 text-xs">
+              This file doesn&apos;t contain supplier or product data — see what was found above. Try a different file or enter data manually.
             </p>
           </div>
         )}
