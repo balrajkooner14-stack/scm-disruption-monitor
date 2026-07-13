@@ -10,9 +10,11 @@ import ProfilePromptModal from "@/components/ProfilePromptModal"
 import AIAdvisor from "@/components/AIAdvisor"
 import SupplierHealthScorecard from "@/components/SupplierHealthScorecard"
 import ConcentrationRiskCard from "@/components/ConcentrationRiskCard"
+import SanctionsScreeningCard from "@/components/SanctionsScreeningCard"
 import DisruptionHistoryTab from "@/components/DisruptionHistoryTab"
 import PerformanceAlertBanner from "@/components/PerformanceAlertBanner"
 import DisruptionUpdatePrompt from "@/components/DisruptionUpdatePrompt"
+import LaborCalendarCard from "@/components/LaborCalendarCard"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -304,6 +306,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
             <DisruptionUpdatePrompt events={scoredEvents} />
             <PerformanceAlertBanner />
             <InventoryRiskPanel events={scoredEvents} />
+            <LaborCalendarCard />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <WorldMap
                 events={scoredEvents}
@@ -327,6 +330,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
               onRecsLoaded={setAdvisorRecs}
             />
             <ConcentrationRiskCard />
+            <SanctionsScreeningCard />
             <SupplierHealthScorecard events={scoredEvents} />
           </div>
         )}

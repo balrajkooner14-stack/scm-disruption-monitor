@@ -4,15 +4,18 @@ import type { FreightRate } from "@/app/api/market-data/route"
 
 interface FreightRateCardProps {
   rates: FreightRate[]
-  lastUpdated: string
 }
 
-export default function FreightRateCard({ rates, lastUpdated }: FreightRateCardProps) {
+export default function FreightRateCard({ rates }: FreightRateCardProps) {
   const fmt = new Intl.NumberFormat("en-US")
-  const date = new Date(lastUpdated).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  })
+  const verifiedDate = rates[0]?.lastVerified
+    ? new Date(rates[0].lastVerified).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+    : "unknown"
 
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
@@ -23,7 +26,7 @@ export default function FreightRateCard({ rates, lastUpdated }: FreightRateCardP
             Container Freight Rates
           </h2>
         </div>
-        <span className="text-xs text-slate-600">As of {date}</span>
+        <span className="text-xs text-amber-500">Reference · not live</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -58,7 +61,9 @@ export default function FreightRateCard({ rates, lastUpdated }: FreightRateCardP
       </div>
 
       <p className="text-xs text-slate-600 mt-3">
-        Static index benchmarks · Rising rates (▲) signal congestion or capacity crunch
+        Manually verified reference rates as of {verifiedDate} — not a live feed
+        (no free live ocean freight index exists). Rising rates (▲) signal
+        congestion or capacity crunch as of that check.
       </p>
     </div>
   )

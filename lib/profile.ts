@@ -42,6 +42,13 @@ export type TradeLane =
   | "Middle East to Europe"
   | "Other"
 
+export interface Tier2Supplier {
+  id: string
+  name: string
+  country: string
+  region: SupplyRegion
+}
+
 export interface Supplier {
   id: string           // uuid - generate with crypto.randomUUID()
   name: string
@@ -50,6 +57,7 @@ export interface Supplier {
   category: string     // what they supply e.g. "Semiconductors", "Raw steel"
   sharePercent: number // 0-100, what % of supply this supplier represents
   leadTimeDays: number // days from order to receipt
+  tier2Suppliers?: Tier2Supplier[] // this supplier's own suppliers — manual entry, visibility only
 }
 
 export interface ProductLine {
@@ -58,6 +66,8 @@ export interface ProductLine {
   inventoryDaysOnHand: number
   reorderPointDays: number  // trigger reorder when inventory hits this
   primarySupplierId?: string
+  backupSupplierId?: string // designated alternate if primary is disrupted
+  hsCode?: string           // Harmonized System code — enables real duty-rate lookup
 }
 
 export interface CompanyProfile {

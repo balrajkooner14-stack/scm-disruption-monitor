@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-const CACHE_VERSION = "v3"
+const CACHE_VERSION = "v4"
 
 // Yahoo Finance futures symbols — no API key required
 // scale converts Yahoo's native unit to the display unit
@@ -9,6 +9,21 @@ const COMMODITIES = [
   { id: "NG=F", name: "Natural Gas", unit: "$/mmbtu", scale: 1        }, // USD/mmbtu
   { id: "HG=F", name: "Copper",      unit: "$/mt",    scale: 2204.62  }, // USD/lb → USD/mt
   { id: "ZW=F", name: "Wheat",       unit: "$/mt",    scale: 0.367437 }, // USc/bu → USD/mt (÷100 × 36.74 bu/mt)
+]
+
+// Yahoo Finance FX tickers ("{CODE}=X") — units of foreign currency per $1.
+// Curated to the most common sourcing-country currencies rather than every
+// possible country, to keep the request count reasonable against Yahoo's
+// unauthenticated endpoint.
+const CURRENCIES = [
+  { id: "CNY=X", name: "Chinese Yuan",   unit: "¥/$1" },
+  { id: "VND=X", name: "Vietnamese Dong", unit: "₫/$1" },
+  { id: "KRW=X", name: "South Korean Won", unit: "₩/$1" },
+  { id: "TWD=X", name: "Taiwan Dollar",  unit: "NT$/$1" },
+  { id: "INR=X", name: "Indian Rupee",   unit: "₹/$1" },
+  { id: "MXN=X", name: "Mexican Peso",   unit: "MX$/$1" },
+  { id: "EUR=X", name: "Euro",           unit: "€/$1" },
+  { id: "GBP=X", name: "British Pound",  unit: "£/$1" },
 ]
 
 export interface DataPoint { date: string; value: number }
@@ -27,10 +42,21 @@ export interface FreightRate {
   unit: string
   change: number
   trend: "up" | "down" | "flat"
+  // Date a human last checked/updated this reference number — NOT a live
+  // feed. Distinct from MarketData.lastUpdated (today's fetch timestamp),
+  // which would misleadingly imply these numbers refresh daily.
+  lastVerified: string
 }
+
+// No free live ocean freight index exists (Freightos Baltic Index requires
+// a paid account for real API access, confirmed via research) — these are
+// manually verified reference points, not live data. FREIGHT_LAST_VERIFIED
+// must be updated by hand whenever the numbers below are actually re-checked.
+const FREIGHT_LAST_VERIFIED = "2026-05-01"
 
 export interface MarketData {
   commodities: CommodityResult[]
+  currencies: CommodityResult[]
   freight: FreightRate[]
   lastUpdated: string
 }
@@ -88,7 +114,8 @@ async function fetchCommodity(
   return { id, name, unit, data, change }
 }
 
-// Static freight benchmarks — refreshed manually each phase
+// Static freight benchmarks — manually verified reference points, not a
+// live feed (see FREIGHT_LAST_VERIFIED above for why).
 const FREIGHT_RATES: FreightRate[] = [
   {
     lane: "Asia-Pacific to US West Coast",
@@ -96,6 +123,7 @@ const FREIGHT_RATES: FreightRate[] = [
     unit: "$/40ft",
     change: -4.2,
     trend: "down",
+    lastVerified: FREIGHT_LAST_VERIFIED,
   },
   {
     lane: "Asia-Pacific to Europe",
@@ -103,6 +131,7 @@ const FREIGHT_RATES: FreightRate[] = [
     unit: "$/40ft",
     change: 1.8,
     trend: "up",
+    lastVerified: FREIGHT_LAST_VERIFIED,
   },
   {
     lane: "Europe to US",
@@ -110,6 +139,7 @@ const FREIGHT_RATES: FreightRate[] = [
     unit: "$/40ft",
     change: -1.1,
     trend: "down",
+    lastVerified: FREIGHT_LAST_VERIFIED,
   },
   {
     lane: "Middle East to Europe",
@@ -117,6 +147,7 @@ const FREIGHT_RATES: FreightRate[] = [
     unit: "$/40ft",
     change: 6.3,
     trend: "up",
+    lastVerified: FREIGHT_LAST_VERIFIED,
   },
 ]
 
@@ -130,14 +161,27 @@ export async function GET() {
     return NextResponse.json(cache.data)
   }
 
-  const results = await Promise.allSettled(
-    COMMODITIES.map((c) => fetchCommodity(c.id, c.name, c.unit, c.scale)),
-  )
+  const [commodityResults, currencyResults] = await Promise.all([
+    Promise.allSettled(
+      COMMODITIES.map((c) => fetchCommodity(c.id, c.name, c.unit, c.scale)),
+    ),
+    Promise.allSettled(
+      CURRENCIES.map((c) => fetchCommodity(c.id, c.name, c.unit, 1)),
+    ),
+  ])
 
-  const commodities: CommodityResult[] = results
+  const commodities: CommodityResult[] = commodityResults
     .map((r, i) => {
       if (r.status === "fulfilled") return r.value
       console.error(`Failed to fetch commodity ${COMMODITIES[i].id}:`, r.reason)
+      return null
+    })
+    .filter((c): c is CommodityResult => c !== null)
+
+  const currencies: CommodityResult[] = currencyResults
+    .map((r, i) => {
+      if (r.status === "fulfilled") return r.value
+      console.error(`Failed to fetch currency ${CURRENCIES[i].id}:`, r.reason)
       return null
     })
     .filter((c): c is CommodityResult => c !== null)
@@ -152,6 +196,7 @@ export async function GET() {
 
   const data: MarketData = {
     commodities,
+    currencies,
     freight: FREIGHT_RATES,
     lastUpdated: new Date().toISOString(),
   }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import CategoryChart from "@/components/CategoryChart"
 import CommodityChart from "@/components/CommodityChart"
+import CurrencyExposureCard from "@/components/CurrencyExposureCard"
 import FreightRateCard from "@/components/FreightRateCard"
 import CategorySparkline from "@/components/CategorySparkline"
 import {
@@ -160,6 +161,9 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
           />
           <FreightRateCard
             rates={marketData.freight}
+          />
+          <CurrencyExposureCard
+            currencies={marketData.currencies}
             lastUpdated={marketData.lastUpdated}
           />
         </div>

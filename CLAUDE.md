@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.9 live
+- Status: v4.0 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -52,6 +52,8 @@ trading and financial markets background.
   /api/event-brief/route.ts       → Per-event Gemini brief (profile-aware, structured JSON: brief/impact/recommendation)
   /api/cost-estimate/route.ts     → Financial impact estimate per supplier+event (30min cache)
   /api/import-profile/route.ts    → Gemini interprets uploaded file data, maps columns to profile schema (5min cache)
+  /api/sanctions-check/route.ts   → OFAC SDN CSV screening against supplier names, 24hr cache (v4.0)
+  /api/tariff-lookup/route.ts     → USITC HTS REST API duty rate lookup by HS code, 24hr per-code cache (v4.0)
 
 /components
   Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode,
@@ -60,7 +62,8 @@ trading and financial markets background.
   DashboardClient.tsx             → 5-tab hub: Overview / Advisor / Scenarios / Analytics / History.
                                     switchTab custom event listener. DisruptionUpdatePrompt + PerformanceAlertBanner on Overview.
   KPIBar.tsx                      → KPI cards (profile-aware: events affecting you, risk region)
-  WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted cyan #22d3ee)
+  WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted cyan #22d3ee, tier-2
+                                    sub-supplier countries violet #a78bfa, "INDIRECT EXPOSURE via X" hover text — v4.0)
   DisruptionFeed.tsx              → Event cards with relevance scores, search, sort toggle, click-to-expand brief
   EventBriefPanel.tsx             → Expandable per-event AI brief: impact badge, explanation, recommendation
   DailyBriefButton.tsx            → PDF export trigger: loading state, success flash, auto-named download
@@ -86,17 +89,37 @@ trading and financial markets background.
                                     last visit. Once-per-day dismissal. "Review AI recommendations" fires switchTab event.
   ImportProfileFlow.tsx           → 4-step import flow: drag-and-drop upload → AI processing → editable review
                                     with confidence indicators → confirm and save to Supabase or localStorage
+  CurrencyExposureCard.tsx        → Yahoo Finance FX sparklines (v4.0), filtered to currencies of profile's
+                                    actual supplier countries via lib/currencyMapping.ts
+  SanctionsScreeningCard.tsx      → Self-fetching OFAC screening card (v4.0), per-supplier badge: green "No match
+                                    found" or amber "⚠ Possible match — verify manually". Rendered on Advisor tab.
+  LaborCalendarCard.tsx           → Static labor/union contract expiration reference (v4.0), surfaces contracts
+                                    within 180-day lookahead whose tradeLanesAffected overlaps profile.tradeLanes.
+                                    Rendered on Overview tab.
+  TariffRateBadge.tsx             → Self-fetching HTS duty rate badge (v4.0) shown on product cards with hsCode set
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
-  fetchDisruptions.ts             → GDELT fetcher (3 queries, deduplication, fallback)
+  fetchDisruptions.ts             → GDELT fetcher (3 queries) + GDACS (fetchGlobalDisasters) + NOAA
+                                    (fetchWeatherAlerts) merged via Promise.all, deduplication, fallback (v4.0)
+  fetchGlobalDisasters.ts         → GDACS API (earthquakes/cyclones/floods/volcanoes/droughts/wildfires),
+                                    global coverage, country-NAME-keyed region map — deliberately NOT the
+                                    same lookup as GDELT's FIPS-style codes (collision risk, e.g. "CH") (v4.0)
+  fetchWeatherAlerts.ts           → api.weather.gov/alerts/active, US-only supplement, category: "Weather" (v4.0)
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY.
-                                    ProductLine now has optional primarySupplierId field.
+                                    ProductLine has optional primarySupplierId, backupSupplierId (v4.0), hsCode
+                                    (v4.0). Supplier has optional tier2Suppliers (v4.0, manual entry, visibility only).
+  currencyMapping.ts              → COUNTRY_TO_CURRENCY record + currencyCodesForCountries() (v4.0)
+  sanctionsScreening.ts           → Pure token-overlap name matching: screenSupplierNames(). "high"/"medium"
+                                    match strength only — never a definitive sanctions claim (v4.0)
+  laborCalendar.ts                → Static LABOR_CONTRACTS[] (ILWU/PMA, ILA/USMX), each entry sourced +
+                                    dated with lastVerified; contractsWithinWindow() (v4.0)
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor().
                                     Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
-                                    ProductRisk now includes supplierAssigned boolean.
+                                    ProductRisk now includes supplierAssigned boolean, backupSupplier (v4.0,
+                                    resolved via backupSupplierId, no fallback), hsCode (v4.0, echoed from product).
   supplierHealth.ts               → Pure types + calc: calculateCompositeScore(), getGrade().
                                     Storage I/O lives in /hooks/useSupplierHealth.ts
   concentrationRisk.ts            → HHI engine: calculateConcentrationRisk(), buildBreakdown().
@@ -142,8 +165,15 @@ trading and financial markets background.
 - /api/advisor    — Proactive recommendations JSON array (profile + top 15 events, 10min Map cache)
 - /api/chat       — Streaming chat via ai.chats.create() + sendMessageStream (ReadableStream)
 - /api/scenario   — Streaming what-if analysis via generateContentStream (ReadableStream)
-- /api/market-data — Yahoo Finance futures (CL=F/NG=F/HG=F/ZW=F), 13 months, unit-scaled,
-                     static freight rates for 4 lanes, 24hr module-level cache (CACHE_VERSION="v3")
+- /api/market-data — Yahoo Finance futures (CL=F/NG=F/HG=F/ZW=F) + FX currency pairs ({CODE}=X, 8 currencies,
+                     v4.0), 13 months, unit-scaled, static freight rates for 4 lanes with lastVerified date
+                     (relabeled "reference · not live" in v4.0 — no free live freight index exists),
+                     24hr module-level cache (CACHE_VERSION="v4")
+- /api/sanctions-check — POST {suppliers}. Fetches OFAC SDN CSV (treasury.gov, free, 24hr cache), token-overlap
+                        name matching, returns {matches, listSize, checkedAt}. Never asserts a match as fact —
+                        always "possible match, verify manually" (v4.0)
+- /api/tariff-lookup — GET ?hsCode=X. Queries USITC HTS REST API (free, no auth), 24hr per-code cache,
+                      returns general/special/other duty rates, filters non-dutiable entries (v4.0)
 - /api/event-brief — Per-event Gemini brief, profile-aware context, returns {brief, impact, recommendation},
                      graceful 200 fallback on error, client-side cached in DisruptionFeed state
 - /api/cost-estimate — Financial impact estimate per supplier+event: revenue at risk range, mitigation cost,
@@ -170,7 +200,9 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 ## Caching rules (DO NOT CHANGE)
 - /api/analyze: 10min module-level variable, key: profile ? `profile:${companyName}:${updatedAt}` : "generic"
 - /api/advisor: 10min Map<string, {data, timestamp}>, key: profile.updatedAt + events[0].title
-- /api/market-data: 24hr module-level variable, CACHE_VERSION="v3", serves stale on Yahoo Finance failure
+- /api/market-data: 24hr module-level variable, CACHE_VERSION="v4", serves stale on Yahoo Finance failure
+- /api/sanctions-check: 24hr module-level cache of the parsed OFAC SDN CSV
+- /api/tariff-lookup: 24hr per-HS-code cache (Map<hsCode, {data, timestamp}>)
 
 ## localStorage keys
 - scm_company_profile — company profile data (CompanyProfile type). Supabase is primary when logged in; localStorage is backup/guest.
@@ -198,6 +230,13 @@ Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
 - CompanyProfile.headquartersCountry is a required free-text field (v3.8) — same pattern as Supplier.country
   (plain string, not an enum). Collected in Step 1 of the profile form. Fed into /api/advisor and /api/analyze
   prompts. Existing profiles saved before v3.8 read back as "" via ?? "" fallbacks in useCompanyProfile.ts.
+- ProductLine.backupSupplierId, ProductLine.hsCode, Supplier.tier2Suppliers are all optional (v4.0) — no
+  migration needed, existing profiles read back as undefined and every consumer treats absence as "not set."
+- GDACS/NOAA events use a country-NAME-keyed region map in fetchGlobalDisasters.ts, separate from GDELT's
+  FIPS-style country codes used elsewhere — do not reuse GDELT's mapCountryToRegion() for these sources,
+  the same 2-letter code can mean different countries between the two schemes (v4.0).
+- Sanctions/tariff/labor-calendar cards self-fetch via useCompanyProfile() and are NOT routed through the
+  DisruptionEvent/ScoredEvent pipeline — they're profile-attribute checks, not news events (v4.0).
 
 ## Coding rules
 - TypeScript strict — no implicit any
@@ -590,6 +629,91 @@ v3.9 — Import AI: messy real-world file handling (Jul 12, 2026):
           location were evaluated together — HQ location was judged low
           value for scoring (doesn't predict physical disruption exposure)
           and was added as AI context only, not wired into scoreEvents.ts.
+v4.0 — 8 next-level features: compliance, market data, supply chain depth
+        (Jul 13, 2026). Researched what real supply chain risk platforms
+        (Resilinc, Everstream, Interos) treat as core capabilities, cross-
+        checked against free/no-auth data sources before committing to any
+        of them — one candidate (live freight rates via Freightos Baltic
+        Index) turned out to require a paid account, so that item became an
+        honesty fix instead of a new data feed. All 8 built and verified
+        live via browser automation before this release:
+        Feature 1: Backup/alternate supplier — ProductLine.backupSupplierId,
+          Step 3 dropdown (filtered to exclude primary), inventoryRisk.ts
+          resolves it with no fallback (unlike primary), InventoryRiskPanel
+          shows "✓ Backup available: X (Nd lead time)" when an active
+          disruption hits the primary supplier's region.
+        Feature 2: Sanctions/OFAC screening — /api/sanctions-check fetches
+          the Treasury SDN CSV (free, 24hr cache), lib/sanctionsScreening.ts
+          does lightweight token-overlap name matching (no fuzzy-match
+          library needed), SanctionsScreeningCard shows amber "⚠ Possible
+          match — verify manually" (never a definitive claim) with a link to
+          the official OFAC search tool. Individual-type SDN entries
+          filtered out (companies only).
+        Feature 3: Currency/FX exposure — /api/market-data extended with an
+          8-currency FX block (CNY/VND/KRW/TWD/INR/MXN/EUR/GBP, Yahoo
+          {CODE}=X tickers), CurrencyExposureCard filters to only the
+          currencies of the logged-in profile's actual supplier countries
+          via lib/currencyMapping.ts.
+        Feature 4: Global disaster layer — lib/fetchGlobalDisasters.ts
+          (GDACS: earthquakes/cyclones/floods/volcanoes/droughts/wildfires,
+          genuinely global) + lib/fetchWeatherAlerts.ts (NOAA/NWS, US-only
+          supplement for faster domestic alerts) merged into the existing
+          GDELT pipeline via Promise.all in fetchDisruptions.ts — zero
+          changes needed downstream since everything already consumes the
+          generic DisruptionEvent/ScoredEvent shape. Live-verified: 90 total
+          events (GDACS: 6, NOAA: 59). Cyclones/floods/wildfires map to
+          category "Weather"; earthquakes/volcanoes/droughts map to
+          "General" (no new categories added — DisruptionCategory stayed
+          closed to avoid touching categoryPainPointMap/CategoryChart/
+          categoryTrends fan-out). Used a country-NAME-keyed region map for
+          GDACS, deliberately separate from GDELT's FIPS-style codes used
+          elsewhere in the app (same 2-letter code can mean different
+          countries between the two schemes, e.g. "CH").
+        Feature 5: Freight rate honesty fix — added lastVerified date to
+          each FreightRate entry, FreightRateCard now reads "Reference · not
+          live" instead of implying real-time data. No live free freight
+          index exists (Freightos Baltic Index requires a paid account) —
+          documented rather than faked.
+        Feature 6: Labor/union contract calendar — lib/laborCalendar.ts,
+          two verified entries: ILWU/PMA West Coast (expires Jul 1, 2028)
+          and ILA/USMX East/Gulf Coast (expires Sep 30, 2030), each sourced
+          to a specific article (Supply Chain Dive, gCaptain) with a
+          lastVerified date. LaborCalendarCard surfaces contracts within a
+          180-day lookahead whose trade lanes overlap the profile; both
+          verified entries are currently outside that window (freshly
+          renewed long-term deals) so the card shows a compact reference
+          line instead of an alert — stated plainly, not oversold.
+        Feature 7: HS code / tariff lookup — ProductLine.hsCode (optional),
+          /api/tariff-lookup queries the USITC HTS REST API (free, no auth,
+          24hr per-code cache), TariffRateBadge shown on product cards
+          ("Est. duty rate: X% (general rate, HTS Y)" + special program rate
+          if present).
+        Feature 8: Multi-tier sub-supplier visibility — Supplier.
+          tier2Suppliers (optional, manual entry only — no public database
+          of company supply relationships exists), Step 2 gets an
+          expandable "Who does {supplier} buy from?" section per supplier
+          card, WorldMap.tsx adds a third color tier (violet #a78bfa) for
+          tier-2 countries with "📍 {country} — INDIRECT EXPOSURE via
+          {tier-1 supplier names} — N active events" hover text.
+        Architectural note: sanctions/tariff/labor-calendar are NOT news
+          events — they're static profile-attribute checks — so they follow
+          the self-contained "risk card" pattern (mirrors
+          ConcentrationRiskCard.tsx/SupplierHealthScorecard.tsx): each
+          self-fetches via useCompanyProfile(), not routed through the
+          DisruptionEvent/ScoredEvent scoring pipeline.
+        Bug caught during verification: a plain date-only ISO string
+          (e.g. "2028-07-01") parses as UTC midnight, so
+          .toLocaleDateString() without { timeZone: "UTC" } silently rolls
+          the displayed month/day back by one in US timezones. Caught live
+          in the browser on LaborCalendarCard ("Jun 2028" instead of "Jul
+          2028"), fixed there and retroactively in FreightRateCard's
+          verifiedDate which had the identical latent bug from Feature 5.
+        Verification: all 4 external data sources (OFAC, GDACS, NOAA, USITC
+          HTS) curl-tested live before wiring into the UI. Feature 8
+          end-to-end verified via browser automation: added a tier-2
+          supplier through the profile form, confirmed persistence in
+          localStorage, confirmed the violet map highlight and hover text
+          render correctly. npm run build passes clean.
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
@@ -598,6 +722,12 @@ v3.9 — Import AI: messy real-world file handling (Jul 12, 2026):
   not been manually verified in production — guest/localStorage path was
   verified via browser automation, but sign-in flows are outside what the
   agent can drive. Spot-check after deploy.
+- v4.0's 8 features (Feature 1–8) were verified via browser automation using a
+  guest/localStorage test profile — the logged-in Supabase path for the new
+  optional Supplier/ProductLine fields (tier2Suppliers, backupSupplierId,
+  hsCode) has not been separately spot-checked in production. These fields
+  live inside the existing JSONB profile column so no new migration is
+  needed, but worth a production sanity check after deploy.
 - Next priorities:
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
@@ -653,6 +783,14 @@ v3.9 — Import AI: messy real-world file handling (Jul 12, 2026):
 - [x] Headquarters country field on profile, wired into AI advisor/analyze prompts (Jul 12, 2026)
 - [x] Import AI: dollar-value inventory recognition, dimension classification, honest
       unmappedData reporting for messy real-world files (Jul 12, 2026)
+- [x] Backup/alternate supplier designation (Jul 13, 2026)
+- [x] Sanctions/OFAC screening with legally careful match copy (Jul 13, 2026)
+- [x] Currency/FX exposure tracking (Jul 13, 2026)
+- [x] Global disaster layer — GDACS (global) + NOAA (US supplement) (Jul 13, 2026)
+- [x] Freight rate honesty fix — labeled reference, not live (Jul 13, 2026)
+- [x] Labor/union contract expiration calendar (Jul 13, 2026)
+- [x] HS code / tariff duty rate lookup via USITC HTS API (Jul 13, 2026)
+- [x] Multi-tier sub-supplier visibility on WorldMap (Jul 13, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)

@@ -10,6 +10,8 @@ export interface ProductRisk {
   daysRemaining: number
   primarySupplier: Supplier | null
   primaryLeadTimeDays: number
+  backupSupplier: Supplier | null
+  hsCode: string | null
   riskLevel: RiskLevel
   riskReason: string
   daysUntilStockout: number
@@ -52,6 +54,13 @@ export function calculateInventoryRisk(
     })()
 
     const primaryLeadTimeDays = primarySupplier?.leadTimeDays ?? 30
+
+    // No sensible default for backup — unlike primary, which falls back to
+    // the highest-share supplier, an unassigned backup should stay null
+    // rather than guessing at one.
+    const backupSupplier = product.backupSupplierId
+      ? profile.suppliers.find(s => s.id === product.backupSupplierId) ?? null
+      : null
 
     const hasActiveDisruption = primarySupplier
       ? (hasDisruptionByRegion[primarySupplier.region] ?? false)
@@ -96,6 +105,8 @@ export function calculateInventoryRisk(
       daysRemaining,
       primarySupplier,
       primaryLeadTimeDays,
+      backupSupplier,
+      hsCode: product.hsCode ?? null,
       riskLevel,
       riskReason,
       daysUntilStockout,

@@ -12,6 +12,7 @@ import {
   RiskLevel,
 } from "@/lib/inventoryRisk"
 import Link from "next/link"
+import TariffRateBadge from "@/components/TariffRateBadge"
 
 interface InventoryRiskPanelProps {
   events: ScoredEvent[]
@@ -327,6 +328,18 @@ function ProductRiskCard({ product }: { product: ProductRisk }) {
         </div>
       )}
 
+      {product.hasActiveDisruption && (
+        product.backupSupplier ? (
+          <p className="text-xs text-cyan-400 mt-1">
+            ✓ Backup available: {product.backupSupplier.name} ({product.backupSupplier.leadTimeDays}d lead time)
+          </p>
+        ) : (
+          <p className="text-xs text-slate-500 mt-1">
+            No backup supplier assigned — add one in your profile
+          </p>
+        )
+      )}
+
       {product.primarySupplier && (
         product.supplierAssigned ? (
           <p className="text-xs text-slate-600 mt-1">
@@ -338,6 +351,8 @@ function ProductRiskCard({ product }: { product: ProductRisk }) {
           </p>
         )
       )}
+
+      {product.hsCode && <TariffRateBadge hsCode={product.hsCode} />}
     </div>
   )
 }

@@ -12,6 +12,7 @@ import {
   TradeLane,
   Supplier,
   ProductLine,
+  Tier2Supplier,
 } from "@/lib/profile"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import ImportProfileFlow from "@/components/ImportProfileFlow"
@@ -85,6 +86,7 @@ export default function ProfilePage() {
 
   const [step, setStep] = useState(1)
   const [error, setError] = useState("")
+  const [expandedTier2SupplierId, setExpandedTier2SupplierId] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
 
   // Step 1
@@ -198,6 +200,47 @@ export default function ProfilePage() {
   }
   function removeSupplier(id: string) {
     setSuppliers((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  // Tier-2 (sub-supplier) helpers — manual entry, visibility only, no
+  // lead time/share% since risk math doesn't need to go two levels deep.
+  function addTier2Supplier(supplierId: string) {
+    setSuppliers((prev) =>
+      prev.map((s) =>
+        s.id === supplierId
+          ? {
+              ...s,
+              tier2Suppliers: [
+                ...(s.tier2Suppliers ?? []),
+                { id: crypto.randomUUID(), name: "", country: "", region: "Asia Pacific" as SupplyRegion },
+              ],
+            }
+          : s
+      )
+    )
+  }
+  function updateTier2Supplier(supplierId: string, tier2Id: string, field: keyof Tier2Supplier, value: string) {
+    setSuppliers((prev) =>
+      prev.map((s) =>
+        s.id === supplierId
+          ? {
+              ...s,
+              tier2Suppliers: (s.tier2Suppliers ?? []).map((t2) =>
+                t2.id === tier2Id ? { ...t2, [field]: value } : t2
+              ),
+            }
+          : s
+      )
+    )
+  }
+  function removeTier2Supplier(supplierId: string, tier2Id: string) {
+    setSuppliers((prev) =>
+      prev.map((s) =>
+        s.id === supplierId
+          ? { ...s, tier2Suppliers: (s.tier2Suppliers ?? []).filter((t2) => t2.id !== tier2Id) }
+          : s
+      )
+    )
   }
 
   // ProductLine helpers
@@ -483,6 +526,83 @@ export default function ProfilePage() {
                       />
                     </div>
                   </div>
+
+                  {/* Tier-2 sub-suppliers — optional, visibility only */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedTier2SupplierId(
+                          expandedTier2SupplierId === supplier.id ? null : supplier.id
+                        )
+                      }
+                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      {expandedTier2SupplierId === supplier.id ? "▲" : "▼"}{" "}
+                      Who does {supplier.name || "this supplier"} buy from?
+                      {(supplier.tier2Suppliers?.length ?? 0) > 0 &&
+                        ` (${supplier.tier2Suppliers?.length})`}
+                    </button>
+
+                    {expandedTier2SupplierId === supplier.id && (
+                      <div className="mt-2 space-y-2 border-l-2 border-slate-600 pl-3">
+                        <p className="text-xs text-slate-600">
+                          Optional — knowing your supplier&apos;s own suppliers helps surface
+                          disruptions one step further upstream than you&apos;d normally see.
+                        </p>
+                        {(supplier.tier2Suppliers ?? []).map((t2) => (
+                          <div key={t2.id} className="grid grid-cols-3 gap-2 items-start">
+                            <input
+                              type="text"
+                              value={t2.name}
+                              onChange={(e) =>
+                                updateTier2Supplier(supplier.id, t2.id, "name", e.target.value)
+                              }
+                              placeholder="Sub-supplier name"
+                              className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                            />
+                            <input
+                              type="text"
+                              value={t2.country}
+                              onChange={(e) =>
+                                updateTier2Supplier(supplier.id, t2.id, "country", e.target.value)
+                              }
+                              placeholder="Country"
+                              className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                            />
+                            <div className="flex items-center gap-1">
+                              <select
+                                value={t2.region}
+                                onChange={(e) =>
+                                  updateTier2Supplier(supplier.id, t2.id, "region", e.target.value)
+                                }
+                                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                              >
+                                {SUPPLY_REGIONS.map((r) => (
+                                  <option key={r} value={r}>{r}</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => removeTier2Supplier(supplier.id, t2.id)}
+                                className="text-slate-500 hover:text-red-400 transition-colors text-sm leading-none flex-shrink-0"
+                                aria-label="Remove sub-supplier"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => addTier2Supplier(supplier.id)}
+                          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                        >
+                          + Add sub-supplier
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -588,6 +708,45 @@ export default function ProfilePage() {
                         </p>
                       </div>
                     )}
+                    {suppliers.length > 1 && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                          Backup Supplier (optional)
+                        </label>
+                        <select
+                          value={pl.backupSupplierId ?? ""}
+                          onChange={e => updateProductLine(pl.id, "backupSupplierId", e.target.value || undefined)}
+                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="">No backup assigned</option>
+                          {suppliers
+                            .filter(s => s.id !== pl.primarySupplierId)
+                            .map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.country}) — {s.leadTimeDays}d lead time
+                              </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Who would you switch to if your primary supplier were disrupted?
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                        HS Code (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={pl.hsCode ?? ""}
+                        onChange={(e) => updateProductLine(pl.id, "hsCode", e.target.value || undefined)}
+                        placeholder="e.g. 8542.31.00"
+                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                      />
+                      <p className="text-xs text-slate-600 mt-1">
+                        Harmonized System code — enables a real US import duty rate lookup for this product.
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}

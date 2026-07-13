@@ -144,7 +144,8 @@ function getCountryColor(
   regionCounts: Record<string, number>,
   selectedRegion: string | null,
   supplierCountries: Set<string>,
-  supplierRegions: Set<string>
+  supplierRegions: Set<string>,
+  tier2Countries: Set<string>
 ): string {
   const region = COUNTRY_NAME_TO_REGION[geoName]
 
@@ -153,6 +154,11 @@ function getCountryColor(
 
   // Priority 2: supplier country — cyan, distinct from heat map
   if (supplierCountries.has(geoName)) return "#22d3ee"
+
+  // Priority 2.5: tier-2 (your supplier's supplier) country — violet,
+  // distinct from both the tier-1 cyan and the heat colors. Only applies
+  // if not already a tier-1 country (checked above).
+  if (tier2Countries.has(geoName)) return "#a78bfa"
 
   const count = region ? (regionCounts[region] || 0) : 0
   const hasProfile = supplierRegions.size > 0 || supplierCountries.size > 0
@@ -196,6 +202,28 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
     return new Set(profile.suppliers.map(s => s.region))
   }, [profile])
 
+  const tier2Countries = useMemo(() => {
+    if (!profile) return new Set<string>()
+    return new Set(
+      profile.suppliers.flatMap(s => (s.tier2Suppliers ?? []).map(t2 => t2.country))
+    )
+  }, [profile])
+
+  // Maps a tier-2 country name to the tier-1 supplier(s) that source from
+  // it, for the "indirect exposure via X" hover callout.
+  const tier2ToTier1Names = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    if (!profile) return map
+    for (const supplier of profile.suppliers) {
+      for (const t2 of supplier.tier2Suppliers ?? []) {
+        if (!t2.country) continue
+        if (!map[t2.country]) map[t2.country] = []
+        map[t2.country].push(supplier.name)
+      }
+    }
+    return map
+  }, [profile])
+
   function handleCountryClick(geoName: string) {
     const region = COUNTRY_NAME_TO_REGION[geoName]
     if (!region) return
@@ -214,6 +242,11 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
         ? `${suppliersHere[0].name} supplies ${suppliersHere[0].sharePercent}% of your ${suppliersHere[0].category}`
         : ""
       return `📍 ${hoveredCountry} — YOUR SUPPLIER — ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}${supplierDetail ? ` · ${supplierDetail}` : ""}`
+    }
+
+    if (tier2ToTier1Names[hoveredCountry]?.length) {
+      const viaNames = tier2ToTier1Names[hoveredCountry].join(", ")
+      return `📍 ${hoveredCountry} — INDIRECT EXPOSURE via ${viaNames} — ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}`
     }
 
     if (!hoveredRegion) return hoveredCountry
@@ -245,7 +278,8 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
                     regionCounts,
                     selectedRegion,
                     supplierCountries,
-                    supplierRegions
+                    supplierRegions,
+                    tier2Countries
                   )}
                   stroke="#334155"
                   strokeWidth={0.5}
@@ -271,6 +305,7 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
           { color: "#c2410c", label: "3–5 events" },
           { color: "#991b1b", label: "6+ events" },
           { color: "#22d3ee", label: "Your supplier countries" },
+          { color: "#a78bfa", label: "Your suppliers' suppliers" },
           { color: "#2563eb", label: "Selected" },
         ].map(({ color, label }) => (
           <div key={label} className="flex items-center gap-1">

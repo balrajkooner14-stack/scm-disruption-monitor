@@ -1,6 +1,8 @@
 import fs from "fs"
 import path from "path"
 import { DisruptionEvent, DisruptionCategory, SeverityLevel, Region } from "./types"
+import { fetchGlobalDisasters } from "./fetchGlobalDisasters"
+import { fetchWeatherAlerts } from "./fetchWeatherAlerts"
 
 export function scoreSeverity(title: string): SeverityLevel {
   const t = title.toLowerCase()
@@ -147,13 +149,17 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
     }
   }
 
-  const results = await Promise.allSettled(queries.map((q) => fetchQuery(q)))
+  const [gdeltResults, disasterEvents, weatherEvents] = await Promise.all([
+    Promise.allSettled(queries.map((q) => fetchQuery(q))),
+    fetchGlobalDisasters(),
+    fetchWeatherAlerts(),
+  ])
 
   const seenUrls = new Set<string>()
   const events: DisruptionEvent[] = []
   let anySuccess = false
 
-  results.forEach((result, queryIndex) => {
+  gdeltResults.forEach((result, queryIndex) => {
     if (result.status !== "fulfilled") return
     anySuccess = true
     const articles = result.value.articles ?? []
@@ -175,6 +181,16 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
     })
   })
 
+  // GDACS/NOAA IDs are already source-prefixed and stable (not per-fetch
+  // random), so no seenUrls-style dedupe needed against them — but they
+  // could theoretically overlap with a GDELT article about the same event,
+  // which is an acceptable, rare duplicate rather than a bug to chase.
+  if (disasterEvents.length > 0) anySuccess = true
+  events.push(...disasterEvents)
+
+  if (weatherEvents.length > 0) anySuccess = true
+  events.push(...weatherEvents)
+
   if (!anySuccess) {
     return loadFallback()
   }
@@ -185,7 +201,10 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
   })
 
   if (process.env.NODE_ENV === "development") {
-    console.log(`[GDELT] Fetched ${events.length} events`)
+    console.log(
+      `[Disruptions] ${events.length} total events ` +
+      `(GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
+    )
   }
 
   return events
