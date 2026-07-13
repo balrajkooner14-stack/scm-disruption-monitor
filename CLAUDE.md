@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v3.8 live
+- Status: v3.9 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -111,6 +111,9 @@ trading and financial markets background.
   supabase-server.ts              → createServerSupabaseClient() — server component client (createServerClient + CookieOptions)
   parseImportFile.ts              → Client-side file parser: parseFile() for CSV (papaparse) and Excel (xlsx),
                                     prepareForAI() trims to 20 rows for token efficiency. 50-row cap.
+  importCalculations.ts           → Deterministic post-processing for imports: computeDaysOnHand(onHandValue,
+                                    usageValue, usageWindowDays), distributeShareEvenly(count). Gemini extracts
+                                    raw numbers/structure only — this file does the arithmetic, never the AI.
 
 /hooks
   useCompanyProfile.ts            → Supabase-first with localStorage fallback for guests.
@@ -146,7 +149,13 @@ trading and financial markets background.
 - /api/cost-estimate — Financial impact estimate per supplier+event: revenue at risk range, mitigation cost,
                        net risk reduction, urgency days. 30min server cache keyed by supplier.id+event.url
 - /api/import-profile — Accepts POST {extractedData, fileName}. Gemini maps columns to ImportResult schema
-                        (suppliers, productLines, missingFields, ambiguities, rawColumnNames). 5min cache.
+                        (suppliers, productLines, unmappedData, missingFields, ambiguities, rawColumnNames).
+                        5min cache. Gemini does structure/column recognition only — all arithmetic (day-supply
+                        computation, share % distribution) happens in lib/importCalculations.ts, not the prompt.
+                        DIMENSION CLASSIFICATION rule (v3.9): the row-identifying column's header — not the
+                        presence of $-value metrics — decides supplier vs. product vs. unmappedData, so a
+                        "Factory"/"Customer"-labeled sheet with dollar inventory metrics doesn't get force-fit
+                        into product lines just because it has On Hand $/Usage $ columns.
 
 ## Severity scoring rules (DO NOT CHANGE without asking)
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
@@ -533,6 +542,50 @@ v3.8 — Headquarters country field (Jul 12, 2026):
           profiles table. useCompanyProfile.ts reads/writes it alongside
           the existing JSONB profile columns; existing rows read back as ""
           via a nullish-coalescing fallback.
+v3.9 — Import AI: messy real-world file handling (Jul 12, 2026):
+        Context: an Inventory Manager gave 3 real ERP exports (Sales
+          Region / Customer / Factory Inventory Metrics) to stress-test
+          the import flow. None contain supplier or product names —
+          they're dollar-value rollups by internal dimensions the
+          profile schema doesn't model. This release makes the import
+          AI handle that kind of file honestly instead of mis-mapping
+          it, without adding any new profile entities.
+        Feature: recognize dollar-value inventory ("On Hand $" + a
+          usage/consumption $ column) as an alternate way of expressing
+          product inventory position, alongside the existing "days on
+          hand" column recognition. Gemini extracts the raw $ figures
+          only (onHandValue, usageValue, usageWindowDays inferred from
+          the usage column's name, e.g. "3mo Usage $" → 90 days);
+          lib/importCalculations.ts computes the actual days-on-hand
+          number afterward.
+        Feature: DIMENSION CLASSIFICATION gate — the row-identifying
+          column's header (not the presence of $-value metrics) decides
+          whether rows are suppliers, products, or unmappable. Fixes a
+          bug caught during verification: the AI initially force-fit
+          factory codes ("ATD", "ATH"...) into product lines purely
+          because the $-value pattern matched, ignoring that the column
+          was literally labeled "Factory".
+        Feature: honest unmappedData reporting — ImportResult gained an
+          unmappedData[] field (sheetOrSection, detectedDimension,
+          detectedMetrics, reason). ImportProfileFlow.tsx's review step
+          now shows what was actually found in a sheet that doesn't map
+          to a supplier or product ("dollar-value inventory data
+          organized by Customer...") instead of the old generic "could
+          not extract supply chain data" dead end.
+        Fix: Grand Total/Total/Subtotal rows are now excluded
+          everywhere as aggregation artifacts, not real entities —
+          verified against a real file where "Grand Total" was
+          confirmed to be a plain sum of the rows above it.
+        Fix: share % distribution across suppliers moved out of the AI
+          prompt into distributeShareEvenly() — same for day-supply
+          math — since LLM arithmetic across many rows is unreliable.
+        New file: /lib/importCalculations.ts (computeDaysOnHand,
+          distributeShareEvenly).
+        Verified end-to-end against all 3 real test files (each
+          correctly lands in unmappedData with accurate descriptions,
+          zero garbage suppliers/products) plus a synthetic SKU-based
+          $-value CSV (correct computed days-on-hand) and a regression
+          check on a normal supplier-list CSV (unaffected).
         Note: primaryMarkets (region-level "where you sell") and HQ
           location were evaluated together — HQ location was judged low
           value for scoring (doesn't predict physical disruption exposure)
@@ -598,6 +651,8 @@ v3.8 — Headquarters country field (Jul 12, 2026):
 - [x] Supabase Phase B: migrate supplier health, lead time history,
       disruption history, performance alerts to database tables (Jul 12, 2026)
 - [x] Headquarters country field on profile, wired into AI advisor/analyze prompts (Jul 12, 2026)
+- [x] Import AI: dollar-value inventory recognition, dimension classification, honest
+      unmappedData reporting for messy real-world files (Jul 12, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
