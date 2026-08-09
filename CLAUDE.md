@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.2 live
+- Status: v4.3 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -45,9 +45,15 @@ trading and financial markets background.
   /profile/page.tsx               → 5-step company profile form (force-dynamic)
   /scenarios/page.tsx             → Standalone scenario planner page
   /api/analyze/route.ts           → Gemini AI summary (profile-aware, 10min cache)
-  /api/advisor/route.ts           → Proactive AI recommendations (profile + events, 10min cache)
+  /api/advisor/route.ts           → Proactive AI recommendations (profile + events, 10min cache). Prompt now
+                                    includes a computed MULTI-TIER DEPENDENCY IMPACT section (buildGraph +
+                                    summarizeDownstreamImpact) so CRITICAL calls can cite an actual tier-2/raw-
+                                    material path, not just first-tier supplier reasoning (v4.3)
   /api/chat/route.ts              → Streaming multi-turn chat (profile + events context)
-  /api/scenario/route.ts          → Streaming what-if analysis (5-section structured output)
+  /api/scenario/route.ts          → Streaming what-if analysis (5-section structured output). Prompt now
+                                    includes a COMPUTED DOWNSTREAM IMPACT section traced through the same
+                                    dependency graph, replacing the old flat first-tier supplier-region
+                                    substring match (v4.3)
   /api/market-data/route.ts       → Yahoo Finance futures commodity prices + static freight rates (24hr cache)
   /api/event-brief/route.ts       → Per-event Gemini brief (profile-aware, structured JSON: brief/impact/recommendation)
   /api/cost-estimate/route.ts     → Financial impact estimate per supplier+event (30min cache)
@@ -61,7 +67,9 @@ trading and financial markets background.
   AIInsightPanel.tsx              → Gemini AI summary panel (profile-aware, 10min cache)
   DashboardClient.tsx             → 5-tab hub: Overview / Advisor / Scenarios / Analytics / History.
                                     switchTab custom event listener. DisruptionUpdatePrompt + PerformanceAlertBanner on Overview.
-  KPIBar.tsx                      → KPI cards (profile-aware: events affecting you, risk region)
+  KPIBar.tsx                      → KPI cards (profile-aware: events affecting you, risk region). Card 4 priority
+                                    chain (v4.3): inventory critical > concentration risk > single points of
+                                    failure > inventory warning > network HHI > data window.
   WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted cyan #22d3ee, tier-2
                                     sub-supplier countries violet #a78bfa, "INDIRECT EXPOSURE via X" hover text — v4.0)
   DisruptionFeed.tsx              → Event cards with relevance scores, search, sort toggle, click-to-expand brief
@@ -71,6 +79,11 @@ trading and financial markets background.
   AIAdvisor.tsx                   → Proactive AI recommendations panel (collapsible cards)
   AIChatPanel.tsx                 → Floating chat bubble, streaming multi-turn AI chat
   ScenarioPlanner.tsx             → What-if scenario form + streaming analysis output
+  SupplyChainNetworkGraph.tsx     → SVG dependency-graph diagram (v4.3): tier-2 suppliers -> suppliers -> raw
+                                    materials -> product lines -> demand. Click a supplier/tier-2 node to
+                                    highlight its downstream cascade (traverseDownstream). Includes a "Simulated
+                                    Disruption Risk" section (Monte Carlo network-exposure %, not a stockout-date
+                                    forecast). Rendered on the Scenarios tab above ScenarioPlanner.
   ScenarioPageClient.tsx          → Client wrapper for /scenarios page
   ProfilePromptModal.tsx          → First-visit modal prompting profile setup
   AnalyticsTab.tsx                → Analytics tab: CategoryChart + CommodityChart + FreightRateCard
@@ -79,6 +92,8 @@ trading and financial markets background.
   InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators.
                                     Amber warning on cards still defaulting to highest-share supplier.
                                     Raw materials list (name, vendor, lead time) shown per card when present (v4.1).
+                                    Single-point-of-failure badge shown when findSinglePointsOfFailure() flags
+                                    the product (v4.3).
   SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, 4-column metrics row (OTD/quality/delay/lead time trend),
                                     inline edit forms, OTD+quality alert triggering, lead time recording on save
   CostImpactPanel.tsx             → Financial impact panel: 3-metric display, urgency bar, lazy-fetch on first open
@@ -129,7 +144,22 @@ trading and financial markets background.
                                     each sourced + dated with lastVerified, same discipline as laborCalendar.ts.
                                     relevantStructuralRisks(profile) matches on tradeLanes overlap OR word-token
                                     overlap between Supplier.category and each entry's affectedCategories keywords
-                                    (v4.1)
+                                    (v4.2)
+  supplyChainGraph.ts             → Multi-tier dependency graph engine (v4.3). buildGraph(profile) builds nodes
+                                    (tier2-supplier/supplier/raw-material/product-line/demand) + edges from data
+                                    the profile already collects. traverseDownstream() is a BFS that returns
+                                    reached nodes + reconstructed paths to each affected product line.
+                                    findNodesByRegionOrCountry(), describePaths(), summarizeDownstreamImpact()
+                                    bridge a free-text region/country query to graph nodes and readable "A → B → C"
+                                    strings — used by both /api/scenario and /api/advisor. findSinglePointsOfFailure()
+                                    operates directly on the profile (no backupSupplierId, or a raw material with a
+                                    primary but no secondary vendor). simulateDisruptionRisk() is the Monte Carlo
+                                    "Supply Chain VaR" — 1,000-trial simulation using active-region disruption +
+                                    structuralRisk.ts severity as per-node probability inputs, reporting network-
+                                    exposure frequency per product line (deliberately not a stockout-date forecast
+                                    — no per-product consumption-rate data exists to compute that honestly).
+                                    Verified against a fixture script (matching the roadmap notes' Nittobo -> SuppB
+                                    -> ProdA sketch) before being wired into any UI or API route.
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor().
                                     Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
@@ -823,6 +853,78 @@ v4.2 — Long-term structural risk watchlist, Phase 2 of the roadmap
           build passes clean (only pre-existing, unrelated ESLint
           warnings; one TS fix needed — Set iteration required
           Array.from() per the existing TypeScript-target note below).
+v4.3 — Supply chain network graph + disruption propagation engine, Phase 3
+        of the roadmap, plus its two research-driven additions (Aug 9, 2026):
+        Feature: /lib/supplyChainGraph.ts — the multi-tier dependency graph
+          engine (buildGraph, traverseDownstream, findNodesByRegionOrCountry,
+          describePaths, summarizeDownstreamImpact). This is the payoff of the
+          whole roadmap: "what happens in a disruption" is now computed from
+          real profile data (tier2Suppliers, primary/backup suppliers, raw
+          material vendors) instead of the LLM guessing from a flat region
+          substring match. Verified against a fixture script mirroring the
+          roadmap notes' own sketch (Nittobo -> SuppB -> ProdA) before being
+          wired into any UI or protected route — every traversal, path
+          reconstruction, and SPOF check matched expectations exactly on
+          first correct run.
+        Feature: /components/SupplyChainNetworkGraph.tsx — SVG dependency
+          diagram (tier-2 suppliers -> suppliers -> raw materials -> product
+          lines -> demand), colored by active regional disruption, click a
+          supplier/tier-2 node to highlight its downstream cascade with a
+          plain-English impact panel. Rendered on the Scenarios tab above
+          ScenarioPlanner.
+        Feature (research finding, essentially free once the graph existed):
+          Single Point of Failure detection — findSinglePointsOfFailure()
+          flags any product line with no backupSupplierId or any raw material
+          with a primary but no secondary vendor. Surfaced as a purple badge
+          on InventoryRiskPanel.tsx cards and a new KPI bar tile slotted into
+          the existing card-4 priority chain (now: inventory critical >
+          concentration risk > single points of failure > inventory warning >
+          network HHI > data window).
+        Feature (research finding): probabilistic "Supply Chain VaR"
+          simulation — simulateDisruptionRisk() runs a 1,000-trial Monte
+          Carlo using active-region disruptions + structuralRisk.ts severity
+          as per-node probability inputs (Critical 45% / Elevated 20% / Watch
+          5% / ambient baseline 3%), reporting what fraction of trials touch
+          each product line's supply network. Deliberately framed as a
+          network-exposure-frequency metric, not a stockout-date forecast —
+          the app has no real per-product consumption-rate data to compute
+          that honestly (dailyConsumptionRate is a hardcoded 0 elsewhere).
+          Surfaced inside SupplyChainNetworkGraph.tsx below the diagram.
+        Integration (the actual payoff) — both PROTECTED files, modified with
+          the plan's explicit authorization:
+          - /app/api/scenario/route.ts: the old flat case-insensitive
+            substring match on scenario.affectedRegion is now supplemented
+            with a COMPUTED DOWNSTREAM IMPACT prompt section built from
+            summarizeDownstreamImpact(), and the CASCADING EFFECTS
+            instruction explicitly tells the model to use those traced paths
+            as verified fact.
+          - /app/api/advisor/route.ts: a MULTI-TIER DEPENDENCY IMPACT prompt
+            section is computed from all currently-relevant event regions,
+            and a new CRITICAL-priority rule instructs the model to name the
+            full chain (e.g. "your tier-2 dependency on X feeds Supplier Y,
+            which feeds Product Z") when a path reaches a product line.
+          Both verified live with real Gemini output, not just inspected:
+          a scenario run against "Japan" produced cascading-effects prose
+          that explicitly named the tier-2 supplier ("the downstream impact
+          tracing through Nittobo Test, which supplies SuppB Test, indicates
+          a deeper fragility..."), and the Advisor tab produced a CRITICAL
+          recommendation whose recommended action named the tier-2 supplier
+          by name unprompted ("investigate the status of Nittobo Test, your
+          tier-2 supplier for glass fiber..."). Both are the exact behavior
+          this phase set out to produce.
+        Verified end-to-end via browser automation on a guest/localStorage
+          test profile (3 suppliers incl. one with a tier-2 sub-supplier, 2
+          product lines — one with a raw material + no backup [SPOF], one
+          with a backupSupplierId [not SPOF]): confirmed graph renders
+          correctly, click-to-highlight isolates the right downstream nodes
+          (including the tier-2 -> supplier -> material -> product chain),
+          SPOF badge/KPI tile render correctly, Monte Carlo section renders
+          plausible numbers, then ran real /api/scenario and /api/advisor
+          calls and confirmed the tier-2 citations above, then fully reverted
+          (localStorage restored to exact pre-test state, including a backup/
+          restore of a pre-existing scm_disruption_history value that
+          predated this test session). npm run build passes clean (only
+          pre-existing, unrelated ESLint warnings).
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
@@ -845,9 +947,14 @@ v4.2 — Long-term structural risk watchlist, Phase 2 of the roadmap
   against its sources rather than being treated as permanently accurate
   (capacity/share figures shift, e.g. Nittobo/TSMC capacity expansion
   timelines).
+- v4.3's Monte Carlo "Supply Chain VaR" simulation (simulateDisruptionRisk in
+  lib/supplyChainGraph.ts) uses fixed probability weights (active disruption
+  40%, structural severity 45/20/5%, ambient baseline 3%) chosen as
+  reasonable defaults, not calibrated against any real historical disruption-
+  frequency data — treat the reported percentages as directional (which
+  product lines are more exposed than others), not as precise forecasts.
 - Next priorities:
-  [ ] Supply chain network graph + disruption propagation engine (Phase 3)
-  [ ] AI structural risk radar (Phase 4)
+  [ ] AI structural risk radar (Phase 4 — final phase of the roadmap)
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
   [ ] Mobile responsiveness (deferred — desktop only for now)
@@ -912,8 +1019,9 @@ v4.2 — Long-term structural risk watchlist, Phase 2 of the roadmap
 - [x] Multi-tier sub-supplier visibility on WorldMap (Jul 13, 2026)
 - [x] Raw material BOM breakout per product line — visibility only (Aug 9, 2026)
 - [x] Long-term structural risk watchlist (chokepoints, single-source materials) (Aug 9, 2026)
-- [ ] Supply chain network graph + disruption propagation engine (+ SPOF detection,
-      probabilistic "Supply Chain VaR" simulation)
+- [x] Supply chain network graph + disruption propagation engine, wired into
+      Scenario Planner and AI Advisor (+ SPOF detection, probabilistic
+      "Supply Chain VaR" simulation) (Aug 9, 2026)
 - [ ] AI structural risk radar (Gemini + Google Search grounding)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup

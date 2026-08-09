@@ -16,6 +16,7 @@ import PerformanceAlertBanner from "@/components/PerformanceAlertBanner"
 import DisruptionUpdatePrompt from "@/components/DisruptionUpdatePrompt"
 import LaborCalendarCard from "@/components/LaborCalendarCard"
 import StructuralRiskCard from "@/components/StructuralRiskCard"
+import SupplyChainNetworkGraph from "@/components/SupplyChainNetworkGraph"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -27,6 +28,7 @@ import { useDisruptionHistory } from "@/hooks/useDisruptionHistory"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 import { calculateInventoryRisk, getDaysSinceDate, calculateOrderRecommendation } from "@/lib/inventoryRisk"
 import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
+import { findSinglePointsOfFailure } from "@/lib/supplyChainGraph"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
@@ -175,6 +177,11 @@ export default function DashboardClient({ events }: DashboardClientProps) {
     }
   }, [profile])
 
+  const spofCount = useMemo(() => {
+    if (!profile) return 0
+    return findSinglePointsOfFailure(profile).filter(s => s.isSinglePointOfFailure).length
+  }, [profile])
+
   // Listen for tab-switch events dispatched by child components
   useEffect(() => {
     const handleSwitchTab = (e: Event) => {
@@ -259,6 +266,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         profile={profile}
         inventorySnapshot={inventorySnapshot}
         concentrationResult={concentrationResult}
+        spofCount={spofCount}
       />
 
       {/* Tab navigation bar */}
@@ -339,6 +347,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
         {activeTab === "scenarios" && (
           <div className="max-w-3xl mx-auto">
+            <SupplyChainNetworkGraph events={scoredEvents} />
             <ScenarioPlanner events={scoredEvents} defaultOpen={true} />
           </div>
         )}

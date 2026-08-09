@@ -14,6 +14,7 @@ import {
 import Link from "next/link"
 import TariffRateBadge from "@/components/TariffRateBadge"
 import { RawMaterial, Supplier } from "@/lib/profile"
+import { findSinglePointsOfFailure } from "@/lib/supplyChainGraph"
 
 interface InventoryRiskPanelProps {
   events: ScoredEvent[]
@@ -83,6 +84,8 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
     if (!profile) return null
     return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSinceUpdate)
   }, [profile, hasDisruptionByRegion, daysSinceUpdate])
+
+  const spofResults = useMemo(() => (profile ? findSinglePointsOfFailure(profile) : []), [profile])
 
   useEffect(() => {
     if (!snapshot || snapshot.criticalCount === 0) return
@@ -240,6 +243,7 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
                 product={product}
                 rawMaterials={profile?.productLines.find(p => p.id === product.productId)?.rawMaterials ?? []}
                 suppliers={profile?.suppliers ?? []}
+                spof={spofResults.find(s => s.productLineId === product.productId)}
               />
             ))}
         </div>
@@ -259,10 +263,12 @@ function ProductRiskCard({
   product,
   rawMaterials,
   suppliers,
+  spof,
 }: {
   product: ProductRisk
   rawMaterials: RawMaterial[]
   suppliers: Supplier[]
+  spof?: { isSinglePointOfFailure: boolean; reasons: string[] }
 }) {
   const config = RISK_CONFIG[product.riskLevel]
   const barColor = getInventoryBarColor(product.riskLevel)
@@ -277,6 +283,13 @@ function ProductRiskCard({
           {config.label}
         </span>
       </div>
+
+      {spof?.isSinglePointOfFailure && (
+        <div className="mb-2 bg-purple-950/50 border border-purple-800 rounded px-2 py-1">
+          <p className="text-xs text-purple-300 font-medium">⚠ Single point of failure</p>
+          <p className="text-xs text-purple-400/80 leading-relaxed">{spof.reasons.join("; ")}</p>
+        </div>
+      )}
 
       <div className="flex items-baseline gap-1 mb-2">
         <span className={`text-2xl font-black ${config.text}`}>

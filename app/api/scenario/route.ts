@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { geminiClient, isRateLimitError } from "@/lib/gemini"
+import { buildGraph, findNodesByRegionOrCountry, summarizeDownstreamImpact } from "@/lib/supplyChainGraph"
 
 export const maxDuration = 30
 
@@ -69,6 +70,16 @@ export async function POST(req: NextRequest) {
       ).join("\n")
       : "No direct supplier exposure identified in this region."
 
+    // Computed multi-tier dependency impact — traces the actual graph
+    // (tier-2 suppliers -> suppliers -> raw materials -> product lines)
+    // instead of leaving downstream reasoning entirely to the model.
+    const graph = buildGraph(profile)
+    const disruptedNodeIds = findNodesByRegionOrCountry(graph, scenario.affectedRegion)
+    const { pathDescriptions } = summarizeDownstreamImpact(graph, disruptedNodeIds)
+    const computedImpactText = pathDescriptions.length > 0
+      ? pathDescriptions.map(p => `- ${p}`).join("\n")
+      : "No traced dependency path from this region to a product line — either no supplier/sub-supplier is located there, or the affected node has no downstream assignment in the profile."
+
     const prompt = `You are an expert supply chain risk analyst performing scenario analysis
 for a specific company. Analyze this disruption scenario with precision and provide
 a structured impact assessment.
@@ -86,6 +97,10 @@ ${scenario.customContext ? `- Additional Context: ${scenario.customContext}` : "
 AFFECTED SUPPLIERS FROM THEIR NETWORK:
 ${affectedSupplierText}
 
+COMPUTED DOWNSTREAM IMPACT (traced through their tier-2 supplier / raw-material
+dependency graph — treat these as verified facts, not guesses):
+${computedImpactText}
+
 INVENTORY POSITION ANALYSIS:
 ${inventoryRisk}
 
@@ -100,7 +115,10 @@ their supplier exposure and inventory position. Be quantitative — reference
 actual days, percentages, and supplier names.
 
 2. CASCADING EFFECTS (Week 3 onwards)
-How the disruption compounds over time. What downstream effects hit
+How the disruption compounds over time. Use the COMPUTED DOWNSTREAM IMPACT
+paths above — they trace real multi-tier dependencies, not assumptions —
+to explain exactly which product lines are hit and through which
+intermediate supplier or raw material. What downstream effects hit
 their product lines, customers, and revenue. Reference their specific
 inventory calculations.
 

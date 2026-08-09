@@ -17,9 +17,10 @@ interface KPIBarProps {
     level: string
     colorClass: string
   }
+  spofCount?: number
 }
 
-export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, profile, inventorySnapshot, concentrationResult }: KPIBarProps) {
+export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, profile, inventorySnapshot, concentrationResult, spofCount }: KPIBarProps) {
   const criticalCount = events.filter((e) => e.severity === 3).length
 
   const criticalProfileMatchCount = scoredEvents
@@ -130,7 +131,7 @@ export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, p
           )}
         </div>
 
-        {/* Card 4 — Priority: inventory critical > concentration risk > inventory warning > HHI > data window */}
+        {/* Card 4 — Priority: inventory critical > concentration risk > single points of failure > inventory warning > HHI > data window */}
         {inventorySnapshot && inventorySnapshot.criticalCount > 0 ? (
           <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-red-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
             <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
@@ -144,6 +145,12 @@ export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, p
               {concentrationResult.hhi.toLocaleString()}
             </p>
             <p className="text-xs text-slate-500 mt-1">{concentrationResult.label}</p>
+          </div>
+        ) : spofCount && spofCount > 0 ? (
+          <div className="bg-purple-950 rounded-lg border border-purple-800 border-t-2 border-t-purple-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
+            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Single Points of Failure</p>
+            <p className="text-3xl font-black text-purple-400">{spofCount}</p>
+            <p className="text-xs text-slate-500 mt-1">product{spofCount > 1 ? "s" : ""} with no backup path</p>
           </div>
         ) : inventorySnapshot && inventorySnapshot.warningCount > 0 ? (
           <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-amber-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
