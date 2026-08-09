@@ -15,6 +15,7 @@ import DisruptionHistoryTab from "@/components/DisruptionHistoryTab"
 import PerformanceAlertBanner from "@/components/PerformanceAlertBanner"
 import DisruptionUpdatePrompt from "@/components/DisruptionUpdatePrompt"
 import LaborCalendarCard from "@/components/LaborCalendarCard"
+import StructuralRiskCard from "@/components/StructuralRiskCard"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
 import AIInsightPanel from "@/components/AIInsightPanel"
@@ -307,6 +308,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
             <PerformanceAlertBanner />
             <InventoryRiskPanel events={scoredEvents} />
             <LaborCalendarCard />
+            <StructuralRiskCard />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <WorldMap
                 events={scoredEvents}

@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.1 live
+- Status: v4.2 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -97,6 +97,10 @@ trading and financial markets background.
   LaborCalendarCard.tsx           → Static labor/union contract expiration reference (v4.0), surfaces contracts
                                     within 180-day lookahead whose tradeLanesAffected overlaps profile.tradeLanes.
                                     Rendered on Overview tab.
+  StructuralRiskCard.tsx          → Static long-term structural risk reference (v4.1) — chokepoints, single-source
+                                    materials, capacity concentration. Mirrors LaborCalendarCard's sourced/dated
+                                    provenance pattern; groups by severity (Critical/Elevated expanded, Watch
+                                    collapsed) instead of a date window. Rendered on Overview tab below LaborCalendarCard.
   TariffRateBadge.tsx             → Self-fetching HTS duty rate badge (v4.0) shown on product cards with hsCode set
 
 /lib
@@ -120,6 +124,12 @@ trading and financial markets background.
                                     match strength only — never a definitive sanctions claim (v4.0)
   laborCalendar.ts                → Static LABOR_CONTRACTS[] (ILWU/PMA, ILA/USMX), each entry sourced +
                                     dated with lastVerified; contractsWithinWindow() (v4.0)
+  structuralRisk.ts               → Static STRUCTURAL_RISKS[] (Strait of Hormuz, Taiwan/TSMC semiconductor
+                                    concentration, Nitto Boseki glass fiber, DRAM/HBM memory concentration),
+                                    each sourced + dated with lastVerified, same discipline as laborCalendar.ts.
+                                    relevantStructuralRisks(profile) matches on tradeLanes overlap OR word-token
+                                    overlap between Supplier.category and each entry's affectedCategories keywords
+                                    (v4.1)
   generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor().
                                     Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
@@ -756,6 +766,63 @@ v4.1 — Raw material BOM breakout, Phase 1 of the handwritten-notes roadmap
           hydration warning observed (Navbar's live clock, server vs client
           time on first paint) — pre-existing, unrelated to this feature,
           confirmed absent from the production build.
+v4.2 — Long-term structural risk watchlist, Phase 2 of the roadmap
+        (Aug 9, 2026):
+        Feature: new /lib/structuralRisk.ts — StructuralRisk type (name,
+          riskType: Chokepoint/Single-Source Material/Capacity Concentration,
+          affectedCategories, affectedTradeLanes, description, sourceUrl,
+          sourceLabel, lastVerified, severity: Watch/Elevated/Critical) and
+          a hand-curated STRUCTURAL_RISKS[] array — 4 entries, each
+          independently researched and sourced on 2026-08-09 (not
+          estimated), same discipline as lib/laborCalendar.ts:
+            - Strait of Hormuz (Chokepoint, Elevated) — ~20% of global
+              petroleum liquids consumption, ~25% of seaborne oil trade,
+              >20% of global LNG trade. Source: U.S. EIA.
+            - Taiwan/TSMC advanced-node semiconductor concentration
+              (Capacity Concentration, Critical) — TSMC >90% of sub-7nm
+              global capacity, no meaningful alternate capacity before
+              2028. Source: Simply Wall St.
+            - Nitto Boseki (Nittobo) low-loss glass fiber cloth (Single-
+              Source Material, Critical) — ~90% share of T-glass used in
+              AI server PCB substrates, fully utilized 24/7, no relief
+              before mid-2027. Source: Tom's Hardware.
+            - DRAM/HBM memory capacity concentration (Capacity
+              Concentration, Critical) — Samsung/SK hynix/Micron
+              reallocating DRAM/NAND capacity to HBM; SK hynix's 2026
+              capacity reported essentially sold out. Source: Tom's
+              Hardware.
+        Feature: relevantStructuralRisks(profile) — matches on
+          affectedTradeLanes overlap with profile.tradeLanes (same shape
+          as laborCalendar.ts's contractsWithinWindow()) OR word-token
+          overlap between each Supplier.category and an entry's
+          affectedCategories keywords (handles free-text category
+          variance like "Semiconductors" vs "Semiconductor" or
+          "Glass-fiber yarn" vs "Glass fiber" without an exact-string
+          requirement).
+        Feature: new /components/StructuralRiskCard.tsx — mirrors
+          LaborCalendarCard.tsx's structure and sourced-footer convention,
+          but groups by severity (Critical/Elevated always expanded,
+          Watch collapsed to a compact row) instead of a date-window
+          split, since these risks aren't date-driven the way contract
+          expirations are. Rendered on the Overview tab directly below
+          LaborCalendarCard.
+        Architectural note: fully additive — zero changes to the
+          DisruptionEvent/GDELT/GDACS/NOAA pipeline, scoreEvents.ts, or
+          severity keyword rules. Deliberately structural/evergreen in
+          tone (percentages, capacity shares) rather than "breaking crisis"
+          framing, since transient events are already the reactive feed's
+          job — this card is the long-term counterpart called for in the
+          roadmap notes ("Both are good to be aware of, but they are
+          REACTIVE!").
+        Verified end-to-end via browser automation on a guest/localStorage
+          test profile (2 suppliers — "Glass-fiber yarn" and
+          "Semiconductors" categories — and tradeLanes including "Middle
+          East to Europe"): confirmed all 4 entries render with correct
+          severity badges, grouping, and sourced footer links, then fully
+          reverted (localStorage restored to pre-test state). npm run
+          build passes clean (only pre-existing, unrelated ESLint
+          warnings; one TS fix needed — Set iteration required
+          Array.from() per the existing TypeScript-target note below).
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
@@ -773,8 +840,12 @@ v4.1 — Raw material BOM breakout, Phase 1 of the handwritten-notes roadmap
 - v4.1's rawMaterials field follows the same pattern (lives inside the
   existing JSONB profile column, no migration needed) and was only verified
   via guest/localStorage browser automation, same caveat as above.
+- v4.2's structuralRisk.ts content is hand-curated and dated 2026-08-09 —
+  same as labor calendar entries, this needs periodic manual re-verification
+  against its sources rather than being treated as permanently accurate
+  (capacity/share figures shift, e.g. Nittobo/TSMC capacity expansion
+  timelines).
 - Next priorities:
-  [ ] Long-term structural risk watchlist (Phase 2 of the roadmap)
   [ ] Supply chain network graph + disruption propagation engine (Phase 3)
   [ ] AI structural risk radar (Phase 4)
   [ ] Watchlist with notification badges
@@ -840,7 +911,7 @@ v4.1 — Raw material BOM breakout, Phase 1 of the handwritten-notes roadmap
 - [x] HS code / tariff duty rate lookup via USITC HTS API (Jul 13, 2026)
 - [x] Multi-tier sub-supplier visibility on WorldMap (Jul 13, 2026)
 - [x] Raw material BOM breakout per product line — visibility only (Aug 9, 2026)
-- [ ] Long-term structural risk watchlist (chokepoints, single-source materials)
+- [x] Long-term structural risk watchlist (chokepoints, single-source materials) (Aug 9, 2026)
 - [ ] Supply chain network graph + disruption propagation engine (+ SPOF detection,
       probabilistic "Supply Chain VaR" simulation)
 - [ ] AI structural risk radar (Gemini + Google Search grounding)
