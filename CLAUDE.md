@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.3 live
+- Status: v4.4 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -60,6 +60,13 @@ trading and financial markets background.
   /api/import-profile/route.ts    → Gemini interprets uploaded file data, maps columns to profile schema (5min cache)
   /api/sanctions-check/route.ts   → OFAC SDN CSV screening against supplier names, 24hr cache (v4.0)
   /api/tariff-lookup/route.ts     → USITC HTS REST API duty rate lookup by HS code, 24hr per-code cache (v4.0)
+  /api/structural-risk-radar/route.ts → Gemini + Google Search grounding (v4.4), scoped to the profile's actual
+                                    supplier categories/raw materials/trade lanes. 24hr fresh / 7-day stale cache
+                                    keyed by profile.updatedAt + sorted category list. Returns findings (name,
+                                    riskType, description, relevanceToProfile) + real grounding source citations
+                                    (title/uri pulled from the API response's groundingMetadata, not model-
+                                    generated). Empty array is a valid, expected response — never fabricates a
+                                    finding when search turns up nothing specific.
 
 /components
   Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode,
@@ -112,10 +119,16 @@ trading and financial markets background.
   LaborCalendarCard.tsx           → Static labor/union contract expiration reference (v4.0), surfaces contracts
                                     within 180-day lookahead whose tradeLanesAffected overlaps profile.tradeLanes.
                                     Rendered on Overview tab.
-  StructuralRiskCard.tsx          → Static long-term structural risk reference (v4.1) — chokepoints, single-source
+  StructuralRiskCard.tsx          → Static long-term structural risk reference (v4.2) — chokepoints, single-source
                                     materials, capacity concentration. Mirrors LaborCalendarCard's sourced/dated
                                     provenance pattern; groups by severity (Critical/Elevated expanded, Watch
                                     collapsed) instead of a date window. Rendered on Overview tab below LaborCalendarCard.
+                                    Now also self-fetches /api/structural-risk-radar and renders an "AI Risk Radar"
+                                    sub-section below the curated list (v4.4) — real Gemini + Google Search grounding
+                                    findings, amber "AI-sourced · unverified" treatment, actual citation links pulled
+                                    from the API's groundingMetadata (not model-generated URLs). Component now renders
+                                    for any profile with suppliers, even with zero curated matches, since the AI
+                                    radar is independently profile-scoped.
   TariffRateBadge.tsx             → Self-fetching HTS duty rate badge (v4.0) shown on product cards with hsCode set
 
 /lib
@@ -182,6 +195,18 @@ trading and financial markets background.
   importCalculations.ts           → Deterministic post-processing for imports: computeDaysOnHand(onHandValue,
                                     usageValue, usageWindowDays), distributeShareEvenly(count). Gemini extracts
                                     raw numbers/structure only — this file does the arithmetic, never the AI.
+  gemini.ts                       → Shared 4-layer Gemini utility (retry/cache/dedup/degrade, v2.8) used by
+                                    analyze, advisor, event-brief, cost-estimate, import-profile, structural-
+                                    risk-radar. callGeminiWithRetry() accepts enableGoogleSearch?: boolean (v4.4)
+                                    — passes tools: [{ googleSearch: {} }] to generateContent when set (verified
+                                    against the installed @google/genai v1.49.0 SDK types, not just docs — a
+                                    general web search on this turned up an unrelated newer "Interactions API"
+                                    with different syntax that does NOT match what's installed). Extracts real
+                                    grounding source citations (GroundingSource[]: title/uri) from
+                                    response.candidates[0].groundingMetadata.groundingChunks and threads them
+                                    through the cache alongside the text result — additive change, does not touch
+                                    the existing retry/cache/dedup logic, and every other caller is unaffected
+                                    (enableGoogleSearch defaults to false, sources defaults to []).
 
 /hooks
   useCompanyProfile.ts            → Supabase-first with localStorage fallback for guests.
@@ -925,6 +950,57 @@ v4.3 — Supply chain network graph + disruption propagation engine, Phase 3
           restore of a pre-existing scm_disruption_history value that
           predated this test session). npm run build passes clean (only
           pre-existing, unrelated ESLint warnings).
+v4.4 — AI Structural Risk Radar, Phase 4 (final phase) of the roadmap
+        (Aug 9, 2026):
+        Feature: /lib/gemini.ts gained enableGoogleSearch?: boolean on
+          GeminiCallOptions — the first use of Gemini's live Google Search
+          grounding tool anywhere in this app. Verified against the actually-
+          installed @google/genai SDK (v1.49.0) type definitions rather than
+          trusting docs alone: a general web search surfaced a newer,
+          unrelated "Interactions API" with different syntax that does not
+          match what's installed here. Real grounding source citations
+          (title/uri) are extracted from the API response's
+          groundingMetadata.groundingChunks and threaded through the cache —
+          additive change, every other caller of callGeminiWithRetry is
+          unaffected (enableGoogleSearch defaults to false).
+        Feature: new /app/api/structural-risk-radar/route.ts — prompt scoped
+          to the profile's actual supplier categories, raw material names
+          (from Phase 1's rawMaterials, if present), sector, and trade lanes.
+          Explicitly instructed to only report a finding attributable to a
+          real source found via search, and that an empty array is a valid,
+          expected response — no fabricated findings when search turns up
+          nothing specific. 24hr fresh / 7-day stale cache, same tier as
+          /api/market-data, keyed by profile.updatedAt + sorted supplier
+          category list.
+        Feature: StructuralRiskCard.tsx (Phase 2) gained a self-fetching "AI
+          Risk Radar" sub-section below the hand-curated list — amber
+          "AI-sourced · unverified, refreshed {date}" treatment (same
+          provenance-first convention as SanctionsScreeningCard's "verify
+          manually" copy), with the real grounding citation links in the
+          footer, not model-generated URLs. The component now renders for
+          any profile with suppliers even when zero curated entries match,
+          since the AI radar is independently profile-scoped and meant to
+          broaden coverage beyond the small hand-curated list.
+        Verification — this phase carried the most technical risk of the
+          four (unverified SDK syntax, a genuinely new capability), so it was
+          checked at three levels before being called done: (1) confirmed
+          `Tool.googleSearch?: GoogleSearch` exists in the installed SDK's
+          own .d.ts files; (2) curl-tested /api/structural-risk-radar
+          directly against a "Semiconductors" category profile — returned 4
+          real, specific, well-known findings (TSMC/ASML/Samsung concentration,
+          real grounding-redirect source URLs), not generic filler; (3) full
+          browser verification on a guest/localStorage test profile — the AI
+          Risk Radar section rendered ASML EUV lithography monopoly, high-
+          purity neon gas (real 2022 Ukraine-linked semiconductor supply
+          shock), and gallium export-control history (real 2023 China
+          restriction), each with a correct relevanceToProfile line and
+          genuine clickable source citations (moodys.com, wikipedia.org,
+          asml.com, etc.) in the footer — then fully reverted (localStorage
+          restored to exact pre-test state). npm run build passes clean.
+        Roadmap complete: all 4 phases planned from the handwritten notes
+          (raw material BOM v4.1 -> structural risk watchlist v4.2 -> supply
+          chain network graph + SPOF + Monte Carlo VaR v4.3 -> AI structural
+          risk radar v4.4) are now live in production.
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
@@ -953,8 +1029,16 @@ v4.3 — Supply chain network graph + disruption propagation engine, Phase 3
   reasonable defaults, not calibrated against any real historical disruption-
   frequency data — treat the reported percentages as directional (which
   product lines are more exposed than others), not as precise forecasts.
-- Next priorities:
-  [ ] AI structural risk radar (Phase 4 — final phase of the roadmap)
+- v4.4's AI Risk Radar findings (structural-risk-radar route) are LLM output
+  over live search results — genuinely well-sourced in every test run so
+  far (real citations, specific/current facts), but unlike v4.2's curated
+  STRUCTURAL_RISKS[], nobody has manually verified each finding against its
+  source. This is by design (the "AI-sourced · unverified" framing is meant
+  to be read that way) but worth remembering if a finding ever looks off —
+  it hasn't been through the same human-verification pass as the curated
+  list.
+- 4-phase roadmap (planned from handwritten notes) is now fully shipped —
+  no roadmap items remain. Next priorities are the pre-existing backlog:
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
   [ ] Mobile responsiveness (deferred — desktop only for now)
@@ -1022,7 +1106,7 @@ v4.3 — Supply chain network graph + disruption propagation engine, Phase 3
 - [x] Supply chain network graph + disruption propagation engine, wired into
       Scenario Planner and AI Advisor (+ SPOF detection, probabilistic
       "Supply Chain VaR" simulation) (Aug 9, 2026)
-- [ ] AI structural risk radar (Gemini + Google Search grounding)
+- [x] AI structural risk radar (Gemini + Google Search grounding) (Aug 9, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
