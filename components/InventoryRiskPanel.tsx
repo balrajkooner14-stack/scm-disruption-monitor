@@ -13,6 +13,7 @@ import {
 } from "@/lib/inventoryRisk"
 import Link from "next/link"
 import TariffRateBadge from "@/components/TariffRateBadge"
+import { RawMaterial, Supplier } from "@/lib/profile"
 
 interface InventoryRiskPanelProps {
   events: ScoredEvent[]
@@ -234,7 +235,12 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
               return order[a.riskLevel] - order[b.riskLevel]
             })
             .map(product => (
-              <ProductRiskCard key={product.productId} product={product} />
+              <ProductRiskCard
+                key={product.productId}
+                product={product}
+                rawMaterials={profile?.productLines.find(p => p.id === product.productId)?.rawMaterials ?? []}
+                suppliers={profile?.suppliers ?? []}
+              />
             ))}
         </div>
 
@@ -249,7 +255,15 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
   )
 }
 
-function ProductRiskCard({ product }: { product: ProductRisk }) {
+function ProductRiskCard({
+  product,
+  rawMaterials,
+  suppliers,
+}: {
+  product: ProductRisk
+  rawMaterials: RawMaterial[]
+  suppliers: Supplier[]
+}) {
   const config = RISK_CONFIG[product.riskLevel]
   const barColor = getInventoryBarColor(product.riskLevel)
 
@@ -353,6 +367,24 @@ function ProductRiskCard({ product }: { product: ProductRisk }) {
       )}
 
       {product.hsCode && <TariffRateBadge hsCode={product.hsCode} />}
+
+      {rawMaterials.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-slate-700/50">
+          <p className="text-xs text-slate-500 mb-1">Raw materials ({rawMaterials.length})</p>
+          <div className="space-y-0.5">
+            {rawMaterials.map(m => {
+              const vendor = suppliers.find(s => s.id === m.primaryVendorId)
+              return (
+                <p key={m.id} className="text-xs text-slate-600 leading-relaxed">
+                  {m.name || "Unnamed material"}
+                  {vendor && ` — ${vendor.name}`}
+                  {m.leadTimeDays != null && ` (${m.leadTimeDays}d lead time)`}
+                </p>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

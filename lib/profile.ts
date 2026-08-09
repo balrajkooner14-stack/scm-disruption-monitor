@@ -60,6 +60,15 @@ export interface Supplier {
   tier2Suppliers?: Tier2Supplier[] // this supplier's own suppliers — manual entry, visibility only
 }
 
+export interface RawMaterial {
+  id: string
+  name: string
+  primaryVendorId?: string    // references Supplier.id
+  secondaryVendorId?: string  // references Supplier.id, excludes primary — designated alternate
+  leadTimeDays?: number       // override; falls back to the vendor's own leadTimeDays if unset
+  reorderPointDays?: number   // safety stock trigger, same convention as ProductLine.reorderPointDays
+}
+
 export interface ProductLine {
   id: string
   name: string
@@ -68,6 +77,7 @@ export interface ProductLine {
   primarySupplierId?: string
   backupSupplierId?: string // designated alternate if primary is disrupted
   hsCode?: string           // Harmonized System code — enables real duty-rate lookup
+  rawMaterials?: RawMaterial[] // component-level BOM breakout — manual entry, visibility only (v4.1)
 }
 
 export interface CompanyProfile {

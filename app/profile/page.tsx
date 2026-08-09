@@ -13,6 +13,7 @@ import {
   Supplier,
   ProductLine,
   Tier2Supplier,
+  RawMaterial,
 } from "@/lib/profile"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import ImportProfileFlow from "@/components/ImportProfileFlow"
@@ -87,6 +88,7 @@ export default function ProfilePage() {
   const [step, setStep] = useState(1)
   const [error, setError] = useState("")
   const [expandedTier2SupplierId, setExpandedTier2SupplierId] = useState<string | null>(null)
+  const [expandedRawMaterialsId, setExpandedRawMaterialsId] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
 
   // Step 1
@@ -254,6 +256,52 @@ export default function ProfilePage() {
   }
   function removeProductLine(id: string) {
     setProductLines((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  // Raw material breakout — manual entry, visibility only (v4.1), same
+  // pattern as tier2Suppliers: no inventory-risk math reads these yet.
+  function addRawMaterial(productLineId: string) {
+    setProductLines((prev) =>
+      prev.map((p) =>
+        p.id === productLineId
+          ? {
+              ...p,
+              rawMaterials: [
+                ...(p.rawMaterials ?? []),
+                { id: crypto.randomUUID(), name: "" },
+              ],
+            }
+          : p
+      )
+    )
+  }
+  function updateRawMaterial(
+    productLineId: string,
+    materialId: string,
+    field: keyof RawMaterial,
+    value: string | number | undefined
+  ) {
+    setProductLines((prev) =>
+      prev.map((p) =>
+        p.id === productLineId
+          ? {
+              ...p,
+              rawMaterials: (p.rawMaterials ?? []).map((m) =>
+                m.id === materialId ? { ...m, [field]: value } : m
+              ),
+            }
+          : p
+      )
+    )
+  }
+  function removeRawMaterial(productLineId: string, materialId: string) {
+    setProductLines((prev) =>
+      prev.map((p) =>
+        p.id === productLineId
+          ? { ...p, rawMaterials: (p.rawMaterials ?? []).filter((m) => m.id !== materialId) }
+          : p
+      )
+    )
   }
 
   // Pain point toggle
@@ -746,6 +794,132 @@ export default function ProfilePage() {
                       <p className="text-xs text-slate-600 mt-1">
                         Harmonized System code — enables a real US import duty rate lookup for this product.
                       </p>
+                    </div>
+
+                    {/* Raw material breakout — optional, visibility only */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedRawMaterialsId(
+                            expandedRawMaterialsId === pl.id ? null : pl.id
+                          )
+                        }
+                        className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                      >
+                        {expandedRawMaterialsId === pl.id ? "▲" : "▼"}{" "}
+                        Break out raw materials for {pl.name || "this product"}
+                        {(pl.rawMaterials?.length ?? 0) > 0 &&
+                          ` (${pl.rawMaterials?.length})`}
+                      </button>
+
+                      {expandedRawMaterialsId === pl.id && (
+                        <div className="mt-2 space-y-3 border-l-2 border-slate-600 pl-3">
+                          <p className="text-xs text-slate-600">
+                            Optional — if this finished good depends on multiple inputs from
+                            different vendors, list them here with their own lead time and
+                            safety stock. Vendors are picked from the suppliers you entered
+                            in Step 2.
+                          </p>
+                          {(pl.rawMaterials ?? []).map((m) => (
+                            <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={m.name}
+                                  onChange={(e) =>
+                                    updateRawMaterial(pl.id, m.id, "name", e.target.value)
+                                  }
+                                  placeholder="Material name, e.g. Glass-fiber yarn"
+                                  className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeRawMaterial(pl.id, m.id)}
+                                  className="text-slate-500 hover:text-red-400 transition-colors text-sm leading-none flex-shrink-0"
+                                  aria-label="Remove raw material"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[11px] text-slate-500 mb-0.5">Primary Vendor</label>
+                                  <select
+                                    value={m.primaryVendorId ?? ""}
+                                    onChange={(e) =>
+                                      updateRawMaterial(pl.id, m.id, "primaryVendorId", e.target.value || undefined)
+                                    }
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                  >
+                                    <option value="">Select vendor</option>
+                                    {suppliers.map((s) => (
+                                      <option key={s.id} value={s.id}>{s.name || "Unnamed supplier"}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] text-slate-500 mb-0.5">Secondary Vendor</label>
+                                  <select
+                                    value={m.secondaryVendorId ?? ""}
+                                    onChange={(e) =>
+                                      updateRawMaterial(pl.id, m.id, "secondaryVendorId", e.target.value || undefined)
+                                    }
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                  >
+                                    <option value="">No alternate assigned</option>
+                                    {suppliers
+                                      .filter((s) => s.id !== m.primaryVendorId)
+                                      .map((s) => (
+                                        <option key={s.id} value={s.id}>{s.name || "Unnamed supplier"}</option>
+                                      ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] text-slate-500 mb-0.5">Lead time (days)</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={m.leadTimeDays ?? ""}
+                                    onChange={(e) =>
+                                      updateRawMaterial(
+                                        pl.id, m.id, "leadTimeDays",
+                                        e.target.value === "" ? undefined : Number(e.target.value)
+                                      )
+                                    }
+                                    placeholder="Uses vendor's lead time if blank"
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] text-slate-500 mb-0.5">Reorder point / safety stock (days)</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={m.reorderPointDays ?? ""}
+                                    onChange={(e) =>
+                                      updateRawMaterial(
+                                        pl.id, m.id, "reorderPointDays",
+                                        e.target.value === "" ? undefined : Number(e.target.value)
+                                      )
+                                    }
+                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {(pl.rawMaterials?.length ?? 0) < 5 && (
+                            <button
+                              type="button"
+                              onClick={() => addRawMaterial(pl.id)}
+                              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                              + Add raw material
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

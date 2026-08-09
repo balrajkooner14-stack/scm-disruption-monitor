@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.0 live
+- Status: v4.1 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -78,6 +78,7 @@ trading and financial markets background.
   FreightRateCard.tsx             → Container freight rates by trade lane
   InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators.
                                     Amber warning on cards still defaulting to highest-share supplier.
+                                    Raw materials list (name, vendor, lead time) shown per card when present (v4.1).
   SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, 4-column metrics row (OTD/quality/delay/lead time trend),
                                     inline edit forms, OTD+quality alert triggering, lead time recording on save
   CostImpactPanel.tsx             → Financial impact panel: 3-metric display, urgency bar, lazy-fetch on first open
@@ -109,7 +110,11 @@ trading and financial markets background.
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY.
                                     ProductLine has optional primarySupplierId, backupSupplierId (v4.0), hsCode
-                                    (v4.0). Supplier has optional tier2Suppliers (v4.0, manual entry, visibility only).
+                                    (v4.0), rawMaterials (v4.1, RawMaterial[], cap 5). Supplier has optional
+                                    tier2Suppliers (v4.0, manual entry, visibility only). RawMaterial has optional
+                                    primaryVendorId/secondaryVendorId (references Supplier.id), leadTimeDays,
+                                    reorderPointDays — manual entry, visibility only, same trust level as
+                                    tier2Suppliers (v4.1).
   currencyMapping.ts              → COUNTRY_TO_CURRENCY record + currencyCodesForCountries() (v4.0)
   sanctionsScreening.ts           → Pure token-overlap name matching: screenSupplierNames(). "high"/"medium"
                                     match strength only — never a definitive sanctions claim (v4.0)
@@ -714,6 +719,43 @@ v4.0 — 8 next-level features: compliance, market data, supply chain depth
           supplier through the profile form, confirmed persistence in
           localStorage, confirmed the violet map highlight and hover text
           render correctly. npm run build passes clean.
+v4.1 — Raw material BOM breakout, Phase 1 of the handwritten-notes roadmap
+        (Aug 9, 2026):
+        Feature: ProductLine gained an optional rawMaterials: RawMaterial[]
+          field (cap 5) — RawMaterial has name, primaryVendorId/
+          secondaryVendorId (references Supplier.id, secondary excludes
+          primary), leadTimeDays (override; falls back to vendor's own
+          leadTimeDays if unset), reorderPointDays (safety stock trigger,
+          same convention as ProductLine.reorderPointDays). Manual entry,
+          visibility only — same trust level as Supplier.tier2Suppliers,
+          no inventoryRisk.ts math changes in this phase.
+        UI: Step 3 of the profile form gained a collapsible "Break out raw
+          materials for {product}" section per product line card, directly
+          mirroring the Step 2 tier2Suppliers collapsible pattern (add/
+          update/remove handlers, live label with running count). Vendor
+          dropdowns are populated from the suppliers entered in Step 2;
+          secondary vendor excludes whichever is picked as primary.
+        UI: InventoryRiskPanel.tsx product cards show a "Raw materials (N)"
+          list (material name, resolved vendor name, lead time) when
+          present, resolved directly from profile.productLines/suppliers —
+          no changes to ProductRisk or inventoryRisk.ts.
+        Context: first phase of a 4-phase roadmap (raw material BOM →
+          long-term structural risk watchlist → supply chain network graph
+          + disruption propagation engine → AI structural risk radar with
+          Google Search grounding) planned from a founder's handwritten
+          notes; full plan and external research (industry n-tier mapping
+          practice, single-point-of-failure formalism, Monte Carlo/VaR-style
+          disruption simulation, verified @google/genai SDK grounding
+          syntax) captured separately.
+        Verified end-to-end via browser automation on a guest/localStorage
+          test profile (2 suppliers, 1 product line, 1 raw material with
+          both vendors assigned): confirmed save → dashboard display →
+          profile-page reload pre-fill round-trip, then fully reverted
+          (localStorage restored to pre-test state). npm run build passes
+          clean (only pre-existing, unrelated ESLint warnings). One dev-only
+          hydration warning observed (Navbar's live clock, server vs client
+          time on first paint) — pre-existing, unrelated to this feature,
+          confirmed absent from the production build.
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
@@ -728,7 +770,13 @@ v4.0 — 8 next-level features: compliance, market data, supply chain depth
   hsCode) has not been separately spot-checked in production. These fields
   live inside the existing JSONB profile column so no new migration is
   needed, but worth a production sanity check after deploy.
+- v4.1's rawMaterials field follows the same pattern (lives inside the
+  existing JSONB profile column, no migration needed) and was only verified
+  via guest/localStorage browser automation, same caveat as above.
 - Next priorities:
+  [ ] Long-term structural risk watchlist (Phase 2 of the roadmap)
+  [ ] Supply chain network graph + disruption propagation engine (Phase 3)
+  [ ] AI structural risk radar (Phase 4)
   [ ] Watchlist with notification badges
   [ ] Custom domain setup
   [ ] Mobile responsiveness (deferred — desktop only for now)
@@ -791,6 +839,11 @@ v4.0 — 8 next-level features: compliance, market data, supply chain depth
 - [x] Labor/union contract expiration calendar (Jul 13, 2026)
 - [x] HS code / tariff duty rate lookup via USITC HTS API (Jul 13, 2026)
 - [x] Multi-tier sub-supplier visibility on WorldMap (Jul 13, 2026)
+- [x] Raw material BOM breakout per product line — visibility only (Aug 9, 2026)
+- [ ] Long-term structural risk watchlist (chokepoints, single-source materials)
+- [ ] Supply chain network graph + disruption propagation engine (+ SPOF detection,
+      probabilistic "Supply Chain VaR" simulation)
+- [ ] AI structural risk radar (Gemini + Google Search grounding)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
