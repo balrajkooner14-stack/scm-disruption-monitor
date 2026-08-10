@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.4 live
+- Status: v4.5 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -138,7 +138,14 @@ trading and financial markets background.
   fetchGlobalDisasters.ts         → GDACS API (earthquakes/cyclones/floods/volcanoes/droughts/wildfires),
                                     global coverage, country-NAME-keyed region map — deliberately NOT the
                                     same lookup as GDELT's FIPS-style codes (collision risk, e.g. "CH") (v4.0)
-  fetchWeatherAlerts.ts           → api.weather.gov/alerts/active, US-only supplement, category: "Weather" (v4.0)
+  fetchWeatherAlerts.ts           → api.weather.gov/alerts/active, US-only supplement, category: "Weather" (v4.0).
+                                    Filtered to a DISRUPTIVE_EVENT_TYPES allowlist (Warnings only — Hurricane,
+                                    Tornado, Flash Flood/Flood, Blizzard, Ice Storm, Winter Storm, etc. — no
+                                    Watches, no routine/localized types like Heat Warning or Red Flag Warning)
+                                    and capped at MAX_ALERTS=15, sorted by severity+date (v4.5). NWS's own
+                                    "Severe/Extreme" query param is much broader than "supply-chain disruptive" —
+                                    unfiltered, it was returning 30+ alerts most days, dominating the merged feed
+                                    over GDELT and GDACS combined.
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY.
                                     ProductLine has optional primarySupplierId, backupSupplierId (v4.0), hsCode
@@ -1001,6 +1008,51 @@ v4.4 — AI Structural Risk Radar, Phase 4 (final phase) of the roadmap
           (raw material BOM v4.1 -> structural risk watchlist v4.2 -> supply
           chain network graph + SPOF + Monte Carlo VaR v4.3 -> AI structural
           risk radar v4.4) are now live in production.
+v4.5 — Fix: NOAA weather alerts were clustering the disruption feed
+        (Aug 10, 2026):
+        Problem reported by user: the Live Disruption Feed felt dominated
+          by weather alerts, crowding out genuine supply chain news (port
+          strikes, tariffs, labor disruptions).
+        Root cause, confirmed by a live check against api.weather.gov: the
+          NOAA fetch (lib/fetchWeatherAlerts.ts, added v4.0) had no record
+          cap — unlike GDELT's maxrecords=25/query — and NWS's own
+          "severity=Severe,Extreme" query param is a broad event
+          classification, not a supply-chain relevance filter. A live check
+          returned 34 active alerts under that filter in one sample,
+          dominated by Extreme Heat Warning (10), Severe Thunderstorm
+          Warning (9), and Red Flag Warning (8, fire-weather conditions) —
+          none meaningfully disruptive to freight/logistics, yet every one
+          mapped to the same severity tier (WARNING) as a real port strike
+          or tariff headline, all under the "Weather" category. GDACS, by
+          contrast, stayed small (6-18 events) because it's genuinely a
+          disaster-alert-level feed, not the source of the clustering.
+        Fix: lib/fetchWeatherAlerts.ts now filters NOAA features through a
+          DISRUPTIVE_EVENT_TYPES allowlist — Warning-level event types only
+          (Hurricane, Tornado, Flash Flood/Flood, Blizzard, Ice Storm,
+          Winter Storm, Storm Surge, Tsunami, Dust Storm, Extreme Wind) —
+          explicitly excluding all Watches (conditions merely favorable,
+          nothing confirmed) and routine/localized types (Heat Warning, Red
+          Flag Warning, Severe Thunderstorm Watch/Warning). Result is also
+          capped at 15, mirroring GDELT's own cap pattern, as a safety net
+          against a single widespread event (e.g. a hurricane) producing
+          dozens of county-level warnings. Severity mapping (NWS
+          Extreme->3, Severe->2) and everything else in the pipeline is
+          unchanged — this is purely an inclusion filter on lib/fetchWeatherAlerts.ts,
+          not a change to the severity scoring rules CLAUDE.md flags as
+          frozen (those govern GDELT title-keyword scoring, untouched here).
+        Verified at three levels: (1) filtered the live NOAA response against
+          the proposed allowlist before writing code — all 33-34 alerts
+          active that day were excluded, confirming today's clutter was
+          exactly the kind of noise being targeted; (2) after implementing,
+          confirmed via the dev server's [Disruptions] log line that NOAA's
+          contribution dropped from 34 (pre-fix baseline) to a small, dynamic
+          count (13, then 0 minutes later as short-lived alerts expired —
+          expected NWS behavior, not a bug); (3) browser-verified the live
+          feed: the Weather-category filter now shows genuine GDACS wildfire
+          events plus a real NOAA "Flash Flood Warning issued by NWS
+          Midland/Odessa TX" — an allowlisted, genuinely disruptive event —
+          with none of the earlier heat/thunderstorm/fire-weather noise.
+          npm run build passes clean.
 
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
