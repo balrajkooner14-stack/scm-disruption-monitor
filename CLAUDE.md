@@ -1159,6 +1159,8 @@ v4.5 — Fix: NOAA weather alerts were clustering the disruption feed
       Scenario Planner and AI Advisor (+ SPOF detection, probabilistic
       "Supply Chain VaR" simulation) (Aug 9, 2026)
 - [x] AI structural risk radar (Gemini + Google Search grounding) (Aug 9, 2026)
+- [x] Fix: NOAA weather alerts filtered to genuinely disruptive event types,
+      no longer clustering the feed (Aug 10, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
