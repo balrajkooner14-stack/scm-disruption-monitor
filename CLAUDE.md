@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.5 live
+- Status: v4.6 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -133,8 +133,15 @@ trading and financial markets background.
 
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
-  fetchDisruptions.ts             → GDELT fetcher (3 queries) + GDACS (fetchGlobalDisasters) + NOAA
-                                    (fetchWeatherAlerts) merged via Promise.all, deduplication, fallback (v4.0)
+  fetchDisruptions.ts             → GDELT fetcher (3 queries, OR clauses parenthesized — GDELT rejects
+                                    unparenthesized OR syntax outright) run sequentially with a 2s gap and a
+                                    20s per-request timeout (datacenter-origin IPs get slow/throttled GDELT
+                                    responses, 11-13s+ observed), wrapped in a module-level promise
+                                    (disruptionsPromise) so the network fetch runs once per build process no
+                                    matter how many times Next invokes the page's data-fetching (v4.6, see
+                                    version history for the full root-cause chain). Merged with GDACS
+                                    (fetchGlobalDisasters) + NOAA (fetchWeatherAlerts) via Promise.all,
+                                    deduplication, fallback (v4.0).
   fetchGlobalDisasters.ts         → GDACS API (earthquakes/cyclones/floods/volcanoes/droughts/wildfires),
                                     global coverage, country-NAME-keyed region map — deliberately NOT the
                                     same lookup as GDELT's FIPS-style codes (collision risk, e.g. "CH") (v4.0)
@@ -271,8 +278,12 @@ Score 1 MONITOR: everything else
 
 ## GDELT queries (all with timespan=24H, maxrecords=25, format=json, mode=artlist)
 Query 1: "supply chain disruption" → category: General
-Query 2: "port strike OR port closure OR freight delay" → category: Port or Labor
-Query 3: "tariff OR sanctions OR trade war" → category: Tariff or Geopolitical
+Query 2: "(port strike OR port closure OR freight delay)" → category: Port or Labor
+Query 3: "(tariff OR sanctions OR trade war)" → category: Tariff or Geopolitical
+OR clauses MUST be parenthesized — GDELT rejects unparenthesized OR syntax outright
+(HTTP 200 with a plain-text error body, not JSON). Fetched sequentially with a 2s gap
+and a 20s timeout each (see v4.6), not Promise.all — GDELT throttles at ~1 req/5s per
+client and responds slowly (11-13s+) to datacenter-origin IPs.
 
 ## Caching rules (DO NOT CHANGE)
 - /api/analyze: 10min module-level variable, key: profile ? `profile:${companyName}:${updatedAt}` : "generic"
@@ -1054,6 +1065,76 @@ v4.5 — Fix: NOAA weather alerts were clustering the disruption feed
           with none of the earlier heat/thunderstorm/fire-weather noise.
           npm run build passes clean.
 
+v4.6 — Fix: GDELT queries silently failing since day one — syntax,
+        timeout, and duplicate build-time fetch bugs (Aug 15, 2026):
+        Problem reported by user: the Live Disruption Feed showed almost
+          entirely NOAA/GDACS weather events — no Port, Tariff, Labor, or
+          Geopolitical events from GDELT ever appeared.
+        Root cause 1 (the main one): 2 of the 3 GDELT queries — "port
+          strike OR port closure OR freight delay" and "tariff OR
+          sanctions OR trade war" — have been syntactically invalid since
+          the very first commit that added GDELT (07bf257, before v1.0).
+          GDELT rejects any OR'd clause not wrapped in parentheses,
+          returning HTTP 200 with a plain-text error body instead of JSON
+          ("Queries containing OR'd terms must be surrounded by ()."),
+          which the existing `if (!res.ok)` check didn't catch (200 is
+          "ok") — `res.json()` then threw on the non-JSON body, silently
+          rejecting the query inside Promise.allSettled every single
+          time. Fixed by wrapping both queries in parentheses.
+        Root cause 2: fetchQuery()'s AbortController timeout (8000ms) was
+          too short for GDELT's response time to datacenter/cloud-origin
+          requests — verified live at 11-13s for a single request from
+          the diagnosing environment, and confirmed via Vercel's own
+          build logs: all 3 queries (including the syntactically-simple,
+          no-OR query) hit AbortError at exactly 8000ms with zero
+          response — not a 429, a true timeout. Bumped to 20000ms.
+        Root cause 3: the 3 GDELT queries fired simultaneously via
+          Promise.all, reliably tripping GDELT's "one request every 5
+          seconds" per-client throttle (reproduced live: 2 of 3
+          simultaneous requests came back 429). Replaced with
+          fetchGdeltQueriesSequentially() — sequential fetches with a 2s
+          gap between each.
+        Root cause 4 (surfaced by the new logging added while diagnosing
+          root cause 2): fetchDisruptions() runs at build time since both
+          consuming pages (/ and /scenarios) are statically prerendered,
+          and Next.js invokes each page's data-fetching more than once
+          per build (2-4 separate calls observed in Vercel's build log
+          per single deploy — likely a "collecting page data" pass plus
+          the actual static-generation pass). Each invocation
+          independently re-fired all 3 GDELT queries, multiplying
+          request volume against the same per-IP throttle within one
+          deploy. Fixed with a module-level promise (disruptionsPromise)
+          so the actual network fetch runs once per build process
+          regardless of how many times the page component is invoked —
+          confirmed via the build log going from 2-4 "[Disruptions] ..."
+          summary lines per deploy down to exactly 1.
+        Also: the diagnostic logging ([GDELT] Query N failed: ...,
+          [Disruptions] N total events (GDELT queries ok: X/3, ...)) was
+          ungated from NODE_ENV === "development" — it's the only window
+          into GDELT failures on Vercel, since dev-only logs never reach
+          the build log for a statically-prerendered page, and this is
+          how root causes 2 and 4 were actually diagnosed rather than
+          guessed at.
+        Verified end-to-end against the live production deployment
+          (https://scm-disruption-monitor.vercel.app): confirmed via
+          Vercel build logs that the fetch now succeeds when GDELT isn't
+          actively throttling that specific request, and confirmed via
+          the served static HTML that Port (2), Tariff (5), and Labor (1)
+          categories are present alongside GDACS/NOAA Weather (18) and
+          General (24) — 50 total events, up from 25 (GDACS+NOAA only,
+          zero GDELT) before this fix.
+        Known limitation, not fully fixable from this side: GDELT's
+          free-tier throttle is strict (~1 request/5s per client) and
+          responds slowly to datacenter-origin IPs. Because the homepage
+          and /scenarios are statically built once per deploy (not
+          fetched live per visitor), an individual deploy can still
+          occasionally land with fewer or zero GDELT articles if that
+          specific build's IP gets rate-limited mid-build — inherent to
+          GDELT's free API, not a remaining code bug. The module-level
+          memoization (root cause 4 fix) minimizes how often this happens
+          by cutting redundant request volume per build, but can't
+          eliminate GDELT-side throttling entirely.
+
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
 - Logged-in Supabase path for supplier health / lead time / disruption
@@ -1089,6 +1170,15 @@ v4.5 — Fix: NOAA weather alerts were clustering the disruption feed
   to be read that way) but worth remembering if a finding ever looks off —
   it hasn't been through the same human-verification pass as the curated
   list.
+- v4.6's GDELT fix resolved a bug present since the feature's first
+  commit (unparenthesized OR queries silently rejected by GDELT), a
+  too-short timeout, and redundant duplicate build-time fetches. GDELT's
+  free-tier per-IP throttle (~1 req/5s, slow response to datacenter IPs)
+  is still a real constraint outside the app's control — an individual
+  deploy can occasionally land with fewer GDELT articles if that build's
+  IP gets rate-limited mid-build. If the feed ever looks weather-heavy
+  again, check the Vercel build log for the "[Disruptions] ... GDELT
+  queries ok: X/3" line first before assuming a new code regression.
 - 4-phase roadmap (planned from handwritten notes) is now fully shipped —
   no roadmap items remain. Next priorities are the pre-existing backlog:
   [ ] Watchlist with notification badges
@@ -1161,6 +1251,9 @@ v4.5 — Fix: NOAA weather alerts were clustering the disruption feed
 - [x] AI structural risk radar (Gemini + Google Search grounding) (Aug 9, 2026)
 - [x] Fix: NOAA weather alerts filtered to genuinely disruptive event types,
       no longer clustering the feed (Aug 10, 2026)
+- [x] Fix: GDELT queries silently failing since inception — missing
+      parens on OR clauses, too-short timeout for datacenter-origin
+      requests, and redundant duplicate build-time fetches (Aug 15, 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
