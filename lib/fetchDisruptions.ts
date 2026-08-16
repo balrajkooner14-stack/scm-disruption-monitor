@@ -191,9 +191,11 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
 
   gdeltResults.forEach((result, queryIndex) => {
     if (result.status !== "fulfilled") {
-      if (process.env.NODE_ENV === "development") {
-        console.error(`[GDELT] Query ${queryIndex} ("${queries[queryIndex]}") failed:`, result.reason)
-      }
+      // Not gated to development — this is the only visibility into GDELT
+      // failures on Vercel, since fetchDisruptions() runs at build time
+      // (the homepage is statically prerendered) and dev-only logs never
+      // reach the build log.
+      console.error(`[GDELT] Query ${queryIndex} ("${queries[queryIndex]}") failed:`, result.reason)
       return
     }
     anySuccess = true
@@ -235,13 +237,11 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
     return new Date(b.date).getTime() - new Date(a.date).getTime()
   })
 
-  if (process.env.NODE_ENV === "development") {
-    const gdeltOk = gdeltResults.filter((r) => r.status === "fulfilled").length
-    console.log(
-      `[Disruptions] ${events.length} total events ` +
-      `(GDELT queries ok: ${gdeltOk}/${queries.length}, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
-    )
-  }
+  const gdeltOk = gdeltResults.filter((r) => r.status === "fulfilled").length
+  console.log(
+    `[Disruptions] ${events.length} total events ` +
+    `(GDELT queries ok: ${gdeltOk}/${queries.length}, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
+  )
 
   return events
 }
