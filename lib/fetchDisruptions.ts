@@ -166,7 +166,12 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
     const url =
       `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=artlist&maxrecords=25&format=json&timespan=24H`
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 8000)
+    // GDELT responds noticeably slower to requests from datacenter/cloud IP
+    // ranges than the old 8s timeout allowed — verified live at 11-13s for a
+    // single request, and Vercel's own build logs showed all 3 queries
+    // (including the syntactically-simple, no-OR one) hitting AbortError at
+    // exactly 8000ms with no response at all. 20s gives real headroom.
+    const timer = setTimeout(() => controller.abort(), 20000)
     try {
       const res = await fetch(url, {
         signal: controller.signal,
