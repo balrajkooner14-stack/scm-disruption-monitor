@@ -125,11 +125,41 @@ function loadFallback(): DisruptionEvent[] {
   return JSON.parse(raw) as DisruptionEvent[]
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// GDELT enforces a "one request every 5 seconds" throttle per client — firing
+// all 3 queries at once via Promise.all reliably trips it (verified live:
+// 2 of 3 simultaneous requests came back 429). Running them sequentially
+// with a gap respects that. Not a 100% guarantee under heavy concurrent site
+// traffic (Vercel functions can share egress IP ranges), but eliminates the
+// self-inflicted every-single-page-load failure.
+async function fetchGdeltQueriesSequentially(
+  queries: string[],
+  fetchQuery: (query: string) => Promise<GdeltResponse>
+): Promise<PromiseSettledResult<GdeltResponse>[]> {
+  const results: PromiseSettledResult<GdeltResponse>[] = []
+  for (let i = 0; i < queries.length; i++) {
+    if (i > 0) await delay(2000)
+    try {
+      const value = await fetchQuery(queries[i])
+      results.push({ status: "fulfilled", value })
+    } catch (reason) {
+      results.push({ status: "rejected", reason })
+    }
+  }
+  return results
+}
+
 export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
+  // GDELT rejects any OR'd query that isn't wrapped in parentheses (returns
+  // HTTP 200 with a plain-text error body instead of JSON) — verified live
+  // against the exact strings below before adding the parens.
   const queries = [
     "supply chain disruption",
-    "port strike OR port closure OR freight delay",
-    "tariff OR sanctions OR trade war",
+    "(port strike OR port closure OR freight delay)",
+    "(tariff OR sanctions OR trade war)",
   ]
 
   const fetchQuery = async (query: string): Promise<GdeltResponse> => {
@@ -150,7 +180,7 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
   }
 
   const [gdeltResults, disasterEvents, weatherEvents] = await Promise.all([
-    Promise.allSettled(queries.map((q) => fetchQuery(q))),
+    fetchGdeltQueriesSequentially(queries, fetchQuery),
     fetchGlobalDisasters(),
     fetchWeatherAlerts(),
   ])
@@ -160,7 +190,12 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
   let anySuccess = false
 
   gdeltResults.forEach((result, queryIndex) => {
-    if (result.status !== "fulfilled") return
+    if (result.status !== "fulfilled") {
+      if (process.env.NODE_ENV === "development") {
+        console.error(`[GDELT] Query ${queryIndex} ("${queries[queryIndex]}") failed:`, result.reason)
+      }
+      return
+    }
     anySuccess = true
     const articles = result.value.articles ?? []
     articles.forEach((article, i) => {
@@ -201,9 +236,10 @@ export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
   })
 
   if (process.env.NODE_ENV === "development") {
+    const gdeltOk = gdeltResults.filter((r) => r.status === "fulfilled").length
     console.log(
       `[Disruptions] ${events.length} total events ` +
-      `(GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
+      `(GDELT queries ok: ${gdeltOk}/${queries.length}, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
     )
   }
 
