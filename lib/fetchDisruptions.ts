@@ -152,7 +152,26 @@ async function fetchGdeltQueriesSequentially(
   return results
 }
 
-export async function fetchDisruptions(): Promise<DisruptionEvent[]> {
+// Next.js invokes this page's data-fetching more than once per build
+// (observed directly in Vercel build logs: 2-3 separate calls at different
+// timestamps, likely a "collecting page data" pass plus the actual static
+// generation pass). Those invocations are separate render/request scopes,
+// so neither Next's automatic fetch() dedup nor React's cache() persist
+// across them — each one independently re-fires all 3 GDELT queries,
+// multiplying request volume against GDELT's strict per-IP throttle within
+// a single deploy. A plain module-level promise is the one thing that
+// actually persists for the life of the build process regardless of how
+// many times the page component runs, so the network fetch happens once.
+let disruptionsPromise: Promise<DisruptionEvent[]> | null = null
+
+export function fetchDisruptions(): Promise<DisruptionEvent[]> {
+  if (!disruptionsPromise) {
+    disruptionsPromise = fetchDisruptionsUncached()
+  }
+  return disruptionsPromise
+}
+
+async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
   // GDELT rejects any OR'd query that isn't wrapped in parentheses (returns
   // HTTP 200 with a plain-text error body instead of JSON) — verified live
   // against the exact strings below before adding the parens.
