@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.6 live
+- Status: v4.7 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -115,20 +115,31 @@ trading and financial markets background.
   CurrencyExposureCard.tsx        → Yahoo Finance FX sparklines (v4.0), filtered to currencies of profile's
                                     actual supplier countries via lib/currencyMapping.ts
   SanctionsScreeningCard.tsx      → Self-fetching OFAC screening card (v4.0), per-supplier badge: green "No match
-                                    found" or amber "⚠ Possible match — verify manually". Rendered on Advisor tab.
-  LaborCalendarCard.tsx           → Static labor/union contract expiration reference (v4.0), surfaces contracts
-                                    within 180-day lookahead whose tradeLanesAffected overlaps profile.tradeLanes.
-                                    Rendered on Overview tab.
+                                    found" or amber "⚠ Possible match — verify manually". DISABLED as of v4.7 —
+                                    still rendered on the Advisor tab but gated behind
+                                    ENABLE_SANCTIONS_SCREENING in lib/featureFlags.ts (currently false).
+                                    Component, lib and API route all kept intact; flip the flag to re-enable.
+  LaborCalendarCard.tsx           → Labor/union contract expiration alert (v4.0), hidden unless imminent (v4.7):
+                                    renders only when a contract whose tradeLanesAffected overlaps
+                                    profile.tradeLanes expires within 0-180 days, else returns null. The 0-180
+                                    filtering happens in the component (contractsWithinWindow alone also matches
+                                    already-expired contracts). Dormant until ~Jan 2028 given current data.
+                                    Rendered last on the Overview tab.
   StructuralRiskCard.tsx          → Static long-term structural risk reference (v4.2) — chokepoints, single-source
                                     materials, capacity concentration. Mirrors LaborCalendarCard's sourced/dated
                                     provenance pattern; groups by severity (Critical/Elevated expanded, Watch
-                                    collapsed) instead of a date window. Rendered on Overview tab below LaborCalendarCard.
-                                    Now also self-fetches /api/structural-risk-radar and renders an "AI Risk Radar"
-                                    sub-section below the curated list (v4.4) — real Gemini + Google Search grounding
-                                    findings, amber "AI-sourced · unverified" treatment, actual citation links pulled
-                                    from the API's groundingMetadata (not model-generated URLs). Component now renders
-                                    for any profile with suppliers, even with zero curated matches, since the AI
-                                    radar is independently profile-scoped.
+                                    collapsed) instead of a date window. Curated list only — the AI Risk Radar it
+                                    used to host was split into AIRiskRadarCard.tsx (v4.7). Returns null when
+                                    relevantStructuralRisks(profile) is empty (gate restored in v4.7; it had only
+                                    rendered with zero matches so the radar had somewhere to live). Rendered on the
+                                    Overview tab below AIRiskRadarCard.
+  AIRiskRadarCard.tsx             → Self-fetching AI Risk Radar card (v4.7, split out of StructuralRiskCard where it
+                                    shipped in v4.4 as a sub-section). Calls /api/structural-risk-radar and renders
+                                    real Gemini + Google Search grounding findings with amber "AI-sourced ·
+                                    unverified" treatment and actual citation links pulled from the API's
+                                    groundingMetadata (not model-generated URLs). Renders for any profile with at
+                                    least one supplier, independent of whether any curated structural risk matches.
+                                    Rendered on the Overview tab directly below the map + feed grid.
   TariffRateBadge.tsx             → Self-fetching HTS duty rate badge (v4.0) shown on product cards with hsCode set
 
 /lib
@@ -162,6 +173,9 @@ trading and financial markets background.
                                     reorderPointDays — manual entry, visibility only, same trust level as
                                     tier2Suppliers (v4.1).
   currencyMapping.ts              → COUNTRY_TO_CURRENCY record + currencyCodesForCountries() (v4.0)
+  featureFlags.ts                 → Build-time feature toggles (v4.7). ENABLE_SANCTIONS_SCREENING = false —
+                                    sanctions screening is name-only matching with no alias/country cross-check,
+                                    so it must not read as a compliance clearance. Code kept, not deleted.
   sanctionsScreening.ts           → Pure token-overlap name matching: screenSupplierNames(). "high"/"medium"
                                     match strength only — never a definitive sanctions claim (v4.0)
   laborCalendar.ts                → Static LABOR_CONTRACTS[] (ILWU/PMA, ILA/USMX), each entry sourced +
@@ -1135,6 +1149,103 @@ v4.6 — Fix: GDELT queries silently failing since day one — syntax,
           by cutting redundant request volume per build, but can't
           eliminate GDELT-side throttling entirely.
 
+v4.7 — Overview tab reorganization + sanctions screening disabled
+        (Sep 26, 2026):
+        Context: the Overview tab had grown to lead with two reference
+          cards (labor calendar, structural risk) before the live map and
+          feed — the reactive, day-to-day content most visits are actually
+          for. This reorders around that, and takes sanctions screening
+          out of the product surface without deleting any of it.
+        Change 1 — Overview order. Now: DisruptionUpdatePrompt /
+          PerformanceAlertBanner -> InventoryRiskPanel -> WorldMap +
+          DisruptionFeed grid -> AIRiskRadarCard -> StructuralRiskCard ->
+          LaborCalendarCard. The live map and feed move up above the
+          standing-reference cards. The map/feed grid div gained mb-6
+          since it's no longer last and every card below it already uses
+          mb-6 — verified in-browser that all stacked gaps measure a
+          uniform 24px with no doubling.
+        Change 2 — AI Risk Radar split into its own card. New
+          /components/AIRiskRadarCard.tsx holds what was a sub-section
+          inside StructuralRiskCard since v4.4: the
+          /api/structural-risk-radar fetch, the radar/isLoading/error/
+          hasFetched state, all four render states, the RadarFindingRow
+          helper, and the amber "AI-sourced · unverified" footer with real
+          groundingMetadata citation links. Behavior is unchanged — this
+          is a lift-and-shift into a standard card wrapper. Only the intro
+          copy changed, from "the curated list above" to "the curated
+          long-term list below", since the curated card now renders under
+          it rather than over it.
+        Change 3 — StructuralRiskCard render gate restored. With the radar
+          gone, the card returns null again when
+          relevantStructuralRisks(profile) is empty. It had been rendering
+          on zero curated matches purely so the radar sub-section had a
+          home (v4.4), which no longer applies. Its description also flips
+          "distinct from today's news feed below" to "above", matching the
+          new order. Curated list, severity grouping and sourced footer are
+          untouched. Net effect: a profile with suppliers but no curated
+          match now sees no structural card at all — the AI radar covers
+          that profile on its own, so the Overview is never left empty.
+        Change 4 — LaborCalendarCard hidden unless imminent. Returns null
+          unless a relevant contract expires within 0-180 days. The 0-180
+          filtering is done in the component rather than in
+          lib/laborCalendar.ts (left untouched): contractsWithinWindow()
+          only tests `daysUntil <= windowDays`, so an already-expired
+          contract passes it with negative days and would have rendered as
+          "expires in -412 days" — the >= 0 filter is what guards that
+          edge case. The old "No expirations within 180 days" neutral-list
+          branch is deleted as unreachable. Both tracked contracts
+          (ILWU/PMA 2028-07-01, ILA/USMX 2030-09-30) sit outside the
+          window, so this card is dormant until roughly Jan 2028 — that's
+          intended, and a comment in the file says so, since a component
+          that never appears otherwise reads as broken.
+        Change 5 — Sanctions screening disabled behind a flag. New
+          /lib/featureFlags.ts exports ENABLE_SANCTIONS_SCREENING = false;
+          DashboardClient renders <SanctionsScreeningCard /> only when it's
+          true. Reason: the screening is name-only token matching with no
+          alias, address or country cross-check, and it shouldn't read as a
+          compliance clearance in the MVP. SanctionsScreeningCard.tsx,
+          lib/sanctionsScreening.ts and /api/sanctions-check are all
+          deliberately KEPT — flipping the flag restores the feature. Note
+          the card is now only compile-checked, not exercised at runtime.
+        Explicitly unchanged: the tariff/HS-code path (TariffRateBadge,
+          InventoryRiskPanel's badge rendering, and the hsCode field in the
+          profile form) stays exactly as it was — it was considered
+          alongside sanctions and deliberately left in place, since a duty
+          rate from the USITC HTS API is a real published figure, not a
+          screening judgment.
+        Protected files untouched: no API route, lib/profile.ts,
+          lib/scoreEvents.ts or lib/gemini.ts was modified. The radar route
+          is referenced only via `import type`, the existing pattern.
+        Verified end-to-end via browser automation on a guest/localStorage
+          test profile (2 suppliers — "Semiconductors" and "Glass-fiber
+          yarn" — with an "Asia-Pacific to US West Coast" trade lane and a
+          product line carrying hsCode 8542.31.00): card order read from
+          the DOM rather than eyeballed; radar rendered 4 real findings
+          (neon gas, EUV lithography, TSMC concentration) with 6 working
+          grounding citations; structural card showed curated entries only
+          and said "above"; Advisor tab had no sanctions card and no orphan
+          gap where it used to sit; tariff badge still resolved live
+          ("Free", HTS 8542.31.00). Then swapped both supplier categories
+          to non-matching values and confirmed the structural card
+          disappears while the radar still renders — the point of the
+          split. localStorage was backed up first and restored
+          byte-identical afterward (including a pre-existing 61KB
+          scm_disruption_history), and stray scm_* keys written to the
+          127.0.0.1:3000 origin during testing were cleared too.
+        Verification note worth keeping: because LaborCalendarCard now
+          renders nothing in every normal case, "the card is absent" is
+          true whether it works or is broken — an untestable assertion. It
+          was smoke-tested by temporarily widening the window to 3000 days,
+          confirming the surviving amber branch rendered "⚠ ILWU/PMA
+          contract expires in 644 days" with its sourced footer and no
+          negative-days bug, then reverting to 180. Use that trick again if
+          this card is ever touched.
+        npm run lint and npm run build both pass. The only ESLint warnings
+          are the three pre-existing react-hooks/exhaustive-deps ones in
+          AnalyticsTab/DisruptionFeed/InventoryRiskPanel; no new warnings.
+          The one console error in dev is the known Navbar live-clock
+          hydration mismatch (v4.1), absent from production builds.
+
 ## Known issues / next session notes
 - Supabase env vars must be added to Vercel settings for production auth to work
 - Logged-in Supabase path for supplier health / lead time / disruption
@@ -1254,6 +1365,7 @@ v4.6 — Fix: GDELT queries silently failing since day one — syntax,
 - [x] Fix: GDELT queries silently failing since inception — missing
       parens on OR clauses, too-short timeout for datacenter-origin
       requests, and redundant duplicate build-time fetches (Aug 15, 2026)
+- [x] Overview tab reorganization + sanctions screening disabled (Sep 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
