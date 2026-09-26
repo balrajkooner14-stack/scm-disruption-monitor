@@ -13,7 +13,18 @@ export default function LaborCalendarCard() {
   )
   if (relevant.length === 0) return null
 
+  // contractsWithinWindow only tests `daysUntil <= windowDays`, so an already-expired
+  // contract (negative days) passes it and would render as "expires in -412 days".
+  // Filtering to >= 0 here keeps lib/laborCalendar.ts untouched.
   const imminent = contractsWithinWindow(profile.tradeLanes, 180)
+    .filter(c => daysUntil(c.contractExpirationDate) >= 0)
+
+  // Deliberately renders nothing unless an expiration is actually 0-180 days out —
+  // a contract expiring years from now is not news and was crowding the Overview
+  // tab. Both currently-tracked contracts (ILWU/PMA 2028-07-01, ILA/USMX
+  // 2030-09-30) are outside that window, so this card is dormant until roughly
+  // Jan 2028. That's expected, not a bug.
+  if (imminent.length === 0) return null
 
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
@@ -27,35 +38,16 @@ export default function LaborCalendarCard() {
         Port strikes cluster around known union contract expirations, not randomly.
       </p>
 
-      {imminent.length > 0 ? (
-        <div className="space-y-2">
-          {imminent.map(c => (
-            <div key={c.union} className="bg-amber-950/40 border border-amber-800 rounded-lg px-3 py-2">
-              <p className="text-sm text-amber-300 font-medium">
-                ⚠ {c.union}/{c.counterparty} contract expires in {daysUntil(c.contractExpirationDate)} days
-              </p>
-              <p className="text-xs text-amber-500/80 mt-0.5">{c.ports} — historically elevated labor risk around expiration.</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {relevant.map(c => (
-            <div key={c.union} className="flex items-center justify-between bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
-              <div>
-                <p className="text-sm text-slate-300">{c.union} / {c.counterparty}</p>
-                <p className="text-xs text-slate-500">{c.ports}</p>
-              </div>
-              <p className="text-xs text-slate-400">
-                Expires {new Date(c.contractExpirationDate).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}
-              </p>
-            </div>
-          ))}
-          <p className="text-xs text-slate-600 mt-1">
-            No expirations within 180 days — both major contracts were recently renewed.
-          </p>
-        </div>
-      )}
+      <div className="space-y-2">
+        {imminent.map(c => (
+          <div key={c.union} className="bg-amber-950/40 border border-amber-800 rounded-lg px-3 py-2">
+            <p className="text-sm text-amber-300 font-medium">
+              ⚠ {c.union}/{c.counterparty} contract expires in {daysUntil(c.contractExpirationDate)} days
+            </p>
+            <p className="text-xs text-amber-500/80 mt-0.5">{c.ports} — historically elevated labor risk around expiration.</p>
+          </div>
+        ))}
+      </div>
 
       <p className="text-xs text-slate-600 mt-3 leading-relaxed">
         Manually verified reference data, last checked{" "}

@@ -16,6 +16,7 @@ import PerformanceAlertBanner from "@/components/PerformanceAlertBanner"
 import DisruptionUpdatePrompt from "@/components/DisruptionUpdatePrompt"
 import LaborCalendarCard from "@/components/LaborCalendarCard"
 import StructuralRiskCard from "@/components/StructuralRiskCard"
+import AIRiskRadarCard from "@/components/AIRiskRadarCard"
 import SupplyChainNetworkGraph from "@/components/SupplyChainNetworkGraph"
 import AIChatPanel from "@/components/AIChatPanel"
 import ScenarioPlanner from "@/components/ScenarioPlanner"
@@ -29,6 +30,7 @@ import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 import { calculateInventoryRisk, getDaysSinceDate, calculateOrderRecommendation } from "@/lib/inventoryRisk"
 import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
 import { findSinglePointsOfFailure } from "@/lib/supplyChainGraph"
+import { ENABLE_SANCTIONS_SCREENING } from "@/lib/featureFlags"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
@@ -315,9 +317,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
             <DisruptionUpdatePrompt events={scoredEvents} />
             <PerformanceAlertBanner />
             <InventoryRiskPanel events={scoredEvents} />
-            <LaborCalendarCard />
-            <StructuralRiskCard />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <WorldMap
                 events={scoredEvents}
                 selectedRegion={selectedRegion}
@@ -330,6 +330,9 @@ export default function DashboardClient({ events }: DashboardClientProps) {
                 kpiFilter={kpiFilter}
               />
             </div>
+            <AIRiskRadarCard />
+            <StructuralRiskCard />
+            <LaborCalendarCard />
           </div>
         )}
 
@@ -340,7 +343,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
               onRecsLoaded={setAdvisorRecs}
             />
             <ConcentrationRiskCard />
-            <SanctionsScreeningCard />
+            {ENABLE_SANCTIONS_SCREENING && <SanctionsScreeningCard />}
             <SupplierHealthScorecard events={scoredEvents} />
           </div>
         )}
