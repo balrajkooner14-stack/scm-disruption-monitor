@@ -146,7 +146,7 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
       {error && (
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center">
           <p className="text-slate-500 text-sm">
-            Could not load market data. The World Bank API may be temporarily
+            Could not load market data. Yahoo Finance may be temporarily
             unavailable — try refreshing.
           </p>
         </div>
@@ -202,7 +202,7 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
           <div>
             <p className="text-slate-300 font-medium mb-1">Data Sources</p>
             <p>
-              Commodity prices: World Bank Pink Sheet (monthly). Freight rates:
+              Commodity prices: Yahoo Finance futures (CL=F, NG=F, HG=F, ZW=F). Freight rates:
               static index benchmarks updated periodically. Not financial
               advice.
             </p>

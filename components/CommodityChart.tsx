@@ -47,7 +47,7 @@ export default function CommodityChart({ commodities, lastUpdated }: CommodityCh
             Commodity Price Trends
           </h2>
         </div>
-        <span className="text-xs text-slate-600">World Bank · {date}</span>
+        <span className="text-xs text-slate-600">Yahoo Finance · {date}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
