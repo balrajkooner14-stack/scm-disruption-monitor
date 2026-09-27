@@ -21,12 +21,18 @@ function atomFeed(titles) {
 const ADMIT = "Port strike halts container terminal operations";
 const REJECT_NO_CONTEXT = "Iceland whaling company shrugs off permanent ban";
 const REJECT_NO_DISRUPTION = "6 food manufacturers talk supply chain tactics";
+const REJECT_NO_DISRUPTION_2 = "Lego to spend $400M to add warehouse space at Mexico plant";
 
 let mode = "ok";
 global.fetch = async (url) => {
   const u = String(url);
   if (mode === "all-down") throw new Error("network down");
   if (mode === "malformed") return { ok: true, status: 200, text: async () => "<rss><chan" };
+  if (mode === "empty-success") {
+    const isAtom = u.includes("maritime-executive");
+    const titles = [REJECT_NO_DISRUPTION, REJECT_NO_DISRUPTION_2];
+    return { ok: true, status: 200, text: async () => (isAtom ? atomFeed(titles) : rssFeed(titles)) };
+  }
   const isAtom = u.includes("maritime-executive");
   const titles = [ADMIT, REJECT_NO_CONTEXT, REJECT_NO_DISRUPTION];
   return { ok: true, status: 200, text: async () => (isAtom ? atomFeed(titles) : rssFeed(titles)) };
@@ -67,6 +73,12 @@ function check(label, actual, expected) {
   events = await fetchTradeNews();
   check("cache survived malformed XML", events.length, 6);
 
+  console.log("-- healthy-but-empty (no admitted items) must not wipe the cache --");
+  clockOffset += 60 * 1000;
+  mode = "empty-success";
+  events = await fetchTradeNews();
+  check("cache survived a genuine 200 with zero admitted items", events.length, 6);
+
   console.log("-- cap is enforced --");
   clockOffset += 60 * 1000;
   mode = "ok";
@@ -76,6 +88,26 @@ function check(label, actual, expected) {
   });
   events = await fetchTradeNews();
   check("total capped at 30", events.length, 30);
+
+  console.log("-- round-robin fairness under asymmetric feed volumes --");
+  // TRADE_FEEDS order: supplychaindive, freightwaves, maritime-executive,
+  // gcaptain, splash247, joc. First feed gets 40 admitted items (mirroring
+  // FreightWaves' real 56-vs-10 imbalance), the rest get 2 each. Naive
+  // concatenation + a flat 30-slice would let the first feed alone consume
+  // the whole cap; round-robin interleaving must not.
+  clockOffset += 60 * 1000;
+  global.fetch = async (url) => {
+    const u = String(url);
+    const isAtom = u.includes("maritime-executive");
+    const isFirstFeed = u.includes("supplychaindive");
+    const count = isFirstFeed ? 40 : 2;
+    const titles = Array.from({ length: count }, () => ADMIT);
+    return { ok: true, status: 200, text: async () => (isAtom ? atomFeed(titles) : rssFeed(titles)) };
+  };
+  events = await fetchTradeNews();
+  const domains = new Set(events.map((e) => e.sourceDomain));
+  check("all six publishers represented despite one feed dominating volume",
+    domains.size, 6);
 
   process.exit(failed ? 1 : 0);
 })();
