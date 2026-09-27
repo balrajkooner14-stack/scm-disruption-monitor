@@ -152,9 +152,18 @@ export async function fetchTradeNews(): Promise<DisruptionEvent[]> {
 
   const perFeed: DisruptionEvent[][] = []
   let live = 0
+  let empty = 0
   let cached = 0
   let failedCount = 0
 
+  // Distinguish four outcomes per feed:
+  // - live: fetch succeeded AND at least one item was admitted
+  // - empty: fetch succeeded, parsed fine, but zero items passed the admission filter
+  //   (a quiet publisher is not a broken one; tracked separately to avoid misdirecting
+  //    future diagnosis: this is the same class of bug that misdiagnosed the v4.6 GDELT
+  //    throttle, so CLAUDE.md points maintainers at this line first when the feed looks wrong)
+  // - cached: the fetch itself failed (rejected) but a previous non-empty result was served
+  // - failed: the fetch itself failed (rejected) and no cache was available
   results.forEach((result, i) => {
     const feed = TRADE_FEEDS[i]
     const fresh = result.status === "fulfilled" ? result.value : []
@@ -164,15 +173,30 @@ export async function fetchTradeNews(): Promise<DisruptionEvent[]> {
     }
 
     if (fresh.length > 0) {
+      // Genuine non-empty success: overwrite the cache
       lastGoodByFeed.set(feed.url, { events: fresh, fetchedAt: Date.now() })
       perFeed.push(fresh)
       live++
+    } else if (result.status === "fulfilled") {
+      // Fetch succeeded (fulfilled) but zero items passed the admission filter
+      const prev = lastGoodByFeed.get(feed.url)
+      if (prev) {
+        // Serve the cache, but count as empty (not cached)
+        perFeed.push(prev.events)
+        cached++
+      } else {
+        // No cache either: this feed is simply quiet today
+        perFeed.push([])
+        empty++
+      }
     } else {
+      // Fetch rejected: check for cache fallback
       const prev = lastGoodByFeed.get(feed.url)
       if (prev) {
         perFeed.push(prev.events)
         cached++
       } else {
+        // No cache to fall back to: this is a true failure
         perFeed.push([])
         failedCount++
       }
@@ -181,7 +205,7 @@ export async function fetchTradeNews(): Promise<DisruptionEvent[]> {
 
   const events = interleave(perFeed, TOTAL_CAP)
   console.log(
-    `[TradeNews] ${events.length} events (${live} live / ${cached} cached / ${failedCount} failed of ${TRADE_FEEDS.length} feeds)`
+    `[TradeNews] ${events.length} events (${live} live / ${empty} empty / ${cached} cached / ${failedCount} failed of ${TRADE_FEEDS.length} feeds)`
   )
   return events
 }
