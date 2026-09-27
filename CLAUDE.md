@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.8 live
+- Status: v4.9 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -172,6 +172,17 @@ trading and financial markets background.
                                     "Severe/Extreme" query param is much broader than "supply-chain disruptive" —
                                     unfiltered, it was returning 30+ alerts most days, dominating the merged feed
                                     over GDELT and GDACS combined.
+  tradeFeeds.ts                   → Trade-press RSS registry (6 publications, each sourced +
+                                    dated with lastVerified), two-gate admission filter
+                                    (DISRUPTION_TERMS AND SUPPLY_CHAIN_TERMS), and
+                                    HEADLINE_REGION_HINTS + inferRegionFromHeadline() since RSS
+                                    carries no country field (v4.9). Pure, no I/O.
+  fetchTradeNews.ts               → Fetches the 6 feeds in parallel (10s timeout each),
+                                    normalises RSS 2.0 and Atom into one shape via
+                                    fast-xml-parser, filters, caps at 30 round-robin across
+                                    feeds, per-feed last-good cache using the v4.8 write rule
+                                    (v4.9). Calls assignCategory with the TITLE ONLY — passing
+                                    the URL lets a publisher's domain decide the category.
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY.
                                     ProductLine has optional primarySupplierId, backupSupplierId (v4.0), hsCode
@@ -297,6 +308,12 @@ trading and financial markets background.
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
 Score 2 WARNING: delay, shortage, disruption, tariff, congestion, reduced
 Score 1 MONITOR: everything else
+
+Matching is WORD-BOUNDARY as of v4.9, not substring. The keyword lists and the
+3/2/1 tiers are unchanged. Before v4.9, "ban" matched inside Albania / urban /
+abandoned / Lebanon and "halt" matched inside asphalt, so unrelated headlines
+scored CRITICAL. assignCategory got the same fix: "port" was matching inside
+imported / export / transport / reporter.
 
 ## GDELT queries (all with timespan=24H, maxrecords=25, format=json, mode=artlist)
 Query 1: "supply chain disruption" → category: General
@@ -1341,6 +1358,107 @@ v4.8 — Fix: weather alerts dominating the feed — GDELT throttling
           GDELT events to misclassify) but it will skew categories as soon
           as GDELT flows again. Fix alongside Phase 3.
 
+v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
+        word-boundary category and severity matching (Sep 26, 2026):
+        Problem: the feed carried zero Port/Tariff/Labor/Geopolitical events
+          because those categories came only from GDELT, which v4.8
+          established is effectively unreachable from Vercel's shared egress
+          IPs. Measured on production 2026-09-26: 23 events, Weather 18 /
+          General 5, from weather.gov and gdacs.org only.
+        Delivered: lib/tradeFeeds.ts — a registry of 6 trade publications
+          (supplychaindive.com, freightwaves.com, maritime-executive.com
+          [Atom, not RSS], gcaptain.com, splash247.com, joc.com), each
+          sourced with a lastVerified date, same discipline as
+          laborCalendar.ts/structuralRisk.ts. A two-gate admission filter
+          (DISRUPTION_TERMS AND SUPPLY_CHAIN_TERMS — both must match) plus
+          HEADLINE_REGION_HINTS (104 entries) + inferRegionFromHeadline(),
+          since RSS items carry no country field the way GDELT/GDACS do.
+          Pure, no I/O — deliberately NOT reusing fetchGlobalDisasters.ts's
+          country-NAME-keyed mapCountryToRegion(), since that map is keyed
+          for structured country fields, not free-text headline scanning.
+        Delivered: lib/fetchTradeNews.ts — fetches all 6 feeds in parallel
+          via Promise.allSettled (10s timeout each, so one slow or dead feed
+          can't block the others), fast-xml-parser normalises RSS 2.0 <item>
+          and Atom <entry> into one shape, per-feed last-good cache using the
+          v4.8 write rule (only a genuine non-empty success overwrites it),
+          capped at 30 items allocated round-robin across feeds rather than
+          concatenate-and-slice — FreightWaves returns 56 items against
+          Supply Chain Dive's 10, so naive truncation would let one publisher
+          fill the entire allowance.
+        Integration: lib/fetchDisruptions.ts — fetchTradeNews() added to the
+          existing Promise.all alongside GDELT/GDACS/NOAA; URL dedup extended
+          to span ALL sources (previously GDELT-only, so a story picked up by
+          both GDELT and a trade feed would have shown twice); word-boundary
+          fixes applied to assignCategory and scoreSeverity (see Severity
+          scoring rules above for the exact bugs fixed).
+        Testing: scripts/verify.sh plus three harnesses — the repo's FIRST
+          test suite; no test framework was installed before this task. 46
+          checks, run with `npm run verify`. .eslintrc.json gained "root":
+          true (needed once scripts/ existed as its own lint scope).
+        Key decision — word boundary is LEADING-ONLY, not full. A full
+          boundary fixes the substring bugs but breaks every inflected form:
+          verified that "tariffs", "sanctions", "shipping", "delays",
+          "closures", "banned" and "containers" all stop matching their
+          keywords under a full-boundary rule — among the most common words
+          in real trade headlines. Leading-only fixes all nine demonstrated
+          bugs (below) while preserving all seven inflections. Residual,
+          accepted cost: prefix false positives like "portal"/"bankruptcy".
+          HEADLINE_REGION_HINTS deliberately keeps FULL boundaries instead —
+          place names don't inflect, and a leading-only "us" would match
+          inside "using".
+        The nine bugs fixed: "port" matched inside
+          imported/export/transport/reporter; "ban"/"halt" matched inside
+          Albania/urban/abandoned/Lebanon/asphalt. scoreEvents.ts's keyword
+          lists and 3/2/1 tiers are CLAUDE.md-frozen and are UNCHANGED — only
+          the matching semantics changed, with explicit permission granted
+          for that specific edit.
+        Key decision — assignCategory is called with the TITLE ONLY for RSS
+          items, not title+url as elsewhere. Verified directly: a neutral
+          headline classifies General alone, but Port once a
+          maritime-executive.com or splash247.com/shipping/ URL is appended
+          to the match string — which would have forced all 68 live Maritime
+          Executive items into Port regardless of actual content.
+        Key decision — two gates, not one. Gate 2 (SUPPLY_CHAIN_TERMS) exists
+          because a real live headline, "Iceland's Last Whaling Company
+          Shrugs Off Threat Of Permanent Ban," passes gate 1 on "ban" alone
+          and would otherwise enter a supply-chain feed at CRITICAL severity.
+        The [TradeNews] summary line distinguishes live / empty / cached /
+          failed per feed, not just ok/failed — an earlier version reported a
+          healthy-but-quiet publisher as "failed," the same
+          misleading-diagnostic pattern that misdirected the v4.8 GDELT
+          investigation (see v4.8 root cause 2 above).
+        Measured result (2026-09-26 build): 69 total events — TradeNews 9,
+          GDACS 9, NOAA 7, GDELT 44. Trade-news categories: Port 6, Tariff 1,
+          General 2 — all three were zero before this task. All 9 admitted
+          article URLs resolve HTTP 200.
+        Known limitation: admission is strict by design — 9 of 184 live items
+          across all 6 feeds (4.9%). The 30-item cap is NOT the binding
+          constraint; filter strictness is. Maritime Executive admitted 0 of
+          68 items because its editorial focus (vessel orders, lease
+          agreements) is maritime industry news, which gate 2 correctly
+          rejects as not supply-chain-disruptive.
+        Known limitation: gcaptain.com returned HTTP 503 during verification.
+          Not a bug — per-feed isolation via Promise.allSettled meant only
+          that one feed was lost; it did usefully demonstrate the failure
+          path actually works.
+        Known limitation: the Labor category is still empty. "German
+          dockworkers weigh strike action amid port congestion" classifies as
+          Port because assignCategory checks Port before Labor. This is
+          pre-existing precedence, deliberately NOT reordered here — the plan
+          scoped this task to the word-boundary fix only, and reordering
+          category precedence would reshuffle the already-stored 7-day
+          category trend history. Candidate for a later phase.
+        Known limitation: a genuine miss — "Greek Cargo RoRo Abandoned After
+          Fire Breaks Out Off Mykonos" is a real disruption not admitted,
+          because "fire" is not currently a DISRUPTION_TERM. Candidate for
+          term-widening.
+        Not verified: the in-browser console-error check could not be
+          performed — the Chrome extension refused interaction. Recorded
+          honestly as unverified rather than implied passing; everything else
+          in the verification step was confirmed by other means (live curl
+          checks, the 46-check harness, and the production event counts
+          above).
+
 ## Known issues / next session notes
 - Supabase env vars ARE set in Vercel (NEXT_PUBLIC_SUPABASE_URL and
   NEXT_PUBLIC_SUPABASE_ANON_KEY, both Preview + Production) — verified
@@ -1469,6 +1587,8 @@ v4.8 — Fix: weather alerts dominating the feed — GDELT throttling
 - [x] Overview tab reorganization + sanctions screening disabled (Sep 2026)
 - [x] Fix: GDELT throttling survivability — per-query last-good cache,
       soft-throttle detection, ISR revalidation (Sep 2026)
+- [x] Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
+      word-boundary category and severity matching (Sep 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
