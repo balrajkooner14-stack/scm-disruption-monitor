@@ -119,6 +119,26 @@ async function fetchOneFeed(feed: TradeFeed): Promise<DisruptionEvent[]> {
     if (!res.ok) throw new Error(`${feed.publisher} responded with ${res.status}`)
     const xml = await res.text()
     const parsed = parser.parse(xml) as Record<string, unknown>
+
+    // A 200 response that parses as XML but has neither an <rss><channel>
+    // nor a <feed> root (e.g. a Cloudflare interstitial, or a feed URL that
+    // started serving an HTML error page) is a parse failure, not an empty
+    // feed. Without this check, normalise() below returns [] the same way it
+    // would for a genuinely quiet publisher, and the fulfilled branch in
+    // fetchTradeNews() counts it as "empty" — reading "publisher healthy,
+    // nothing newsworthy" for what is actually "publisher broken". That is
+    // exactly the misdiagnosis class the four-bucket live/empty/cached/failed
+    // split exists to prevent.
+    const rssRoot = parsed.rss as Record<string, unknown> | undefined
+    const hasRssChannel = !!rssRoot && typeof rssRoot === "object" && "channel" in rssRoot
+    const hasFeed = "feed" in parsed
+    if (!hasRssChannel && !hasFeed) {
+      throw new Error(
+        `${feed.publisher} response is not a recognisable RSS/Atom feed ` +
+        `(root keys: ${Object.keys(parsed).join(", ") || "none"})`
+      )
+    }
+
     const fetchedAtIso = new Date().toISOString()
     return normalise(parsed, fetchedAtIso)
       .filter((item) => matchesDisruptionKeywords(item.title))
