@@ -178,17 +178,17 @@ export async function fetchTradeNews(): Promise<DisruptionEvent[]> {
       perFeed.push(fresh)
       live++
     } else if (result.status === "fulfilled") {
-      // Fetch succeeded (fulfilled) but zero items passed the admission filter
+      // Fetch succeeded (fulfilled) but zero items passed the admission filter.
+      // Fetch health is the primary axis: a successful fetch is "empty", not "cached",
+      // regardless of whether we serve cached results. This correctly signals the
+      // publisher is healthy; there was just nothing newsworthy today.
       const prev = lastGoodByFeed.get(feed.url)
       if (prev) {
-        // Serve the cache, but count as empty (not cached)
         perFeed.push(prev.events)
-        cached++
       } else {
-        // No cache either: this feed is simply quiet today
         perFeed.push([])
-        empty++
       }
+      empty++
     } else {
       // Fetch rejected: check for cache fallback
       const prev = lastGoodByFeed.get(feed.url)

@@ -76,8 +76,14 @@ function check(label, actual, expected) {
   console.log("-- healthy-but-empty (no admitted items) must not wipe the cache --");
   clockOffset += 60 * 1000;
   mode = "empty-success";
+  let capturedLog = "";
+  const originalLog = console.log;
+  console.log = (msg) => { capturedLog = String(msg); };
   events = await fetchTradeNews();
+  console.log = originalLog;
   check("cache survived a genuine 200 with zero admitted items", events.length, 6);
+  check("empty label used, not cached label", capturedLog.includes("6 empty"), true);
+  check("cached label not used for empty scenario", capturedLog.includes("6 cached"), false);
 
   console.log("-- cap is enforced --");
   clockOffset += 60 * 1000;
