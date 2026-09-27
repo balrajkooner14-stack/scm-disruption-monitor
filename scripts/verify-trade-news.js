@@ -24,10 +24,16 @@ const REJECT_NO_DISRUPTION = "6 food manufacturers talk supply chain tactics";
 const REJECT_NO_DISRUPTION_2 = "Lego to spend $400M to add warehouse space at Mexico plant";
 
 let mode = "ok";
-global.fetch = async (url) => {
+const defaultModeFetch = async (url) => {
   const u = String(url);
   if (mode === "all-down") throw new Error("network down");
   if (mode === "malformed") return { ok: true, status: 200, text: async () => "<rss><chan" };
+  if (mode === "html-page") {
+    return {
+      ok: true, status: 200,
+      text: async () => "<html><head><title>Just a moment...</title></head><body>Checking your browser</body></html>",
+    };
+  }
   if (mode === "empty-success") {
     const isAtom = u.includes("maritime-executive");
     const titles = [REJECT_NO_DISRUPTION, REJECT_NO_DISRUPTION_2];
@@ -37,8 +43,10 @@ global.fetch = async (url) => {
   const titles = [ADMIT, REJECT_NO_CONTEXT, REJECT_NO_DISRUPTION];
   return { ok: true, status: 200, text: async () => (isAtom ? atomFeed(titles) : rssFeed(titles)) };
 };
+global.fetch = defaultModeFetch;
 
 const { fetchTradeNews } = require("../.verify/fetchTradeNews.js");
+const { fetchDisruptions } = require("../.verify/fetchDisruptions.js");
 
 let failed = 0;
 function check(label, actual, expected) {
@@ -48,6 +56,59 @@ function check(label, actual, expected) {
 }
 
 (async () => {
+  console.log("-- NOAA alerts must survive cross-source dedup even though every alert shares the same placeholder url (finding 1) --");
+  {
+    // This must be fetchDisruptions()'s very first call in this process: both
+    // its own GDELT last-good cache and fetchTradeNews's per-feed cache start
+    // empty, so a thrown/quiet response here genuinely means zero events from
+    // those sources rather than a fallback to a leftover cache from an earlier
+    // test step below.
+    const NOAA_IDS = ["noaa-test-1", "noaa-test-2", "noaa-test-3", "noaa-test-4", "noaa-test-5"];
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes("gdeltproject.org")) throw new Error("network down");
+      if (u.includes("weather.gov")) {
+        return {
+          ok: true, status: 200,
+          json: async () => ({
+            features: NOAA_IDS.map((id) => ({
+              properties: {
+                id,
+                areaDesc: "Test County, TX",
+                event: "Flash Flood Warning",
+                severity: "Severe",
+                headline: `Flash Flood Warning issued for ${id}`,
+                effective: "2026-09-26T12:00:00Z",
+              },
+            })),
+          }),
+        };
+      }
+      if (u.includes("gdacs.org")) return { ok: true, status: 200, json: async () => ({ features: [] }) };
+      // Trade feeds: fetch succeeds, but nothing is admitted (no disruption
+      // or supply-chain term in the headline) — genuinely zero contribution,
+      // not a cache fallback, since this is the first call in the process.
+      return {
+        ok: true, status: 200,
+        text: async () =>
+          `<?xml version="1.0"?><rss version="2.0"><channel><title>Chan</title>` +
+          `<item><title>Quarterly earnings beat expectations</title>` +
+          `<link>https://example.test/quiet</link>` +
+          `<pubDate>Fri, 26 Sep 2026 12:00:00 GMT</pubDate></item></channel></rss>`,
+      };
+    };
+
+    const merged = await fetchDisruptions();
+    const noaaEvents = merged.filter((e) => e.sourceDomain === "weather.gov");
+    check("all 5 distinct NOAA alerts survive despite sharing one placeholder url",
+      noaaEvents.length, 5);
+    check("every surviving NOAA alert kept a distinct, source-prefixed id",
+      new Set(noaaEvents.map((e) => e.id)).size, 5);
+    check("GDELT and trade news contributed nothing in this scenario",
+      merged.length, 5);
+  }
+
+  global.fetch = defaultModeFetch;
   console.log("-- healthy fetch, filter applied to both RSS and Atom --");
   let events = await fetchTradeNews();
   check("only the admitted headline survives, one per feed",
@@ -72,6 +133,20 @@ function check(label, actual, expected) {
   mode = "malformed";
   events = await fetchTradeNews();
   check("cache survived malformed XML", events.length, 6);
+
+  console.log("-- a 200 that is an HTML page (e.g. a Cloudflare interstitial), not a feed, must be treated as a failure, not an empty feed (finding 5) --");
+  clockOffset += 60 * 1000;
+  mode = "html-page";
+  let capturedHtmlLog = "";
+  const originalLogHtml = console.log;
+  console.log = (msg) => { capturedHtmlLog = String(msg); };
+  events = await fetchTradeNews();
+  console.log = originalLogHtml;
+  check("cache survived a 200 HTML-root response", events.length, 6);
+  check("HTML-root response is NOT labelled empty",
+    capturedHtmlLog.includes("6 empty"), false);
+  check("HTML-root response is labelled cached (a fetch failure with cache fallback)",
+    capturedHtmlLog.includes("6 cached"), true);
 
   console.log("-- healthy-but-empty (no admitted items) must not wipe the cache --");
   clockOffset += 60 * 1000;
@@ -116,7 +191,6 @@ function check(label, actual, expected) {
     domains.size, 6);
 
   console.log("-- merged feed includes trade news and dedupes across sources --");
-  const { fetchDisruptions } = require("../.verify/fetchDisruptions.js");
   // GDELT and GDACS/NOAA all fail; only trade news contributes. One trade-news
   // URL is also returned by GDELT, and must appear exactly once.
   const SHARED = "https://example.test/a0";

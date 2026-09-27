@@ -289,6 +289,11 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
 
   // Per-query outcome, for an honest summary line at the end.
   const queryOutcomes: ("live" | "cached" | "failed")[] = []
+  // Counted directly as GDELT events are kept below, rather than derived by
+  // subtracting other sources' counts from events.length afterward — the
+  // subtraction approach went negative once GDACS/NOAA events could also be
+  // dropped or merged during cross-source dedup (finding 6).
+  let gdeltKeptCount = 0
 
   gdeltResults.forEach((result, queryIndex) => {
     const fresh: DisruptionEvent[] = []
@@ -340,30 +345,56 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
       if (seenUrls.has(key)) continue
       seenUrls.add(key)
       events.push(event)
+      gdeltKeptCount++
     }
   })
 
-  // Dedupe across sources, not just within GDELT — the same story can legitimately
-  // appear in both GDELT and the trade-press feeds. URL only; title-based fuzzy
-  // matching is deliberately out of scope, since a wrong match silently deletes
-  // a real event.
-  const pushDeduped = (incoming: DisruptionEvent[]) => {
-    for (const event of incoming) {
-      const key = event.url || `title:${event.title}`
-      if (seenUrls.has(key)) continue
-      seenUrls.add(key)
-      events.push(event)
-    }
+  // URL dedup exists ONLY to catch the same article legitimately appearing in
+  // both GDELT and the trade-press feeds — those are the two sources that
+  // report real news articles with genuine, per-article URLs. It must NOT be
+  // applied to GDACS or NOAA: GDACS's url is often empty, and NOAA hardcodes
+  // the identical "https://www.weather.gov/" placeholder landing page on
+  // EVERY alert it returns (fetchWeatherAlerts.ts:85) — that is not an
+  // article identity, it's a static link. Running NOAA through URL dedup
+  // collapses every alert it returns into a single surviving entry (proven:
+  // 5 distinct Flash Flood Warnings in, 1 out) even though the [Disruptions]
+  // log still reports NOAA's full pre-dedup count, silently discarding real
+  // events. GDACS/NOAA ids are already source-prefixed ("gdacs-...",
+  // "noaa-...") and unique per event, so they need no seenUrls-style dedupe
+  // at all — do not re-add a URL-keyed check here.
+  const appendWithoutUrlDedup = (incoming: DisruptionEvent[]) => {
+    events.push(...incoming)
   }
 
   if (disasterEvents.length > 0) anySuccess = true
-  pushDeduped(disasterEvents)
+  appendWithoutUrlDedup(disasterEvents)
 
   if (weatherEvents.length > 0) anySuccess = true
-  pushDeduped(weatherEvents)
+  appendWithoutUrlDedup(weatherEvents)
 
+  // Trade news DOES need URL dedup against GDELT (both are real articles with
+  // real URLs), but on a collision the trade-news copy must win, not GDELT's:
+  // GDELT's id embeds Date.now() (an unstable React key — the exact problem
+  // the trade-press source was built to avoid) and its region comes from the
+  // publisher's country rather than the headline, which is less precise than
+  // inferRegionFromHeadline(). Push order otherwise only affects which
+  // duplicate survives, not overall feed ordering (events are sorted by
+  // severity/date below), so replacing in place is safe.
   if (tradeEvents.length > 0) anySuccess = true
-  pushDeduped(tradeEvents)
+  for (const event of tradeEvents) {
+    const key = event.url || `title:${event.title}`
+    if (seenUrls.has(key)) {
+      const existingIndex = events.findIndex(
+        (e) => (e.url || `title:${e.title}`) === key
+      )
+      if (existingIndex >= 0) {
+        events[existingIndex] = event
+        continue
+      }
+    }
+    seenUrls.add(key)
+    events.push(event)
+  }
 
   if (!anySuccess) {
     return loadFallback()
@@ -379,8 +410,6 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
   // which made GDELT look healthier than it was — check this line first if the
   // feed ever looks weather-heavy again.
   const tally = (state: string) => queryOutcomes.filter((o) => o === state).length
-  const gdeltEventCount =
-    events.length - disasterEvents.length - weatherEvents.length - tradeEvents.length
   const oldestCacheAgeMin = Math.max(
     0,
     ...Array.from(lastGoodByQuery.values()).map((c) =>
@@ -389,7 +418,7 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
   )
   console.log(
     `[Disruptions] ${events.length} total events ` +
-    `(GDELT ${gdeltEventCount} events from ${tally("live")} live / ${tally("cached")} cached / ` +
+    `(GDELT ${gdeltKeptCount} events from ${tally("live")} live / ${tally("cached")} cached / ` +
     `${tally("failed")} failed of ${queries.length} queries` +
     `${tally("cached") > 0 ? `, cache age up to ${oldestCacheAgeMin}m` : ""}` +
     `, TradeNews: ${tradeEvents.length}, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
