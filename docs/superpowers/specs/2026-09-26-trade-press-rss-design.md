@@ -183,9 +183,18 @@ between schemes. This is the trap v4.0 documented for GDACS.
 | `date` | RSS `pubDate` (RFC-822) or Atom `updated` (ISO-8601) |
 | `sourceDomain` | `TradeFeed.publisher` |
 | `sourceCountry` | `""` — feeds do not provide one |
-| `category` | `assignCategory(title, url)`, word-boundary fixed |
+| `category` | `assignCategory(title, "")` — **title only**, word-boundary fixed. See note. |
 | `severity` | `scoreSeverity(title)`, word-boundary fixed |
 | `region` | `inferRegionFromHeadline(title)` |
+
+The URL is deliberately **not** passed to `assignCategory`. It matches keywords
+against `title + " " + url`, so a publisher's own domain leaks into the result:
+verified 2026-09-26 that a neutral headline classifies as `General` on its own
+but as `Port` once a `maritime-executive.com` or `splash247.com/shipping/` URL
+is appended. That would force every Maritime Executive item into Port
+regardless of content. Word-boundary matching does not help, because
+"maritime" is a whole word in that domain. RSS titles are descriptive enough
+to categorise alone.
 
 The id derives from the item URL, not its position in the feed. A positional
 index would point at a different article every time the feed shifts, churning
