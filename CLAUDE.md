@@ -1371,7 +1371,7 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           sourced with a lastVerified date, same discipline as
           laborCalendar.ts/structuralRisk.ts. A two-gate admission filter
           (DISRUPTION_TERMS AND SUPPLY_CHAIN_TERMS — both must match) plus
-          HEADLINE_REGION_HINTS (104 entries) + inferRegionFromHeadline(),
+          HEADLINE_REGION_HINTS (133 entries, incl. demonyms) + inferRegionFromHeadline(),
           since RSS items carry no country field the way GDELT/GDACS do.
           Pure, no I/O — deliberately NOT reusing lib/fetchDisruptions.ts's
           mapCountryToRegion(), since that map is keyed for GDELT's FIPS-style
@@ -1502,7 +1502,7 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           performed — the Chrome extension refused interaction. Recorded
           honestly as unverified rather than implied passing; everything else
           in the verification step was confirmed by other means (live curl
-          checks, the 47-check harness, and the production event counts
+          checks, the 60-check harness, and the production event counts
           above).
 
 ## Known issues / next session notes
