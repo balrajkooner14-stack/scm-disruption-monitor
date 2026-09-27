@@ -1388,11 +1388,23 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           Supply Chain Dive's 10, so naive truncation would let one publisher
           fill the entire allowance.
         Integration: lib/fetchDisruptions.ts — fetchTradeNews() added to the
-          existing Promise.all alongside GDELT/GDACS/NOAA; URL dedup extended
-          to span ALL sources (previously GDELT-only, so a story picked up by
-          both GDELT and a trade feed would have shown twice); word-boundary
-          fixes applied to assignCategory and scoreSeverity (see Severity
-          scoring rules above for the exact bugs fixed).
+          existing Promise.all alongside GDELT/GDACS/NOAA; URL dedup is scoped
+          to GDELT and the trade-press feeds only — the two sources that
+          report real articles with genuine per-article URLs (previously
+          GDELT-only, so a story picked up by both GDELT and a trade feed
+          would have shown twice). GDACS and NOAA are appended WITHOUT any
+          URL dedup: every NOAA alert hardcodes the identical placeholder url
+          (https://www.weather.gov/), so an initial version of this same
+          integration that keyed dedup on url uniformly across every source
+          collapsed a whole day's worth of distinct NOAA alerts down to a
+          single surviving entry — a real data-loss bug this branch
+          introduced and then caught and fixed during pre-merge review,
+          since the [Disruptions] log kept printing NOAA's true pre-dedup
+          count regardless and never surfaced the loss. GDACS/NOAA ids are
+          already source-prefixed ("gdacs-...", "noaa-...") and stable, so
+          they need no url-keyed dedupe at all — do not reintroduce one.
+          Word-boundary fixes applied to assignCategory and scoreSeverity
+          (see Severity scoring rules above for the exact bugs fixed).
         Testing: scripts/verify.sh plus three harnesses — the repo's FIRST
           test suite; no test framework was installed before this task. 47
           checks, run with `npm run verify`. .eslintrc.json gained "root":
@@ -1407,9 +1419,17 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           in real trade headlines. Leading-only fixes all nine demonstrated
           bugs (below) while preserving all seven inflections. Residual,
           accepted cost: prefix false positives like "portal"/"bankruptcy".
-          HEADLINE_REGION_HINTS deliberately keeps FULL boundaries instead —
-          place names don't inflect, and a leading-only "us" would match
-          inside "using".
+          HEADLINE_REGION_HINTS deliberately uses a stricter rule than
+          keyword matching instead — not a trailing \b, but a leading \b plus
+          a negative lookahead for a word character. A trailing boundary
+          requires a word character immediately after the match, which "u.s."
+          (ending in a non-word dot) could never satisfy — that gap made the
+          "u.s." hint unmatchable altogether, which is why "U.S.-China trade
+          war halts cargo" was resolving to Asia Pacific instead of North
+          America. The lookahead instead only blocks a hint from being a
+          prefix of a longer word — so "us" still doesn't fire inside
+          "using" — while letting "u.s." match before punctuation,
+          whitespace, or end of string.
         The nine bugs fixed: "port" matched inside
           imported/export/transport/reporter; "ban"/"halt" matched inside
           Albania/urban/abandoned/Lebanon/asphalt. lib/fetchDisruptions.ts's
