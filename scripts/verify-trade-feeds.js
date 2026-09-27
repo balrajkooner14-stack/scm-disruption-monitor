@@ -56,4 +56,22 @@ check("no recognisable place -> Unknown",
 check('[real] first match in reading order wins ("US, China...")',
   inferRegionFromHeadline("US, China to extend trade war truce by 2 months"), "North America");
 
+console.log("-- \"u.s.\" region hint matches despite trailing punctuation (finding 2) --");
+check('"U.S. tariffs hit container shipments"',
+  inferRegionFromHeadline("U.S. tariffs hit container shipments"), "North America");
+check('"U.S.-China trade war halts cargo" (first match in reading order)',
+  inferRegionFromHeadline("U.S.-China trade war halts cargo"), "North America");
+check('"US tariffs hit container shipments"',
+  inferRegionFromHeadline("US tariffs hit container shipments"), "North America");
+check('"Using rail to bypass congestion" must NOT match the "us" hint',
+  inferRegionFromHeadline("Using rail to bypass congestion"), "Unknown");
+check('"Port of Rotterdam congestion worsens" unchanged',
+  inferRegionFromHeadline("Port of Rotterdam congestion worsens"), "Europe");
+
+console.log("-- demonyms missing from HEADLINE_REGION_HINTS (finding 3) --");
+check('[real] "German dockworkers weigh strike action amid port congestion"',
+  inferRegionFromHeadline("German dockworkers weigh strike action amid port congestion"), "Europe");
+check('[real] "Canadian legislation creates new path to limit freight disruption"',
+  inferRegionFromHeadline("Canadian legislation creates new path to limit freight disruption"), "North America");
+
 process.exit(failed ? 1 : 0);
