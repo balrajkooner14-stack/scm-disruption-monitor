@@ -4,12 +4,31 @@ import { DisruptionEvent, DisruptionCategory, SeverityLevel, Region } from "./ty
 import { fetchGlobalDisasters } from "./fetchGlobalDisasters"
 import { fetchWeatherAlerts } from "./fetchWeatherAlerts"
 
+// Requires the keyword to START a word. The previous substring checks meant
+// "port" matched inside "imported"/"export"/"transport"/"reporter", and
+// "ban"/"halt" matched inside "Albania"/"urban"/"abandoned"/"Lebanon"/
+// "asphalt" — so tariff and geopolitical stories were labelled Port and
+// unrelated headlines scored CRITICAL.
+//
+// A LEADING boundary only, deliberately NOT a trailing one. Verified
+// 2026-09-26 that requiring both boundaries also breaks every inflected form:
+// "tariffs", "sanctions", "shipping", "delays", "closures", "banned" and
+// "containers" all stop matching their keyword. Those are among the most
+// common words in trade headlines, so full-boundary matching would gut recall
+// in exactly the categories this feature exists to fill. The residual cost is
+// prefix false positives ("portal", "bankruptcy") — much cheaper.
+//
+// Keywords may be multi-word ("trade war"), so metacharacters are escaped.
+function containsWord(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`\\b${escaped}`, "i").test(haystack)
+}
+
 export function scoreSeverity(title: string): SeverityLevel {
-  const t = title.toLowerCase()
   const critical = ["strike", "closure", "sanctions", "blocked", "halt", "shutdown", "ban"]
   const warning = ["delay", "shortage", "disruption", "tariff", "congestion", "reduced"]
-  if (critical.some((kw) => t.includes(kw))) return 3
-  if (warning.some((kw) => t.includes(kw))) return 2
+  if (critical.some((kw) => containsWord(title, kw))) return 3
+  if (warning.some((kw) => containsWord(title, kw))) return 2
   return 1
 }
 
@@ -44,38 +63,38 @@ export function mapCountryToRegion(countryCode: string): Region {
 }
 
 export function assignCategory(title: string, url: string): DisruptionCategory {
-  const text = (title + " " + url).toLowerCase()
+  const text = title + " " + url
 
   if (
-    text.includes("port") || text.includes("ship") || text.includes("vessel") ||
-    text.includes("container") || text.includes("freight") || text.includes("cargo") ||
-    text.includes("maritime") || text.includes("dock") || text.includes("harbor") ||
-    text.includes("berth") || text.includes("terminal")
+    containsWord(text, "port") || containsWord(text, "ship") || containsWord(text, "vessel") ||
+    containsWord(text, "container") || containsWord(text, "freight") || containsWord(text, "cargo") ||
+    containsWord(text, "maritime") || containsWord(text, "dock") || containsWord(text, "harbor") ||
+    containsWord(text, "berth") || containsWord(text, "terminal")
   ) return "Port"
 
   if (
-    text.includes("strike") || text.includes("worker") || text.includes("union") ||
-    text.includes("labor") || text.includes("labour") || text.includes("walkout") ||
-    text.includes("employment") || text.includes("workforce")
+    containsWord(text, "strike") || containsWord(text, "worker") || containsWord(text, "union") ||
+    containsWord(text, "labor") || containsWord(text, "labour") || containsWord(text, "walkout") ||
+    containsWord(text, "employment") || containsWord(text, "workforce")
   ) return "Labor"
 
   if (
-    text.includes("tariff") || text.includes("duty") || text.includes("import tax") ||
-    text.includes("trade war") || text.includes("customs") || text.includes("levy") ||
-    text.includes("trade barrier") || text.includes("protectionism")
+    containsWord(text, "tariff") || containsWord(text, "duty") || containsWord(text, "import tax") ||
+    containsWord(text, "trade war") || containsWord(text, "customs") || containsWord(text, "levy") ||
+    containsWord(text, "trade barrier") || containsWord(text, "protectionism")
   ) return "Tariff"
 
   if (
-    text.includes("sanction") || text.includes("geopolit") || text.includes("conflict") ||
-    text.includes("war") || text.includes("blockade") || text.includes("embargo") ||
-    text.includes("invasion") || text.includes("missile") || text.includes("military") ||
-    text.includes("strait") || text.includes("canal")
+    containsWord(text, "sanction") || containsWord(text, "geopolit") || containsWord(text, "conflict") ||
+    containsWord(text, "war") || containsWord(text, "blockade") || containsWord(text, "embargo") ||
+    containsWord(text, "invasion") || containsWord(text, "missile") || containsWord(text, "military") ||
+    containsWord(text, "strait") || containsWord(text, "canal")
   ) return "Geopolitical"
 
   if (
-    text.includes("storm") || text.includes("flood") || text.includes("hurricane") ||
-    text.includes("earthquake") || text.includes("typhoon") || text.includes("drought") ||
-    text.includes("wildfire") || text.includes("climate") || text.includes("weather")
+    containsWord(text, "storm") || containsWord(text, "flood") || containsWord(text, "hurricane") ||
+    containsWord(text, "earthquake") || containsWord(text, "typhoon") || containsWord(text, "drought") ||
+    containsWord(text, "wildfire") || containsWord(text, "climate") || containsWord(text, "weather")
   ) return "Weather"
 
   return "General"
