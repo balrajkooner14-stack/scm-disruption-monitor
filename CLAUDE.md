@@ -1506,6 +1506,50 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           above).
 
 ## Known issues / next session notes
+- v4.9 KNOWN ISSUE, live in production: keyword matching uses a LEADING word
+  boundary, so "bankruptcy" matches `\bban` and "portal" matches `\bport`.
+  Confirmed live: "Spiking US diesel prices increase surcharges, truck
+  bankruptcy risk" is in the feed at severity 3 CRITICAL, and it also cleared
+  gate 1 of the admission filter for the same reason. This is the accepted
+  residual of the v4.9 matching decision — a FULL boundary would fix it but
+  breaks every inflection ("tariffs", "sanctions", "shipping", "delays",
+  "closures", "banned", "containers"), which is far worse. Verified fix
+  available and not yet applied: `\b(kw)(s|es|ed|ing|ned)?\b` keeps all seven
+  inflections AND rejects bankruptcy/portal. Do this as its own focused change
+  with measurement — the matching rule has already produced one Critical and
+  one ambiguity that cost two fix rounds.
+- v4.9 NOT VERIFIED: the in-browser console-error check was never performed.
+  The Chrome extension refused interaction across two tabs and four attempts.
+  Every other verification step had a non-browser substitute; this one does
+  not. Treat the app's client-side console as unchecked since v4.9.
+- v4.9 deferred backlog (none are blocking, all recorded so they are not lost):
+  - Labor category is still empty. "German dockworkers weigh strike action amid
+    port congestion" classifies as Port because assignCategory checks Port
+    before Labor. Pre-existing precedence; reordering would also reshuffle the
+    stored 7-day category trend history.
+  - Genuine admission misses: "Greek Cargo RoRo Abandoned After Fire Breaks Out"
+    is a real disruption rejected because "fire" is not a DISRUPTION_TERM.
+    Admission runs ~5% of live items, so the 30-item cap is not the binding
+    constraint — filter strictness is.
+  - DISRUPTION_TERMS mixes roots and inflections inconsistently with the
+    leading-boundary rule: "tariffs"/"delays"/"halts" are dead weight, while
+    "sanctions"/"disruption" appear ONLY as inflected forms so "sanctioned" and
+    "disrupting" never match.
+  - CachedFeed.fetchedAt in lib/fetchTradeNews.ts is written and never read, so
+    a cache-served trade feed reports no staleness age (unlike GDELT's).
+  - Atom <link> is taken as link[0] with no rel filter. Works today because
+    maritime-executive emits rel="alternate" first; a feed ordering
+    rel="replies" first would silently yield the wrong URL.
+  - No dedup inside fetchTradeNews across feeds, so two publishers syndicating
+    the same URL each consume a slot of the 30 before one is dropped downstream.
+  - The regex-escape helper exists in three hand-written copies
+    (fetchDisruptions.ts, and twice in tradeFeeds.ts). The leading-vs-full
+    boundary distinction is this feature's subtlest invariant and it lives in
+    three places.
+  - GDACS/NOAA now bypass URL dedup entirely (required — every NOAA alert
+    hardcodes the same placeholder url). A GDACS event with a genuinely
+    populated url could therefore duplicate against a trade-news article
+    sharing it. Accepted: GDACS urls are usually empty.
 - Supabase env vars ARE set in Vercel (NEXT_PUBLIC_SUPABASE_URL and
   NEXT_PUBLIC_SUPABASE_ANON_KEY, both Preview + Production) — verified
   2026-09-26 via `vercel env ls`. This line previously said they still
