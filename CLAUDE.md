@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.7 live
+- Status: v4.8 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -145,12 +145,20 @@ trading and financial markets background.
 /lib
   types.ts                        → DisruptionEvent, DisruptionCategory
   fetchDisruptions.ts             → GDELT fetcher (3 queries, OR clauses parenthesized — GDELT rejects
-                                    unparenthesized OR syntax outright) run sequentially with a 2s gap and a
-                                    20s per-request timeout (datacenter-origin IPs get slow/throttled GDELT
-                                    responses, 11-13s+ observed), wrapped in a module-level promise
-                                    (disruptionsPromise) so the network fetch runs once per build process no
-                                    matter how many times Next invokes the page's data-fetching (v4.6, see
-                                    version history for the full root-cause chain). Merged with GDACS
+                                    unparenthesized OR syntax outright) run sequentially with a 6s gap
+                                    (v4.8, matching GDELT's published "one request every 5 seconds"; v4.6's
+                                    2s gap was under their own stated limit) and a 20s per-request timeout.
+                                    Two GDELT failure modes are handled: HTTP 429, and a soft throttle that
+                                    answers HTTP 200 with a bare `{}` and no articles key — the latter threw
+                                    off diagnostics until v4.8 because it was counted as a success.
+                                    lastGoodByQuery keeps a last-known-good cache PER QUERY INDEX (v4.8), so
+                                    a failing query falls back to its own previous results; failures are not
+                                    uniform (query 0 often succeeds while 1 and 2 — the Port/Labor/Tariff/
+                                    Geopolitical producers — 429), so a single merged cache would let a lucky
+                                    query 0 mask their loss. Cache is only ever overwritten on a genuine
+                                    non-empty success. disruptionsPromise is a TTL'd (5min) module-level memo
+                                    (v4.8) — it was permanent in v4.6, which is correct for a build process
+                                    but would pin stale data forever under ISR. Merged with GDACS
                                     (fetchGlobalDisasters) + NOAA (fetchWeatherAlerts) via Promise.all,
                                     deduplication, fallback (v4.0).
   fetchGlobalDisasters.ts         → GDACS API (earthquakes/cyclones/floods/volcanoes/droughts/wildfires),
@@ -295,9 +303,16 @@ Query 1: "supply chain disruption" → category: General
 Query 2: "(port strike OR port closure OR freight delay)" → category: Port or Labor
 Query 3: "(tariff OR sanctions OR trade war)" → category: Tariff or Geopolitical
 OR clauses MUST be parenthesized — GDELT rejects unparenthesized OR syntax outright
-(HTTP 200 with a plain-text error body, not JSON). Fetched sequentially with a 2s gap
-and a 20s timeout each (see v4.6), not Promise.all — GDELT throttles at ~1 req/5s per
-client and responds slowly (11-13s+) to datacenter-origin IPs.
+(HTTP 200 with a plain-text error body, not JSON). Fetched sequentially with a 6s gap
+(v4.8) and a 20s timeout each, not Promise.all — GDELT publishes "one request every 5
+seconds" and responds slowly (11-13s+) to datacenter-origin IPs.
+GDELT has TWO failure modes, both treated as failures since v4.8:
+  - HTTP 429 with a plain-text throttle page
+  - HTTP 200 with a bare `{}` (no articles key) — a soft throttle, NOT an empty
+    result. Verified: the bare word "tariff" over 24H returns `{}` the same way.
+Throttling is driven by Vercel's SHARED egress IPs, not by our own request volume —
+a single isolated request from a quiet IP after 90s of silence still returns 429.
+Retries and backoff do not fix this; the per-query cache and ISR do.
 
 ## Caching rules (DO NOT CHANGE)
 - /api/analyze: 10min module-level variable, key: profile ? `profile:${companyName}:${updatedAt}` : "generic"
@@ -1246,8 +1261,91 @@ v4.7 — Overview tab reorganization + sanctions screening disabled
           The one console error in dev is the known Navbar live-clock
           hydration mismatch (v4.1), absent from production builds.
 
+v4.8 — Fix: weather alerts dominating the feed — GDELT throttling
+        survivability + ISR (Sep 26, 2026):
+        Problem reported by user: the Live Disruption Feed still looked
+          almost entirely weather-related, with no Port/Tariff/Labor/
+          Geopolitical events, despite the v4.5 NOAA filter and the v4.6
+          GDELT fixes.
+        Confirmed at the source, not inferred: the live production payload
+          was 23 events — Weather 18, General 5, from weather.gov (15) and
+          gdacs.org (8) only. Zero Port, Tariff, Labor, Geopolitical. The
+          build log for that deploy read "GDELT queries ok: 0/3".
+        Root cause 1 — GDELT throttles far harder than v4.6 assumed, and
+          NOT because of our pacing. Probed directly: a single isolated
+          request after 20s, 60s and 90s of total silence all returned 429.
+          Ruled out User-Agent (curl's default UA got both 429 and 200 at
+          different times) and query shape (the bare word "tariff" fails
+          identically). The driver is Vercel's SHARED egress IPs — other
+          tenants consume the per-IP budget — which is why retries and
+          backoff cannot fix it and were deliberately not used.
+        Root cause 2 — a second, previously unseen failure mode: GDELT
+          answers HTTP 200 with a bare `{}`, no articles key. Not an empty
+          result ("tariff" over 24H returns `{}` too). The old code set
+          anySuccess = true before `articles ?? []`, so a soft-throttled
+          query was reported as "ok" while contributing nothing — the
+          diagnostic line actively overstated GDELT's health.
+        Root cause 3 (the amplifier) — both consuming pages were statically
+          prerendered with no revalidation, so GDELT was queried exactly
+          once per deploy inside a few-second window. Whatever that single
+          roll of the dice returned was frozen into the served HTML until
+          someone deployed again. Across four production deploys the GDELT
+          success rate was 2/3, 1/3, 0/3, 0/3 — and the 0/3 one had been
+          serving a weather-only feed for 42 days.
+        Fix (Phase 1) — survive failures. Soft-throttle detection (a 200
+          whose body lacks an articles array now throws). A last-known-good
+          cache PER QUERY INDEX, deliberately not one merged blob: the
+          failures are not uniform, and a lucky query 0 would otherwise
+          mask the loss of queries 1 and 2, which are precisely the ones
+          that produce Port/Labor/Tariff/Geopolitical. Write rule: the
+          cache is only ever overwritten on a genuine non-empty success, so
+          a throttle can never wipe the data protecting us. Inter-query gap
+          2s -> 6s to respect GDELT's published limit (not the root cause,
+          but no reason to stay self-inflicted). The [Disruptions] log line
+          now reports live / cached / failed per query plus cache age,
+          replacing the "ok: N/3" count that counted soft throttles as
+          successes.
+        Fix (Phase 2) — re-roll more than once per deploy. revalidate =
+          1800 on / and /scenarios. Critically, disruptionsPromise had to
+          become TTL-aware (5min) first: v4.6's permanent module-level memo
+          was correct for a build process that exits, but under ISR a warm
+          instance would hold the resolved promise forever and never
+          refetch, making revalidate a SILENT NO-OP. Anyone touching this
+          again should check that interaction first.
+        Verified by forcing failures rather than waiting for one: a
+          standalone harness stubbed the network and advanced Date.now past
+          the memo TTL. Confirmed healthy fetch populates the cache; a
+          same-tick call hits the memo with zero network calls; a 429 round
+          serves 9 cached events with Port and Tariff intact; a soft-
+          throttle `{}` does not wipe the cache; recovery returns to live.
+          A second harness reproduced the real production pattern (only
+          query 0 succeeds) and confirmed "1 live / 2 cached" with Port and
+          Tariff both preserved.
+        ISR confirmed via .next/prerender-manifest.json —
+          initialRevalidateSeconds = 1800 on / and /scenarios vs False on
+          untouched /about. NOTE: the build output table still prints these
+          routes as "○ (Static)", so the table alone does NOT tell you
+          whether revalidate took effect — check the manifest.
+        Known limitation carried forward: a COLD serverless instance during
+          a GDELT outage still has an empty cache and renders weather-only.
+          Accepted deliberately rather than building a durable Supabase
+          cache, because Phase 3 (a non-throttled trade-press RSS source)
+          closes that hole better than caching a source we intend to
+          demote. Revisit durable storage only if Phase 3 proves
+          insufficient.
+        Found but NOT fixed (deliberately out of scope, for Phase 3):
+          assignCategory() does bare substring matching, so "port" matches
+          inside "imported", "important", "export", "transport" and
+          "reporter" — e.g. "new tariff announced on imported goods"
+          classifies as Port, not Tariff. Harmless today (there are no
+          GDELT events to misclassify) but it will skew categories as soon
+          as GDELT flows again. Fix alongside Phase 3.
+
 ## Known issues / next session notes
-- Supabase env vars must be added to Vercel settings for production auth to work
+- Supabase env vars ARE set in Vercel (NEXT_PUBLIC_SUPABASE_URL and
+  NEXT_PUBLIC_SUPABASE_ANON_KEY, both Preview + Production) — verified
+  2026-09-26 via `vercel env ls`. This line previously said they still
+  needed adding, which was stale.
 - Logged-in Supabase path for supplier health / lead time / disruption
   history / performance alerts (v3.7) and headquarters_country (v3.8) has
   not been manually verified in production — guest/localStorage path was
@@ -1281,15 +1379,18 @@ v4.7 — Overview tab reorganization + sanctions screening disabled
   to be read that way) but worth remembering if a finding ever looks off —
   it hasn't been through the same human-verification pass as the curated
   list.
-- v4.6's GDELT fix resolved a bug present since the feature's first
-  commit (unparenthesized OR queries silently rejected by GDELT), a
-  too-short timeout, and redundant duplicate build-time fetches. GDELT's
-  free-tier per-IP throttle (~1 req/5s, slow response to datacenter IPs)
-  is still a real constraint outside the app's control — an individual
-  deploy can occasionally land with fewer GDELT articles if that build's
-  IP gets rate-limited mid-build. If the feed ever looks weather-heavy
-  again, check the Vercel build log for the "[Disruptions] ... GDELT
-  queries ok: X/3" line first before assuming a new code regression.
+- GDELT throttling is a permanent external constraint, not a bug to keep
+  chasing. v4.6 fixed real code bugs (unparenthesized OR queries, a
+  too-short timeout, duplicate build-time fetches); v4.8 established that
+  what remains is driven by Vercel's SHARED egress IPs and cannot be fixed
+  from this side — a single isolated request after 90s of silence still
+  returns 429, so retries/backoff are not the answer. v4.8 makes failures
+  survivable (per-query last-good cache + 30min ISR) rather than trying to
+  prevent them. If the feed looks weather-heavy again, check the
+  "[Disruptions] ... GDELT N events from X live / Y cached / Z failed"
+  line in the Vercel build or function logs FIRST. All-cached or
+  all-failed with an empty cache means a cold instance during an outage —
+  expected, and what Phase 3 (trade-press RSS) is meant to solve.
 - 4-phase roadmap (planned from handwritten notes) is now fully shipped —
   no roadmap items remain. Next priorities are the pre-existing backlog:
   [ ] Watchlist with notification badges
@@ -1366,6 +1467,8 @@ v4.7 — Overview tab reorganization + sanctions screening disabled
       parens on OR clauses, too-short timeout for datacenter-origin
       requests, and redundant duplicate build-time fetches (Aug 15, 2026)
 - [x] Overview tab reorganization + sanctions screening disabled (Sep 2026)
+- [x] Fix: GDELT throttling survivability — per-query last-good cache,
+      soft-throttle detection, ISR revalidation (Sep 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
