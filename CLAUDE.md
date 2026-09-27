@@ -1373,9 +1373,11 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           (DISRUPTION_TERMS AND SUPPLY_CHAIN_TERMS — both must match) plus
           HEADLINE_REGION_HINTS (104 entries) + inferRegionFromHeadline(),
           since RSS items carry no country field the way GDELT/GDACS do.
-          Pure, no I/O — deliberately NOT reusing fetchGlobalDisasters.ts's
-          country-NAME-keyed mapCountryToRegion(), since that map is keyed
-          for structured country fields, not free-text headline scanning.
+          Pure, no I/O — deliberately NOT reusing lib/fetchDisruptions.ts's
+          mapCountryToRegion(), since that map is keyed for GDELT's FIPS-style
+          country codes, where the same 2-letter code can mean a different
+          country (the collision v4.0 documented for GDACS) — not the right
+          fit for free-text headline scanning.
         Delivered: lib/fetchTradeNews.ts — fetches all 6 feeds in parallel
           via Promise.allSettled (10s timeout each, so one slow or dead feed
           can't block the others), fast-xml-parser normalises RSS 2.0 <item>
@@ -1394,7 +1396,9 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
         Testing: scripts/verify.sh plus three harnesses — the repo's FIRST
           test suite; no test framework was installed before this task. 47
           checks, run with `npm run verify`. .eslintrc.json gained "root":
-          true (needed once scripts/ existed as its own lint scope).
+          true (this worktree lives inside the parent checkout, and ESLint
+          was ascending out of it into the parent's own .eslintrc config,
+          causing a plugin conflict).
         Key decision — word boundary is LEADING-ONLY, not full. A full
           boundary fixes the substring bugs but breaks every inflected form:
           verified that "tariffs", "sanctions", "shipping", "delays",
@@ -1408,10 +1412,10 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           inside "using".
         The nine bugs fixed: "port" matched inside
           imported/export/transport/reporter; "ban"/"halt" matched inside
-          Albania/urban/abandoned/Lebanon/asphalt. scoreEvents.ts's keyword
-          lists and 3/2/1 tiers are CLAUDE.md-frozen and are UNCHANGED — only
-          the matching semantics changed, with explicit permission granted
-          for that specific edit.
+          Albania/urban/abandoned/Lebanon/asphalt. lib/fetchDisruptions.ts's
+          scoreSeverity keyword lists and 3/2/1 tiers are CLAUDE.md-frozen and
+          are UNCHANGED — only the matching semantics changed, with explicit
+          permission granted for that specific edit.
         Key decision — assignCategory is called with the TITLE ONLY for RSS
           items, not title+url as elsewhere. Verified directly: a neutral
           headline classifies General alone, but Port once a
@@ -1436,10 +1440,23 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           misleading-diagnostic that misdirected the v4.8 GDELT investigation (see
           v4.8 root cause 2 above), and CLAUDE.md tells maintainers to check these
           summary lines first.
-        Measured result (2026-09-26 build): 69 total events — TradeNews 9,
-          GDACS 9, NOAA 7, GDELT 44. Trade-news categories: Port 6, Tariff 1,
-          General 2 — all three were zero before this task. All 9 admitted
-          article URLs resolve HTTP 200.
+        Measured result (2026-09-26 build): 75 total events — TradeNews 9,
+          GDACS 9, NOAA 7, GDELT 50. Trade-news categories: Port 6, Tariff 1,
+          General 2 — unchanged from the original measurement, all three were
+          zero before this task. All 9 admitted article URLs resolve HTTP
+          200. (Re-measured during the pre-merge review after fixing findings
+          1 and 6 below — the original measurement here read 69 total /
+          GDELT 44 before those fixes. NOAA's reported count (7) is the same
+          in both measurements — that number is weatherEvents.length, taken
+          before any dedup, so it was never wrong — but finding 1 fixed a bug
+          where NOAA's events could collapse from 7 down to as few as 1 in
+          the actual merged total because every NOAA alert shares the same
+          hardcoded placeholder url; that data loss was invisible in this
+          summary line, which is exactly why it survived to this review.
+          GDELT's count is not meaningfully comparable build to build — it
+          swings with GDELT's rate limiting, which finding 6 did not touch;
+          finding 6 only changed how the kept count is computed, not what it
+          counts.)
         Known limitation: admission is strict by design — 9 of 184 live items
           across all 6 feeds (4.9%). The 30-item cap is NOT the binding
           constraint; filter strictness is. Maritime Executive admitted 0 of
