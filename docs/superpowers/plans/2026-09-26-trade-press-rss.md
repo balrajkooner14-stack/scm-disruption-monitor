@@ -133,8 +133,11 @@ function check(label, actual, expected) {
 console.log("-- assignCategory: 'port' must not match inside other words --");
 check('"new tariff announced on imported goods"',
   assignCategory("new tariff announced on imported goods", ""), "Tariff");
+// General, not Geopolitical: no geopolitical keyword is present (sanction,
+// war, conflict, embargo are all absent). The bug being fixed is that "port"
+// matched inside "export"; removing that leaves nothing to match.
 check('"export controls tighten on semiconductors"',
-  assignCategory("export controls tighten on semiconductors", ""), "Geopolitical");
+  assignCategory("export controls tighten on semiconductors", ""), "General");
 check('"reporter details new sanctions package"',
   assignCategory("reporter details new sanctions package", ""), "Geopolitical");
 check('"transport costs rise after tariff hike"',
@@ -182,15 +185,24 @@ Expected: FAIL rows for the `imported` / `export` / `reporter` / `transport` cas
 In `lib/fetchDisruptions.ts`, add this helper directly above `scoreSeverity`:
 
 ```ts
-// Matches whole words only. The previous substring checks meant "port" matched
-// inside "imported"/"export"/"transport"/"reporter", and "ban"/"halt" matched
-// inside "Albania"/"urban"/"abandoned"/"Lebanon"/"asphalt" — so tariff and
-// geopolitical stories were labelled Port, and unrelated headlines scored
-// CRITICAL. Verified broken against all of those strings on 2026-09-26.
+// Requires the keyword to START a word. The previous substring checks meant
+// "port" matched inside "imported"/"export"/"transport"/"reporter", and
+// "ban"/"halt" matched inside "Albania"/"urban"/"abandoned"/"Lebanon"/
+// "asphalt" — so tariff and geopolitical stories were labelled Port and
+// unrelated headlines scored CRITICAL.
+//
+// A LEADING boundary only, deliberately NOT a trailing one. Verified
+// 2026-09-26 that requiring both boundaries also breaks every inflected form:
+// "tariffs", "sanctions", "shipping", "delays", "closures", "banned" and
+// "containers" all stop matching their keyword. Those are among the most
+// common words in trade headlines, so full-boundary matching would gut recall
+// in exactly the categories this feature exists to fill. The residual cost is
+// prefix false positives ("portal", "bankruptcy") — much cheaper.
+//
 // Keywords may be multi-word ("trade war"), so metacharacters are escaped.
 function containsWord(haystack: string, needle: string): boolean {
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  return new RegExp(`\\b${escaped}\\b`, "i").test(haystack)
+  return new RegExp(`\\b${escaped}`, "i").test(haystack)
 }
 ```
 
@@ -298,9 +310,13 @@ check('[real] "6 food manufacturers talk supply chain tactics" has no disruption
 check('[real] "Lego to spend $400M to add warehouse space at Mexico plant"',
   matchesDisruptionKeywords("Lego to spend $400M to add warehouse space at Mexico plant"), false);
 
-console.log("-- gate matching is word-boundary, not substring --");
+console.log("-- gate matching is leading-boundary, not substring --");
 check('"Albania expands port terminal" (ban must not fire gate 1)',
   matchesDisruptionKeywords("Albania expands port terminal"), false);
+check('inflections survive: "New tariffs hit container shipments"',
+  matchesDisruptionKeywords("New tariffs hit container shipments"), true);
+check('inflections survive: "Port closures announced across shipping lanes"',
+  matchesDisruptionKeywords("Port closures announced across shipping lanes"), true);
 
 console.log("-- region inference --");
 check('"Port of Rotterdam congestion worsens"',
@@ -423,9 +439,15 @@ export const HEADLINE_REGION_HINTS: Record<string, Region> = {
   "ethiopia": "Africa", "ghana": "Africa",
 }
 
+// Leading boundary only, matching lib/fetchDisruptions.ts. A trailing boundary
+// would stop "tariffs", "delays", "closures", "shipments" and "containers"
+// from matching their singular keywords, which would starve the admission
+// filter. Note the region hints below deliberately use FULL boundaries
+// instead: place names do not inflect, and "us" is far too short to be safe
+// with a leading-only boundary.
 function containsWord(haystack: string, needle: string): boolean {
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  return new RegExp(`\\b${escaped}\\b`, "i").test(haystack)
+  return new RegExp(`\\b${escaped}`, "i").test(haystack)
 }
 
 /**
@@ -863,7 +885,17 @@ Append to `scripts/verify-trade-news.js`, immediately before the `process.exit` 
     if (u.includes("gdacs.org") || u.includes("weather.gov")) {
       return { ok: true, status: 200, json: async () => ({ features: [] }) };
     }
-    return { ok: true, status: 200, text: async () => rssFeed([ADMIT]) };
+    // Two items per feed: one sharing GDELT's URL (proves cross-source dedup)
+    // and one unique (proves trade news actually reaches the merged feed).
+    // With only the shared URL, GDELT is pushed first and every trade event
+    // would be deduped away, making the second assertion unsatisfiable.
+    const item = (link) =>
+      `<item><title>${ADMIT}</title><link>${link}</link>` +
+      `<pubDate>Fri, 26 Sep 2026 12:00:00 GMT</pubDate></item>`;
+    const uniqueLink = `https://unique.test/${encodeURIComponent(u)}`;
+    return { ok: true, status: 200, text: async () =>
+      `<?xml version="1.0"?><rss version="2.0"><channel><title>Chan</title>` +
+      `${item(SHARED)}${item(uniqueLink)}</channel></rss>` };
   };
   clockOffset += 10 * 60 * 1000; // past the 5-minute fetchDisruptions memo TTL
   const merged = await fetchDisruptions();

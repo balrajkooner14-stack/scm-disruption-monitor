@@ -37,3 +37,6 @@ next-env.d.ts
 
 .env.local
 .env*.local
+
+# compiled output for scripts/verify.sh
+.verify/

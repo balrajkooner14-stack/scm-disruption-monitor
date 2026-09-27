@@ -3,13 +3,33 @@ import path from "path"
 import { DisruptionEvent, DisruptionCategory, SeverityLevel, Region } from "./types"
 import { fetchGlobalDisasters } from "./fetchGlobalDisasters"
 import { fetchWeatherAlerts } from "./fetchWeatherAlerts"
+import { fetchTradeNews } from "./fetchTradeNews"
+
+// Requires the keyword to START a word. The previous substring checks meant
+// "port" matched inside "imported"/"export"/"transport"/"reporter", and
+// "ban"/"halt" matched inside "Albania"/"urban"/"abandoned"/"Lebanon"/
+// "asphalt" — so tariff and geopolitical stories were labelled Port and
+// unrelated headlines scored CRITICAL.
+//
+// A LEADING boundary only, deliberately NOT a trailing one. Verified
+// 2026-09-26 that requiring both boundaries also breaks every inflected form:
+// "tariffs", "sanctions", "shipping", "delays", "closures", "banned" and
+// "containers" all stop matching their keyword. Those are among the most
+// common words in trade headlines, so full-boundary matching would gut recall
+// in exactly the categories this feature exists to fill. The residual cost is
+// prefix false positives ("portal", "bankruptcy") — much cheaper.
+//
+// Keywords may be multi-word ("trade war"), so metacharacters are escaped.
+function containsWord(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return new RegExp(`\\b${escaped}`, "i").test(haystack)
+}
 
 export function scoreSeverity(title: string): SeverityLevel {
-  const t = title.toLowerCase()
   const critical = ["strike", "closure", "sanctions", "blocked", "halt", "shutdown", "ban"]
   const warning = ["delay", "shortage", "disruption", "tariff", "congestion", "reduced"]
-  if (critical.some((kw) => t.includes(kw))) return 3
-  if (warning.some((kw) => t.includes(kw))) return 2
+  if (critical.some((kw) => containsWord(title, kw))) return 3
+  if (warning.some((kw) => containsWord(title, kw))) return 2
   return 1
 }
 
@@ -44,38 +64,38 @@ export function mapCountryToRegion(countryCode: string): Region {
 }
 
 export function assignCategory(title: string, url: string): DisruptionCategory {
-  const text = (title + " " + url).toLowerCase()
+  const text = title + " " + url
 
   if (
-    text.includes("port") || text.includes("ship") || text.includes("vessel") ||
-    text.includes("container") || text.includes("freight") || text.includes("cargo") ||
-    text.includes("maritime") || text.includes("dock") || text.includes("harbor") ||
-    text.includes("berth") || text.includes("terminal")
+    containsWord(text, "port") || containsWord(text, "ship") || containsWord(text, "vessel") ||
+    containsWord(text, "container") || containsWord(text, "freight") || containsWord(text, "cargo") ||
+    containsWord(text, "maritime") || containsWord(text, "dock") || containsWord(text, "harbor") ||
+    containsWord(text, "berth") || containsWord(text, "terminal")
   ) return "Port"
 
   if (
-    text.includes("strike") || text.includes("worker") || text.includes("union") ||
-    text.includes("labor") || text.includes("labour") || text.includes("walkout") ||
-    text.includes("employment") || text.includes("workforce")
+    containsWord(text, "strike") || containsWord(text, "worker") || containsWord(text, "union") ||
+    containsWord(text, "labor") || containsWord(text, "labour") || containsWord(text, "walkout") ||
+    containsWord(text, "employment") || containsWord(text, "workforce")
   ) return "Labor"
 
   if (
-    text.includes("tariff") || text.includes("duty") || text.includes("import tax") ||
-    text.includes("trade war") || text.includes("customs") || text.includes("levy") ||
-    text.includes("trade barrier") || text.includes("protectionism")
+    containsWord(text, "tariff") || containsWord(text, "duty") || containsWord(text, "import tax") ||
+    containsWord(text, "trade war") || containsWord(text, "customs") || containsWord(text, "levy") ||
+    containsWord(text, "trade barrier") || containsWord(text, "protectionism")
   ) return "Tariff"
 
   if (
-    text.includes("sanction") || text.includes("geopolit") || text.includes("conflict") ||
-    text.includes("war") || text.includes("blockade") || text.includes("embargo") ||
-    text.includes("invasion") || text.includes("missile") || text.includes("military") ||
-    text.includes("strait") || text.includes("canal")
+    containsWord(text, "sanction") || containsWord(text, "geopolit") || containsWord(text, "conflict") ||
+    containsWord(text, "war") || containsWord(text, "blockade") || containsWord(text, "embargo") ||
+    containsWord(text, "invasion") || containsWord(text, "missile") || containsWord(text, "military") ||
+    containsWord(text, "strait") || containsWord(text, "canal")
   ) return "Geopolitical"
 
   if (
-    text.includes("storm") || text.includes("flood") || text.includes("hurricane") ||
-    text.includes("earthquake") || text.includes("typhoon") || text.includes("drought") ||
-    text.includes("wildfire") || text.includes("climate") || text.includes("weather")
+    containsWord(text, "storm") || containsWord(text, "flood") || containsWord(text, "hurricane") ||
+    containsWord(text, "earthquake") || containsWord(text, "typhoon") || containsWord(text, "drought") ||
+    containsWord(text, "wildfire") || containsWord(text, "climate") || containsWord(text, "weather")
   ) return "Weather"
 
   return "General"
@@ -256,10 +276,11 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
     }
   }
 
-  const [gdeltResults, disasterEvents, weatherEvents] = await Promise.all([
+  const [gdeltResults, disasterEvents, weatherEvents, tradeEvents] = await Promise.all([
     fetchGdeltQueriesSequentially(queries, fetchQuery),
     fetchGlobalDisasters(),
     fetchWeatherAlerts(),
+    fetchTradeNews(),
   ])
 
   const seenUrls = new Set<string>()
@@ -268,6 +289,11 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
 
   // Per-query outcome, for an honest summary line at the end.
   const queryOutcomes: ("live" | "cached" | "failed")[] = []
+  // Counted directly as GDELT events are kept below, rather than derived by
+  // subtracting other sources' counts from events.length afterward — the
+  // subtraction approach went negative once GDACS/NOAA events could also be
+  // dropped or merged during cross-source dedup (finding 6).
+  let gdeltKeptCount = 0
 
   gdeltResults.forEach((result, queryIndex) => {
     const fresh: DisruptionEvent[] = []
@@ -319,18 +345,56 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
       if (seenUrls.has(key)) continue
       seenUrls.add(key)
       events.push(event)
+      gdeltKeptCount++
     }
   })
 
-  // GDACS/NOAA IDs are already source-prefixed and stable (not per-fetch
-  // random), so no seenUrls-style dedupe needed against them — but they
-  // could theoretically overlap with a GDELT article about the same event,
-  // which is an acceptable, rare duplicate rather than a bug to chase.
+  // URL dedup exists ONLY to catch the same article legitimately appearing in
+  // both GDELT and the trade-press feeds — those are the two sources that
+  // report real news articles with genuine, per-article URLs. It must NOT be
+  // applied to GDACS or NOAA: GDACS's url is often empty, and NOAA hardcodes
+  // the identical "https://www.weather.gov/" placeholder landing page on
+  // EVERY alert it returns (fetchWeatherAlerts.ts:85) — that is not an
+  // article identity, it's a static link. Running NOAA through URL dedup
+  // collapses every alert it returns into a single surviving entry (proven:
+  // 5 distinct Flash Flood Warnings in, 1 out) even though the [Disruptions]
+  // log still reports NOAA's full pre-dedup count, silently discarding real
+  // events. GDACS/NOAA ids are already source-prefixed ("gdacs-...",
+  // "noaa-...") and unique per event, so they need no seenUrls-style dedupe
+  // at all — do not re-add a URL-keyed check here.
+  const appendWithoutUrlDedup = (incoming: DisruptionEvent[]) => {
+    events.push(...incoming)
+  }
+
   if (disasterEvents.length > 0) anySuccess = true
-  events.push(...disasterEvents)
+  appendWithoutUrlDedup(disasterEvents)
 
   if (weatherEvents.length > 0) anySuccess = true
-  events.push(...weatherEvents)
+  appendWithoutUrlDedup(weatherEvents)
+
+  // Trade news DOES need URL dedup against GDELT (both are real articles with
+  // real URLs), but on a collision the trade-news copy must win, not GDELT's:
+  // GDELT's id embeds Date.now() (an unstable React key — the exact problem
+  // the trade-press source was built to avoid) and its region comes from the
+  // publisher's country rather than the headline, which is less precise than
+  // inferRegionFromHeadline(). Push order otherwise only affects which
+  // duplicate survives, not overall feed ordering (events are sorted by
+  // severity/date below), so replacing in place is safe.
+  if (tradeEvents.length > 0) anySuccess = true
+  for (const event of tradeEvents) {
+    const key = event.url || `title:${event.title}`
+    if (seenUrls.has(key)) {
+      const existingIndex = events.findIndex(
+        (e) => (e.url || `title:${e.title}`) === key
+      )
+      if (existingIndex >= 0) {
+        events[existingIndex] = event
+        continue
+      }
+    }
+    seenUrls.add(key)
+    events.push(event)
+  }
 
   if (!anySuccess) {
     return loadFallback()
@@ -346,7 +410,6 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
   // which made GDELT look healthier than it was — check this line first if the
   // feed ever looks weather-heavy again.
   const tally = (state: string) => queryOutcomes.filter((o) => o === state).length
-  const gdeltEventCount = events.length - disasterEvents.length - weatherEvents.length
   const oldestCacheAgeMin = Math.max(
     0,
     ...Array.from(lastGoodByQuery.values()).map((c) =>
@@ -355,10 +418,10 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
   )
   console.log(
     `[Disruptions] ${events.length} total events ` +
-    `(GDELT ${gdeltEventCount} events from ${tally("live")} live / ${tally("cached")} cached / ` +
+    `(GDELT ${gdeltKeptCount} events from ${tally("live")} live / ${tally("cached")} cached / ` +
     `${tally("failed")} failed of ${queries.length} queries` +
     `${tally("cached") > 0 ? `, cache age up to ${oldestCacheAgeMin}m` : ""}` +
-    `, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
+    `, TradeNews: ${tradeEvents.length}, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
   )
 
   return events

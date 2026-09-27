@@ -8,7 +8,7 @@ trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.8 live
+- Status: v4.9 live
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -172,6 +172,17 @@ trading and financial markets background.
                                     "Severe/Extreme" query param is much broader than "supply-chain disruptive" —
                                     unfiltered, it was returning 30+ alerts most days, dominating the merged feed
                                     over GDELT and GDACS combined.
+  tradeFeeds.ts                   → Trade-press RSS registry (6 publications, each sourced +
+                                    dated with lastVerified), two-gate admission filter
+                                    (DISRUPTION_TERMS AND SUPPLY_CHAIN_TERMS), and
+                                    HEADLINE_REGION_HINTS + inferRegionFromHeadline() since RSS
+                                    carries no country field (v4.9). Pure, no I/O.
+  fetchTradeNews.ts               → Fetches the 6 feeds in parallel (10s timeout each),
+                                    normalises RSS 2.0 and Atom into one shape via
+                                    fast-xml-parser, filters, caps at 30 round-robin across
+                                    feeds, per-feed last-good cache using the v4.8 write rule
+                                    (v4.9). Calls assignCategory with the TITLE ONLY — passing
+                                    the URL lets a publisher's domain decide the category.
   scoreEvents.ts                  → ScoredEvent type, scoreEventsForProfile()
   profile.ts                      → CompanyProfile type + all sub-types, PROFILE_STORAGE_KEY.
                                     ProductLine has optional primarySupplierId, backupSupplierId (v4.0), hsCode
@@ -297,6 +308,12 @@ trading and financial markets background.
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
 Score 2 WARNING: delay, shortage, disruption, tariff, congestion, reduced
 Score 1 MONITOR: everything else
+
+Matching is WORD-BOUNDARY as of v4.9, not substring. The keyword lists and the
+3/2/1 tiers are unchanged. Before v4.9, "ban" matched inside Albania / urban /
+abandoned / Lebanon and "halt" matched inside asphalt, so unrelated headlines
+scored CRITICAL. assignCategory got the same fix: "port" was matching inside
+imported / export / transport / reporter.
 
 ## GDELT queries (all with timespan=24H, maxrecords=25, format=json, mode=artlist)
 Query 1: "supply chain disruption" → category: General
@@ -1341,6 +1358,153 @@ v4.8 — Fix: weather alerts dominating the feed — GDELT throttling
           GDELT events to misclassify) but it will skew categories as soon
           as GDELT flows again. Fix alongside Phase 3.
 
+v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
+        word-boundary category and severity matching (Sep 26, 2026):
+        Problem: the feed carried zero Port/Tariff/Labor/Geopolitical events
+          because those categories came only from GDELT, which v4.8
+          established is effectively unreachable from Vercel's shared egress
+          IPs. Measured on production 2026-09-26: 23 events, Weather 18 /
+          General 5, from weather.gov and gdacs.org only.
+        Delivered: lib/tradeFeeds.ts — a registry of 6 trade publications
+          (supplychaindive.com, freightwaves.com, maritime-executive.com
+          [Atom, not RSS], gcaptain.com, splash247.com, joc.com), each
+          sourced with a lastVerified date, same discipline as
+          laborCalendar.ts/structuralRisk.ts. A two-gate admission filter
+          (DISRUPTION_TERMS AND SUPPLY_CHAIN_TERMS — both must match) plus
+          HEADLINE_REGION_HINTS (133 entries, incl. demonyms) + inferRegionFromHeadline(),
+          since RSS items carry no country field the way GDELT/GDACS do.
+          Pure, no I/O — deliberately NOT reusing lib/fetchDisruptions.ts's
+          mapCountryToRegion(), since that map is keyed for GDELT's FIPS-style
+          country codes, where the same 2-letter code can mean a different
+          country (the collision v4.0 documented for GDACS) — not the right
+          fit for free-text headline scanning.
+        Delivered: lib/fetchTradeNews.ts — fetches all 6 feeds in parallel
+          via Promise.allSettled (10s timeout each, so one slow or dead feed
+          can't block the others), fast-xml-parser normalises RSS 2.0 <item>
+          and Atom <entry> into one shape, per-feed last-good cache using the
+          v4.8 write rule (only a genuine non-empty success overwrites it),
+          capped at 30 items allocated round-robin across feeds rather than
+          concatenate-and-slice — FreightWaves returns 56 items against
+          Supply Chain Dive's 10, so naive truncation would let one publisher
+          fill the entire allowance.
+        Integration: lib/fetchDisruptions.ts — fetchTradeNews() added to the
+          existing Promise.all alongside GDELT/GDACS/NOAA; URL dedup is scoped
+          to GDELT and the trade-press feeds only — the two sources that
+          report real articles with genuine per-article URLs (previously
+          GDELT-only, so a story picked up by both GDELT and a trade feed
+          would have shown twice). GDACS and NOAA are appended WITHOUT any
+          URL dedup: every NOAA alert hardcodes the identical placeholder url
+          (https://www.weather.gov/), so an initial version of this same
+          integration that keyed dedup on url uniformly across every source
+          collapsed a whole day's worth of distinct NOAA alerts down to a
+          single surviving entry — a real data-loss bug this branch
+          introduced and then caught and fixed during pre-merge review,
+          since the [Disruptions] log kept printing NOAA's true pre-dedup
+          count regardless and never surfaced the loss. GDACS/NOAA ids are
+          already source-prefixed ("gdacs-...", "noaa-...") and stable, so
+          they need no url-keyed dedupe at all — do not reintroduce one.
+          Word-boundary fixes applied to assignCategory and scoreSeverity
+          (see Severity scoring rules above for the exact bugs fixed).
+        Testing: scripts/verify.sh plus three harnesses — the repo's FIRST
+          test suite; no test framework was installed before this task. 47
+          checks, run with `npm run verify`. .eslintrc.json gained "root":
+          true (this worktree lives inside the parent checkout, and ESLint
+          was ascending out of it into the parent's own .eslintrc config,
+          causing a plugin conflict).
+        Key decision — word boundary is LEADING-ONLY, not full. A full
+          boundary fixes the substring bugs but breaks every inflected form:
+          verified that "tariffs", "sanctions", "shipping", "delays",
+          "closures", "banned" and "containers" all stop matching their
+          keywords under a full-boundary rule — among the most common words
+          in real trade headlines. Leading-only fixes all nine demonstrated
+          bugs (below) while preserving all seven inflections. Residual,
+          accepted cost: prefix false positives like "portal"/"bankruptcy".
+          HEADLINE_REGION_HINTS deliberately uses a stricter rule than
+          keyword matching instead — not a trailing \b, but a leading \b plus
+          a negative lookahead for a word character. A trailing boundary
+          requires a word character immediately after the match, which "u.s."
+          (ending in a non-word dot) could never satisfy — that gap made the
+          "u.s." hint unmatchable altogether, which is why "U.S.-China trade
+          war halts cargo" was resolving to Asia Pacific instead of North
+          America. The lookahead instead only blocks a hint from being a
+          prefix of a longer word — so "us" still doesn't fire inside
+          "using" — while letting "u.s." match before punctuation,
+          whitespace, or end of string.
+        The nine bugs fixed: "port" matched inside
+          imported/export/transport/reporter; "ban"/"halt" matched inside
+          Albania/urban/abandoned/Lebanon/asphalt. lib/fetchDisruptions.ts's
+          scoreSeverity keyword lists and 3/2/1 tiers are CLAUDE.md-frozen and
+          are UNCHANGED — only the matching semantics changed, with explicit
+          permission granted for that specific edit.
+        Key decision — assignCategory is called with the TITLE ONLY for RSS
+          items, not title+url as elsewhere. Verified directly: a neutral
+          headline classifies General alone, but Port once a
+          maritime-executive.com or splash247.com/shipping/ URL is appended
+          to the match string — which would have forced all 68 live Maritime
+          Executive items into Port regardless of actual content.
+        Key decision — two gates, not one. Gate 2 (SUPPLY_CHAIN_TERMS) exists
+          because a real live headline, "Iceland's Last Whaling Company
+          Shrugs Off Threat Of Permanent Ban," passes gate 1 on "ban" alone
+          and would otherwise enter a supply-chain feed at CRITICAL severity.
+        The [TradeNews] summary line distinguishes live / empty / cached /
+          failed per feed, not just ok/failed — because the original three-bucket
+          version (live / cached / failed) conflated healthy-but-quiet feeds with
+          unreachable ones (a run reporting "3 live / 0 cached / 3 failed" where only
+          gcaptain.com had genuinely failed HTTP 503, the other two fetched and parsed
+          fine while admitting no items). A first fix added an `empty` bucket but still
+          incremented `cached` when a prior cache existed, so a quiet publisher with
+          cached data was mislabelled — just differently. The working rule: FETCH
+          OUTCOME decides the bucket first, and the four are mutually exclusive. A
+          successful fetch is never `cached`; fetch-OK with zero admitted items is
+          `empty` whether or not a cache was served. This is the same class of
+          misleading-diagnostic that misdirected the v4.8 GDELT investigation (see
+          v4.8 root cause 2 above), and CLAUDE.md tells maintainers to check these
+          summary lines first.
+        Measured result (2026-09-26 build): 75 total events — TradeNews 9,
+          GDACS 9, NOAA 7, GDELT 50. Trade-news categories: Port 6, Tariff 1,
+          General 2 — unchanged from the original measurement, all three were
+          zero before this task. All 9 admitted article URLs resolve HTTP
+          200. (Re-measured during the pre-merge review after fixing findings
+          1 and 6 below — the original measurement here read 69 total /
+          GDELT 44 before those fixes. NOAA's reported count (7) is the same
+          in both measurements — that number is weatherEvents.length, taken
+          before any dedup, so it was never wrong — but finding 1 fixed a bug
+          where NOAA's events could collapse from 7 down to as few as 1 in
+          the actual merged total because every NOAA alert shares the same
+          hardcoded placeholder url; that data loss was invisible in this
+          summary line, which is exactly why it survived to this review.
+          GDELT's count is not meaningfully comparable build to build — it
+          swings with GDELT's rate limiting, which finding 6 did not touch;
+          finding 6 only changed how the kept count is computed, not what it
+          counts.)
+        Known limitation: admission is strict by design — 9 of 184 live items
+          across all 6 feeds (4.9%). The 30-item cap is NOT the binding
+          constraint; filter strictness is. Maritime Executive admitted 0 of
+          68 items because its editorial focus (vessel orders, lease
+          agreements) is maritime industry news, which gate 2 correctly
+          rejects as not supply-chain-disruptive.
+        Known limitation: gcaptain.com returned HTTP 503 during verification.
+          Not a bug — per-feed isolation via Promise.allSettled meant only
+          that one feed was lost; it did usefully demonstrate the failure
+          path actually works.
+        Known limitation: the Labor category is still empty. "German
+          dockworkers weigh strike action amid port congestion" classifies as
+          Port because assignCategory checks Port before Labor. This is
+          pre-existing precedence, deliberately NOT reordered here — the plan
+          scoped this task to the word-boundary fix only, and reordering
+          category precedence would reshuffle the already-stored 7-day
+          category trend history. Candidate for a later phase.
+        Known limitation: a genuine miss — "Greek Cargo RoRo Abandoned After
+          Fire Breaks Out Off Mykonos" is a real disruption not admitted,
+          because "fire" is not currently a DISRUPTION_TERM. Candidate for
+          term-widening.
+        Not verified: the in-browser console-error check could not be
+          performed — the Chrome extension refused interaction. Recorded
+          honestly as unverified rather than implied passing; everything else
+          in the verification step was confirmed by other means (live curl
+          checks, the 60-check harness, and the production event counts
+          above).
+
 ## Known issues / next session notes
 - Supabase env vars ARE set in Vercel (NEXT_PUBLIC_SUPABASE_URL and
   NEXT_PUBLIC_SUPABASE_ANON_KEY, both Preview + Production) — verified
@@ -1469,6 +1633,8 @@ v4.8 — Fix: weather alerts dominating the feed — GDELT throttling
 - [x] Overview tab reorganization + sanctions screening disabled (Sep 2026)
 - [x] Fix: GDELT throttling survivability — per-query last-good cache,
       soft-throttle detection, ISR revalidation (Sep 2026)
+- [x] Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
+      word-boundary category and severity matching (Sep 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)

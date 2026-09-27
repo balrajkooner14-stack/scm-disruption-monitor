@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify": "bash scripts/verify.sh"
   },
   "dependencies": {
     "@google/genai": "^1.49.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tailwindcss/line-clamp": "^0.4.4",
+    "fast-xml-parser": "^5.11.1",
     "jspdf": "^4.2.1",
     "next": "14.2.35",
     "papaparse": "^5.5.3",
