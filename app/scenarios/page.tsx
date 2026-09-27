@@ -2,6 +2,15 @@ import Navbar from "@/components/Navbar"
 import ScenarioPageClient from "@/components/ScenarioPageClient"
 import { fetchDisruptions } from "@/lib/fetchDisruptions"
 
+// ISR: re-fetch disruptions every 30 minutes instead of once per deploy.
+// GDELT's free API throttles datacenter IPs hard (often 0 of 3 queries
+// succeed in a given window), and with a purely static build that one
+// unlucky window froze a weather-only feed in place until the next deploy —
+// observed live for 42 days. Regenerating on a schedule means a bad window
+// costs 30 minutes instead of days. Paired with the per-query last-good
+// cache in lib/fetchDisruptions.ts, which covers the gaps in between.
+export const revalidate = 1800
+
 export const metadata = {
   title: "Scenario Planner | SCM Disruption Monitor",
   description: "Model disruption scenarios against your supply chain and get AI-powered impact analysis.",

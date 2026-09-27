@@ -4,6 +4,15 @@ import Navbar from "@/components/Navbar"
 import DashboardClient from "@/components/DashboardClient"
 import { fetchDisruptions } from "@/lib/fetchDisruptions"
 
+// ISR: re-fetch disruptions every 30 minutes instead of once per deploy.
+// GDELT's free API throttles datacenter IPs hard (often 0 of 3 queries
+// succeed in a given window), and with a purely static build that one
+// unlucky window froze a weather-only feed in place until the next deploy —
+// observed live for 42 days. Regenerating on a schedule means a bad window
+// costs 30 minutes instead of days. Paired with the per-query last-good
+// cache in lib/fetchDisruptions.ts, which covers the gaps in between.
+export const revalidate = 1800
+
 export const metadata: Metadata = {
   title: "SCM Disruption Monitor | Live Supply Chain Risk Feed",
   description: "Real-time supply chain disruption monitoring powered by GDELT and Gemini AI",
