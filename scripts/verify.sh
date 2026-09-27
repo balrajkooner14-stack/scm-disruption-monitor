@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 rm -rf .verify
-npx tsc lib/fetchDisruptions.ts lib/tradeFeeds.ts \
+npx tsc lib/fetchDisruptions.ts lib/tradeFeeds.ts lib/fetchTradeNews.ts \
   --outDir .verify \
   --module commonjs \
   --target es2020 \
