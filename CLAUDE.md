@@ -1392,7 +1392,7 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           fixes applied to assignCategory and scoreSeverity (see Severity
           scoring rules above for the exact bugs fixed).
         Testing: scripts/verify.sh plus three harnesses — the repo's FIRST
-          test suite; no test framework was installed before this task. 46
+          test suite; no test framework was installed before this task. 47
           checks, run with `npm run verify`. .eslintrc.json gained "root":
           true (needed once scripts/ existed as its own lint scope).
         Key decision — word boundary is LEADING-ONLY, not full. A full
@@ -1423,10 +1423,19 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           Shrugs Off Threat Of Permanent Ban," passes gate 1 on "ban" alone
           and would otherwise enter a supply-chain feed at CRITICAL severity.
         The [TradeNews] summary line distinguishes live / empty / cached /
-          failed per feed, not just ok/failed — an earlier version reported a
-          healthy-but-quiet publisher as "failed," the same
-          misleading-diagnostic pattern that misdirected the v4.8 GDELT
-          investigation (see v4.8 root cause 2 above).
+          failed per feed, not just ok/failed — because the original three-bucket
+          version (live / cached / failed) conflated healthy-but-quiet feeds with
+          unreachable ones (a run reporting "3 live / 0 cached / 3 failed" where only
+          gcaptain.com had genuinely failed HTTP 503, the other two fetched and parsed
+          fine while admitting no items). A first fix added an `empty` bucket but still
+          incremented `cached` when a prior cache existed, so a quiet publisher with
+          cached data was mislabelled — just differently. The working rule: FETCH
+          OUTCOME decides the bucket first, and the four are mutually exclusive. A
+          successful fetch is never `cached`; fetch-OK with zero admitted items is
+          `empty` whether or not a cache was served. This is the same class of
+          misleading-diagnostic that misdirected the v4.8 GDELT investigation (see
+          v4.8 root cause 2 above), and CLAUDE.md tells maintainers to check these
+          summary lines first.
         Measured result (2026-09-26 build): 69 total events — TradeNews 9,
           GDACS 9, NOAA 7, GDELT 44. Trade-news categories: Port 6, Tariff 1,
           General 2 — all three were zero before this task. All 9 admitted
@@ -1456,7 +1465,7 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           performed — the Chrome extension refused interaction. Recorded
           honestly as unverified rather than implied passing; everything else
           in the verification step was confirmed by other means (live curl
-          checks, the 46-check harness, and the production event counts
+          checks, the 47-check harness, and the production event counts
           above).
 
 ## Known issues / next session notes
