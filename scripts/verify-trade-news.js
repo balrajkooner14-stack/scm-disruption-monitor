@@ -109,5 +109,39 @@ function check(label, actual, expected) {
   check("all six publishers represented despite one feed dominating volume",
     domains.size, 6);
 
+  console.log("-- merged feed includes trade news and dedupes across sources --");
+  const { fetchDisruptions } = require("../.verify/fetchDisruptions.js");
+  // GDELT and GDACS/NOAA all fail; only trade news contributes. One trade-news
+  // URL is also returned by GDELT, and must appear exactly once.
+  const SHARED = "https://example.test/a0";
+  global.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("gdeltproject.org")) {
+      return { ok: true, status: 200, json: async () => ({ articles: [{
+        url: SHARED, title: ADMIT, seendate: "20260926T120000Z",
+        domain: "example.test", sourcecountry: "US" }] }) };
+    }
+    if (u.includes("gdacs.org") || u.includes("weather.gov")) {
+      return { ok: true, status: 200, json: async () => ({ features: [] }) };
+    }
+    // Two items per feed: one sharing GDELT's URL (proves cross-source dedup)
+    // and one unique (proves trade news actually reaches the merged feed).
+    // With only the shared URL, GDELT is pushed first and every trade event
+    // would be deduped away, making the second assertion unsatisfiable.
+    const item = (link) =>
+      `<item><title>${ADMIT}</title><link>${link}</link>` +
+      `<pubDate>Fri, 26 Sep 2026 12:00:00 GMT</pubDate></item>`;
+    const uniqueLink = `https://unique.test/${encodeURIComponent(u)}`;
+    return { ok: true, status: 200, text: async () =>
+      `<?xml version="1.0"?><rss version="2.0"><channel><title>Chan</title>` +
+      `${item(SHARED)}${item(uniqueLink)}</channel></rss>` };
+  };
+  clockOffset += 10 * 60 * 1000; // past the 5-minute fetchDisruptions memo TTL
+  const merged = await fetchDisruptions();
+  check("shared URL appears exactly once across sources",
+    merged.filter(e => e.url === SHARED).length, 1);
+  check("trade-news events present in merged feed",
+    merged.some(e => e.sourceDomain === "supplychaindive.com"), true);
+
   process.exit(failed ? 1 : 0);
 })();

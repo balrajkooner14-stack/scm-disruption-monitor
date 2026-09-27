@@ -3,6 +3,7 @@ import path from "path"
 import { DisruptionEvent, DisruptionCategory, SeverityLevel, Region } from "./types"
 import { fetchGlobalDisasters } from "./fetchGlobalDisasters"
 import { fetchWeatherAlerts } from "./fetchWeatherAlerts"
+import { fetchTradeNews } from "./fetchTradeNews"
 
 // Requires the keyword to START a word. The previous substring checks meant
 // "port" matched inside "imported"/"export"/"transport"/"reporter", and
@@ -275,10 +276,11 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
     }
   }
 
-  const [gdeltResults, disasterEvents, weatherEvents] = await Promise.all([
+  const [gdeltResults, disasterEvents, weatherEvents, tradeEvents] = await Promise.all([
     fetchGdeltQueriesSequentially(queries, fetchQuery),
     fetchGlobalDisasters(),
     fetchWeatherAlerts(),
+    fetchTradeNews(),
   ])
 
   const seenUrls = new Set<string>()
@@ -341,15 +343,27 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
     }
   })
 
-  // GDACS/NOAA IDs are already source-prefixed and stable (not per-fetch
-  // random), so no seenUrls-style dedupe needed against them — but they
-  // could theoretically overlap with a GDELT article about the same event,
-  // which is an acceptable, rare duplicate rather than a bug to chase.
+  // Dedupe across sources, not just within GDELT — the same story can legitimately
+  // appear in both GDELT and the trade-press feeds. URL only; title-based fuzzy
+  // matching is deliberately out of scope, since a wrong match silently deletes
+  // a real event.
+  const pushDeduped = (incoming: DisruptionEvent[]) => {
+    for (const event of incoming) {
+      const key = event.url || `title:${event.title}`
+      if (seenUrls.has(key)) continue
+      seenUrls.add(key)
+      events.push(event)
+    }
+  }
+
   if (disasterEvents.length > 0) anySuccess = true
-  events.push(...disasterEvents)
+  pushDeduped(disasterEvents)
 
   if (weatherEvents.length > 0) anySuccess = true
-  events.push(...weatherEvents)
+  pushDeduped(weatherEvents)
+
+  if (tradeEvents.length > 0) anySuccess = true
+  pushDeduped(tradeEvents)
 
   if (!anySuccess) {
     return loadFallback()
@@ -365,7 +379,8 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
   // which made GDELT look healthier than it was — check this line first if the
   // feed ever looks weather-heavy again.
   const tally = (state: string) => queryOutcomes.filter((o) => o === state).length
-  const gdeltEventCount = events.length - disasterEvents.length - weatherEvents.length
+  const gdeltEventCount =
+    events.length - disasterEvents.length - weatherEvents.length - tradeEvents.length
   const oldestCacheAgeMin = Math.max(
     0,
     ...Array.from(lastGoodByQuery.values()).map((c) =>
@@ -377,7 +392,7 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
     `(GDELT ${gdeltEventCount} events from ${tally("live")} live / ${tally("cached")} cached / ` +
     `${tally("failed")} failed of ${queries.length} queries` +
     `${tally("cached") > 0 ? `, cache age up to ${oldestCacheAgeMin}m` : ""}` +
-    `, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
+    `, TradeNews: ${tradeEvents.length}, GDACS: ${disasterEvents.length}, NOAA: ${weatherEvents.length})`
   )
 
   return events
