@@ -2,6 +2,7 @@
 
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { LABOR_CONTRACTS, contractsWithinWindow, daysUntil } from "@/lib/laborCalendar"
+import { ui } from "@/lib/ui"
 
 export default function LaborCalendarCard() {
   const { profile, isLoaded } = useCompanyProfile()
@@ -27,40 +28,40 @@ export default function LaborCalendarCard() {
   if (imminent.length === 0) return null
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-lg">📅</span>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-          Labor Contract Calendar
-        </h2>
+    <section className={`${ui.card} flex flex-col gap-4`}>
+      <div className="space-y-1">
+        <h2 className={ui.h2}>Labor contract calendar</h2>
+        <p className={ui.meta}>
+          Port strikes cluster around known union contract expirations, not randomly.
+        </p>
       </div>
-      <p className="text-xs text-slate-500 mb-4">
-        Port strikes cluster around known union contract expirations, not randomly.
-      </p>
 
-      <div className="space-y-2">
+      <div className="grid md:grid-cols-2 gap-4">
         {imminent.map(c => (
-          <div key={c.union} className="bg-amber-950/40 border border-amber-800 rounded-lg px-3 py-2">
-            <p className="text-sm text-amber-300 font-medium">
-              ⚠ {c.union}/{c.counterparty} contract expires in {daysUntil(c.contractExpirationDate)} days
+          <article key={c.union} className={`${ui.cardInner} flex flex-col gap-2`}>
+            <span className={`${ui.chip} ${ui.chipWarning} self-start`}>
+              EXPIRES IN {daysUntil(c.contractExpirationDate)} DAYS
+            </span>
+            <h3 className={ui.h3}>{c.union}/{c.counterparty} contract</h3>
+            <p className="text-sm leading-relaxed text-ink-2">
+              {c.ports} — historically elevated labor risk around expiration.
             </p>
-            <p className="text-xs text-amber-500/80 mt-0.5">{c.ports} — historically elevated labor risk around expiration.</p>
-          </div>
+          </article>
         ))}
       </div>
 
-      <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+      <p className="text-xs leading-relaxed text-ink-3">
         Manually verified reference data, last checked{" "}
         {new Date(relevant[0].lastVerified).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}.{" "}
         {relevant.map((c, i) => (
           <span key={c.union}>
-            <a href={c.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-400">
+            <a href={c.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline transition-colors hover:text-ember">
               {c.union} source ({c.sourceLabel})
             </a>
             {i < relevant.length - 1 ? " · " : ""}
           </span>
         ))}
       </p>
-    </div>
+    </section>
   )
 }

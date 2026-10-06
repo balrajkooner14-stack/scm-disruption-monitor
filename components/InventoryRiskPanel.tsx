@@ -15,51 +15,30 @@ import Link from "next/link"
 import TariffRateBadge from "@/components/TariffRateBadge"
 import { RawMaterial, Supplier } from "@/lib/profile"
 import { findSinglePointsOfFailure } from "@/lib/supplyChainGraph"
+import { ui } from "@/lib/ui"
 
 interface InventoryRiskPanelProps {
   events: ScoredEvent[]
 }
 
-const RISK_CONFIG: Record<RiskLevel, {
-  label: string
-  bg: string
-  border: string
-  badge: string
-  text: string
-  icon: string
-}> = {
-  critical: {
-    label: "Reorder Now",
-    bg: "bg-red-950",
-    border: "border-red-700",
-    badge: "bg-red-600 text-white",
-    text: "text-red-400",
-    icon: "!",
-  },
-  warning: {
-    label: "Monitor",
-    bg: "bg-amber-950",
-    border: "border-amber-700",
-    badge: "bg-amber-600 text-white",
-    text: "text-amber-400",
-    icon: "~",
-  },
-  safe: {
-    label: "Adequate",
-    bg: "bg-slate-800",
-    border: "border-slate-700",
-    badge: "bg-slate-600 text-slate-200",
-    text: "text-green-400",
-    icon: "✓",
-  },
-  unknown: {
-    label: "Unknown",
-    bg: "bg-slate-800",
-    border: "border-slate-700",
-    badge: "bg-slate-700 text-slate-300",
-    text: "text-slate-400",
-    icon: "?",
-  },
+// Status chip per card. critical always reads "ORDER TODAY"; warning
+// products follow their recommendation's urgency. Mapping only — risk levels
+// and urgency are computed in lib/inventoryRisk.ts, unchanged.
+function statusChip(product: ProductRisk): { label: string; className: string } {
+  if (product.riskLevel === "critical") return { label: "ORDER TODAY", className: ui.chipCritical }
+  if (product.riskLevel === "safe") return { label: "HEALTHY", className: ui.chipPositive }
+  if (product.riskLevel === "unknown") return { label: "UNKNOWN", className: ui.chipNeutral }
+  const rec = calculateOrderRecommendation(product)
+  if (rec?.urgencyLabel === "Order Today") return { label: "ORDER TODAY", className: ui.chipCritical }
+  if (rec?.urgencyLabel === "Plan Ahead") return { label: "PLAN AHEAD", className: ui.chipMonitor }
+  return { label: "THIS WEEK", className: ui.chipWarning }
+}
+
+const DAYS_CLASS: Record<RiskLevel, string> = {
+  critical: "text-ember",
+  warning: "text-ochre",
+  safe: "text-ink",
+  unknown: "text-ink",
 }
 
 export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) {
@@ -128,134 +107,83 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
 
   if (snapshot.products.length === 0) {
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">📦</span>
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-            Inventory Risk
-          </h2>
-          <span className="text-xs text-slate-500 ml-2">
-            No product lines configured —{" "}
-            <Link href="/profile" className="text-blue-400 hover:text-blue-300">
-              add them in your profile
-            </Link>
-          </span>
-        </div>
-      </div>
+      <section className={ui.card}>
+        <h2 className={ui.h2}>Inventory risk</h2>
+        <p className={`${ui.emptyText} mt-2`}>
+          No product lines configured —{" "}
+          <Link href="/profile" className="text-ember hover:text-ember-deep">
+            add them in your profile
+          </Link>
+        </p>
+      </section>
     )
   }
 
-  const hasCritical = snapshot.criticalCount > 0
-  const hasWarning = snapshot.warningCount > 0
+  const criticalProducts = snapshot.products.filter(p => p.riskLevel === "critical")
+  const reorderDetail = criticalProducts
+    .map(p => {
+      const rec = calculateOrderRecommendation(p)
+      return rec ? `${p.productName} ${rec.recommendedOrderQty} d` : p.productName
+    })
+    .join(" · ")
+  const compoundingDisruption = criticalProducts.some(p => p.hasActiveDisruption)
 
   return (
-    <div className="mb-6">
-      {hasCritical && (
-        <div className="bg-red-950 border border-red-700 rounded-xl px-4 py-3 mb-3 flex items-start gap-3">
-          <div className="flex-shrink-0 w-5 h-5 rounded-full bg-red-600 flex items-center justify-center mt-0.5">
-            <span className="text-white text-xs font-bold">!</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-red-300">
-              {snapshot.criticalCount} product{snapshot.criticalCount > 1 ? "s" : ""} require immediate reorder
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 className={ui.h2}>Inventory risk</h2>
+        <p className={ui.meta}>
+          Profile inventory last updated{" "}
+          {daysSinceUpdate === 0 ? "today" : `${daysSinceUpdate} day${daysSinceUpdate === 1 ? "" : "s"} ago`}
+          {" · "}
+          <Link href="/profile" className="text-ember hover:text-ember-deep">
+            update levels
+          </Link>
+        </p>
+      </div>
+
+      {criticalProducts.length > 0 && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 rounded-xl border border-ember-line bg-ember-tint px-5 py-4">
+          <div className="min-w-0 space-y-0.5">
+            <p className="font-semibold text-[#6E2A10]">
+              {criticalProducts.length} product{criticalProducts.length > 1 ? "s" : ""} need{criticalProducts.length > 1 ? "" : "s"} a reorder today
             </p>
-            <p className="text-xs text-red-400 mt-0.5">
-              {snapshot.products
-                .filter(p => p.riskLevel === "critical")
-                .map(p => p.productName)
-                .join(", ")}{" "}
-              {snapshot.products.find(p => p.riskLevel === "critical")?.hasActiveDisruption &&
-                "— active disruption in supplier region compounds risk"}
+            <p className="text-sm text-[#6E2A10]">
+              {reorderDetail} of supply
+              {compoundingDisruption && " · active disruption in a supplier region compounds the risk"}
             </p>
-            {(() => {
-              const criticalProducts = snapshot.products.filter(p => p.riskLevel === "critical")
-              return criticalProducts.length > 0 ? (
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  {criticalProducts.map(product => {
-                    const rec = calculateOrderRecommendation(product)
-                    if (!rec) return null
-                    return (
-                      <span key={product.productId}
-                        className="text-xs bg-red-900/50 border border-red-800 text-red-300 px-2 py-0.5 rounded-full">
-                        {product.productName}: order {rec.recommendedOrderQty}d supply
-                      </span>
-                    )
-                  })}
-                </div>
-              ) : null
-            })()}
           </div>
-          <Link
-            href="/profile"
-            className="text-xs text-red-400 hover:text-red-300 border border-red-700 rounded px-2 py-1 flex-shrink-0 transition-colors"
-          >
+          <Link href="/profile" className={`${ui.btnAccent} flex-shrink-0 self-start md:self-center`}>
             Update inventory
           </Link>
         </div>
       )}
 
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">📦</span>
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-              Inventory Risk
-            </h2>
-            {daysSinceUpdate > 0 && (
-              <span className="text-xs text-slate-600 ml-1">
-                (profile updated {daysSinceUpdate}d ago — update inventory levels for accuracy)
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-xs">
-            {hasCritical && (
-              <span className="text-red-400 font-medium">
-                {snapshot.criticalCount} critical
-              </span>
-            )}
-            {hasWarning && (
-              <span className="text-amber-400 font-medium">
-                {snapshot.warningCount} warning
-              </span>
-            )}
-            {!hasCritical && !hasWarning && (
-              <span className="text-green-400 font-medium">All adequate</span>
-            )}
-          </div>
-        </div>
-
-        <div className={`grid gap-3 ${
-          snapshot.products.length === 1
-            ? "grid-cols-1"
-            : snapshot.products.length === 2
-            ? "grid-cols-1 sm:grid-cols-2"
-            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-        }`}>
-          {snapshot.products
-            .slice()
-            .sort((a, b) => {
-              const order: Record<RiskLevel, number> = { critical: 0, warning: 1, safe: 2, unknown: 3 }
-              return order[a.riskLevel] - order[b.riskLevel]
-            })
-            .map(product => (
-              <ProductRiskCard
-                key={product.productId}
-                product={product}
-                rawMaterials={profile?.productLines.find(p => p.id === product.productId)?.rawMaterials ?? []}
-                suppliers={profile?.suppliers ?? []}
-                spof={spofResults.find(s => s.productLineId === product.productId)}
-              />
-            ))}
-        </div>
-
-        <p className="text-xs text-slate-600 mt-3">
-          Based on inventory levels in your profile ·{" "}
-          <Link href="/profile" className="text-slate-500 hover:text-slate-400">
-            Update inventory levels
-          </Link>
-        </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {snapshot.products
+          .slice()
+          .sort((a, b) => {
+            const order: Record<RiskLevel, number> = { critical: 0, warning: 1, safe: 2, unknown: 3 }
+            return order[a.riskLevel] - order[b.riskLevel]
+          })
+          .map(product => (
+            <ProductRiskCard
+              key={product.productId}
+              product={product}
+              rawMaterials={profile?.productLines.find(p => p.id === product.productId)?.rawMaterials ?? []}
+              suppliers={profile?.suppliers ?? []}
+              spof={spofResults.find(s => s.productLineId === product.productId)}
+            />
+          ))}
       </div>
-    </div>
+
+      <p className={ui.meta}>
+        Based on inventory levels in your profile ·{" "}
+        <Link href="/profile" className="text-ember hover:text-ember-deep">
+          Update inventory levels
+        </Link>
+      </p>
+    </section>
   )
 }
 
@@ -270,134 +198,90 @@ function ProductRiskCard({
   suppliers: Supplier[]
   spof?: { isSinglePointOfFailure: boolean; reasons: string[] }
 }) {
-  const config = RISK_CONFIG[product.riskLevel]
+  const chip = statusChip(product)
   const barColor = getInventoryBarColor(product.riskLevel)
+  const recommendation = calculateOrderRecommendation(product)
+
+  // Single-point-of-failure reasons become plain lines (the boxed badge is gone).
+  const spofLines = spof?.isSinglePointOfFailure
+    ? spof.reasons.map(r =>
+        r.startsWith("No backup supplier")
+          ? "No backup supplier (single point of failure)"
+          : `${r} (single point of failure)`,
+      )
+    : []
 
   return (
-    <div className={`${config.bg} border ${config.border} rounded-lg p-3`}>
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="text-sm font-medium text-slate-100 leading-tight">
-          {product.productName}
-        </p>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${config.badge}`}>
-          {config.label}
-        </span>
+    <article className="bg-paper-raised border border-line rounded-xl p-5 flex flex-col gap-3.5">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-base font-semibold text-ink leading-snug">{product.productName}</h3>
+        <span className={`${ui.chip} ${chip.className} flex-shrink-0`}>{chip.label}</span>
       </div>
 
-      {spof?.isSinglePointOfFailure && (
-        <div className="mb-2 bg-purple-950/50 border border-purple-800 rounded px-2 py-1">
-          <p className="text-xs text-purple-300 font-medium">⚠ Single point of failure</p>
-          <p className="text-xs text-purple-400/80 leading-relaxed">{spof.reasons.join("; ")}</p>
-        </div>
-      )}
-
-      <div className="flex items-baseline gap-1 mb-2">
-        <span className={`text-2xl font-black ${config.text}`}>
+      <div className="flex items-baseline gap-2">
+        <span className={`font-serif text-[44px] leading-none ${DAYS_CLASS[product.riskLevel]}`}>
           {product.daysRemaining}
         </span>
-        <span className="text-xs text-slate-500">days remaining</span>
+        <span className="text-sm text-ink-2">days of cover left</span>
       </div>
 
-      <div className="h-2 bg-slate-700 rounded-full mb-2 overflow-hidden">
+      <div className="h-1.5 rounded-full bg-paper-sunk overflow-hidden">
         <div
-          className="h-2 rounded-full transition-all duration-500"
-          style={{
-            width: `${product.progressPercent}%`,
-            backgroundColor: barColor,
-          }}
+          className="h-1.5 rounded-full transition-all duration-500"
+          style={{ width: `${product.progressPercent}%`, backgroundColor: barColor }}
         />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-        <span>Reorder at {product.reorderPointDays}d</span>
-        <span>Lead time: {product.primaryLeadTimeDays}d</span>
+      <div className={`flex items-center justify-between ${ui.meta}`}>
+        <span>Reorder at {product.reorderPointDays} d</span>
+        <span>Lead time {product.primaryLeadTimeDays} d</span>
       </div>
 
-      <p className="text-xs text-slate-400 leading-relaxed">
-        {product.riskReason}
-      </p>
-
-      {(() => {
-        const recommendation = calculateOrderRecommendation(product)
-        if (!recommendation) return null
-        return (
-          <div className="mt-2 pt-2 border-t border-slate-700/50">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-xs font-bold uppercase tracking-wider ${recommendation.urgencyColor}`}>
-                {recommendation.urgencyLabel}
-              </span>
-              <span className="text-xs text-slate-500">
-                {recommendation.coverageDays}d coverage
-              </span>
-            </div>
-            <div className="bg-slate-900/60 rounded-lg px-3 py-2">
-              <p className="text-xs text-slate-400 mb-0.5">Recommended order</p>
-              <div className="flex items-baseline gap-1.5">
-                <span className={`text-lg font-black ${recommendation.urgencyColor}`}>
-                  {recommendation.recommendedOrderQty}
-                </span>
-                <span className="text-xs text-slate-500">days of supply</span>
-              </div>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                {recommendation.rationale}
-              </p>
-            </div>
-          </div>
-        )
-      })()}
-
-      {product.hasActiveDisruption && (
-        <div className="mt-2 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-          <span className="text-xs text-red-400">
-            Active disruption in {product.primarySupplier?.region}
-          </span>
+      {recommendation && (
+        <div className={`${ui.cardInner} flex flex-col gap-1`}>
+          <p className="text-xs text-ink-3">Recommended order</p>
+          <p className="font-serif text-2xl text-ink">{recommendation.recommendedOrderQty} days of supply</p>
+          <p className="text-xs leading-relaxed text-ink-3">{recommendation.rationale}</p>
         </div>
       )}
 
-      {product.hasActiveDisruption && (
-        product.backupSupplier ? (
-          <p className="text-xs text-cyan-400 mt-1">
-            ✓ Backup available: {product.backupSupplier.name} ({product.backupSupplier.leadTimeDays}d lead time)
-          </p>
-        ) : (
-          <p className="text-xs text-slate-500 mt-1">
-            No backup supplier assigned — add one in your profile
-          </p>
-        )
-      )}
+      <div className="text-[13px] leading-relaxed text-ink-2">
+        {product.primarySupplier && product.supplierAssigned && (
+          <p>{product.primarySupplier.name} · {product.primarySupplier.country}</p>
+        )}
+        {product.hasActiveDisruption && (
+          <p className="text-ember">Active disruption in {product.primarySupplier?.region}</p>
+        )}
+        {product.hasActiveDisruption && product.backupSupplier && (
+          <p>✓ Backup available: {product.backupSupplier.name} ({product.backupSupplier.leadTimeDays} d lead time)</p>
+        )}
+        {spofLines.map(line => <p key={line}>{line}</p>)}
+      </div>
 
-      {product.primarySupplier && (
-        product.supplierAssigned ? (
-          <p className="text-xs text-slate-600 mt-1">
-            Primary: {product.primarySupplier.name} ({product.primarySupplier.country})
+      <div className="space-y-1 text-xs text-ink-3">
+        <p className="leading-relaxed">{product.riskReason}</p>
+        {product.primarySupplier && !product.supplierAssigned && (
+          <p className="text-ochre leading-relaxed">
+            Defaulting to {product.primarySupplier.name} ({product.primarySupplier.country}) — assign a specific supplier in your profile for accuracy
           </p>
-        ) : (
-          <p className="text-xs text-amber-500 mt-1">
-            ⚠ Defaulting to {product.primarySupplier.name} — assign a specific supplier in your profile for accuracy
-          </p>
-        )
-      )}
-
-      {product.hsCode && <TariffRateBadge hsCode={product.hsCode} />}
-
-      {rawMaterials.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-slate-700/50">
-          <p className="text-xs text-slate-500 mb-1">Raw materials ({rawMaterials.length})</p>
-          <div className="space-y-0.5">
+        )}
+        {product.hsCode && <TariffRateBadge hsCode={product.hsCode} />}
+        {rawMaterials.length > 0 && (
+          <div className="pt-1">
+            <p>Raw materials ({rawMaterials.length})</p>
             {rawMaterials.map(m => {
               const vendor = suppliers.find(s => s.id === m.primaryVendorId)
               return (
-                <p key={m.id} className="text-xs text-slate-600 leading-relaxed">
+                <p key={m.id} className="leading-relaxed">
                   {m.name || "Unnamed material"}
                   {vendor && ` — ${vendor.name}`}
-                  {m.leadTimeDays != null && ` (${m.leadTimeDays}d lead time)`}
+                  {m.leadTimeDays != null && ` (${m.leadTimeDays} d lead time)`}
                 </p>
               )
             })}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </article>
   )
 }

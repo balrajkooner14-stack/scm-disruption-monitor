@@ -5,6 +5,8 @@ import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simp
 import { Region } from "@/lib/types"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { COLOR } from "@/lib/brand"
+import { ui } from "@/lib/ui"
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
 
@@ -139,26 +141,27 @@ function countByRegion(events: { region: string }[]): Record<string, number> {
   return counts
 }
 
+// Dim ramp: regions with events that are not your supplier regions.
+const DIM_RAMP = ["#EFE4D6", "#E9D6C2", "#DFC1A8"] as const
+const TIER2_FILL = "url(#tier2Hatch)"
+
 function getCountryColor(
   geoName: string,
   regionCounts: Record<string, number>,
-  selectedRegion: string | null,
   supplierCountries: Set<string>,
   supplierRegions: Set<string>,
   tier2Countries: Set<string>
 ): string {
   const region = COUNTRY_NAME_TO_REGION[geoName]
 
-  // Priority 1: selected (clicked) — highest priority
-  if (selectedRegion && region === selectedRegion) return "#2563eb"
+  // Selection is no longer a fill — see the opacity rule on <Geography>.
 
-  // Priority 2: supplier country — cyan, distinct from heat map
-  if (supplierCountries.has(geoName)) return "#22d3ee"
+  // Priority 2: supplier country — ink, distinct from the heat ramp
+  if (supplierCountries.has(geoName)) return COLOR.ink
 
-  // Priority 2.5: tier-2 (your supplier's supplier) country — violet,
-  // distinct from both the tier-1 cyan and the heat colors. Only applies
-  // if not already a tier-1 country (checked above).
-  if (tier2Countries.has(geoName)) return "#a78bfa"
+  // Priority 2.5: tier-2 (your supplier's supplier) country — diagonal
+  // hatch. Only applies if not already a tier-1 country (checked above).
+  if (tier2Countries.has(geoName)) return TIER2_FILL
 
   const count = region ? (regionCounts[region] || 0) : 0
   const hasProfile = supplierRegions.size > 0 || supplierCountries.size > 0
@@ -166,19 +169,37 @@ function getCountryColor(
   if (count > 0) {
     // Priority 3: supplier region with events — normal heat colors
     if (!hasProfile || (region && supplierRegions.has(region))) {
-      if (count <= 2) return "#854d0e"
-      if (count <= 5) return "#c2410c"
-      return "#991b1b"
+      if (count <= 2) return COLOR.heat1
+      if (count <= 5) return COLOR.heat2
+      return COLOR.heat3
     }
     // Priority 4: has events but NOT in supplier regions — muted
-    if (count <= 2) return "#1e3a2f"
-    if (count <= 5) return "#2d3a1a"
-    return "#3a1a1a"
+    if (count <= 2) return DIM_RAMP[0]
+    if (count <= 5) return DIM_RAMP[1]
+    return DIM_RAMP[2]
   }
 
   // Priority 5: no events, not supplier
-  return "#1e293b"
+  return COLOR.heat0
 }
+
+function HatchPattern({ id }: { id: string }) {
+  return (
+    <pattern id={id} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="4" height="4" fill={COLOR.heat0} />
+      <line x1="0" y1="0" x2="0" y2="4" stroke={COLOR.ink} strokeWidth="1.5" />
+    </pattern>
+  )
+}
+
+const LEGEND: { label: string; color?: string; hatch?: boolean }[] = [
+  { color: COLOR.heat0, label: "No events" },
+  { color: COLOR.heat1, label: "1–2" },
+  { color: COLOR.heat2, label: "3–5" },
+  { color: COLOR.heat3, label: "6+" },
+  { color: COLOR.ink, label: "Your suppliers" },
+  { hatch: true, label: "Suppliers' suppliers" },
+]
 
 interface WorldMapProps {
   events: ScoredEvent[]
@@ -234,19 +255,19 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
   const hoveredCount = hoveredRegion ? (regionCounts[hoveredRegion] || 0) : 0
 
   const hoverText = (() => {
-    if (!hoveredCountry) return "Hover or click a country to filter the feed"
+    if (!hoveredCountry) return "Hover a country for detail"
 
     if (supplierCountries.has(hoveredCountry) && profile) {
       const suppliersHere = profile.suppliers.filter(s => s.country === hoveredCountry)
       const supplierDetail = suppliersHere.length > 0
         ? `${suppliersHere[0].name} supplies ${suppliersHere[0].sharePercent}% of your ${suppliersHere[0].category}`
         : ""
-      return `📍 ${hoveredCountry} — YOUR SUPPLIER — ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}${supplierDetail ? ` · ${supplierDetail}` : ""}`
+      return `${hoveredCountry} · your supplier · ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}${supplierDetail ? ` · ${supplierDetail}` : ""}`
     }
 
     if (tier2ToTier1Names[hoveredCountry]?.length) {
       const viaNames = tier2ToTier1Names[hoveredCountry].join(", ")
-      return `📍 ${hoveredCountry} — INDIRECT EXPOSURE via ${viaNames} — ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}`
+      return `${hoveredCountry} · indirect exposure via ${viaNames} · ${hoveredCount} active event${hoveredCount !== 1 ? "s" : ""}`
     }
 
     if (!hoveredRegion) return hoveredCountry
@@ -254,66 +275,75 @@ export default function WorldMap({ events, selectedRegion, onRegionSelect }: Wor
   })()
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-      <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
-        Risk by Region
-      </h2>
+    <section className={`${ui.card} flex flex-col gap-3.5`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className={ui.h2}>Risk by region</h2>
+        <p className={ui.meta}>Click a country to filter the feed</p>
+      </div>
 
-      <p className="text-xs text-slate-500 h-5 mb-2 truncate">
+      <p className={`${ui.meta} h-5 truncate`}>
         {selectedRegion
-          ? `📍 Filtering feed by: ${selectedRegion} — click again to clear`
+          ? `Filtering feed by ${selectedRegion} · click again to clear`
           : hoverText}
       </p>
 
       <ComposableMap projectionConfig={{ scale: 140 }}>
+        <defs>
+          <HatchPattern id="tier2Hatch" />
+        </defs>
         <ZoomableGroup zoom={1}>
           <Geographies geography={GEO_URL}>
             {({ geographies }) =>
-              geographies.map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={getCountryColor(
-                    geo.properties.name,
-                    regionCounts,
-                    selectedRegion,
-                    supplierCountries,
-                    supplierRegions,
-                    tier2Countries
-                  )}
-                  stroke="#334155"
-                  strokeWidth={0.5}
-                  onMouseEnter={() => setHoveredCountry(geo.properties.name)}
-                  onMouseLeave={() => setHoveredCountry(null)}
-                  onClick={() => handleCountryClick(geo.properties.name)}
-                  style={{
-                    default: { outline: "none", cursor: "pointer", transition: "fill 0.2s ease" },
-                    hover: { outline: "none", opacity: 0.75, cursor: "pointer" },
-                    pressed: { outline: "none" },
-                  }}
-                />
-              ))
+              geographies.map((geo) => {
+                const region = COUNTRY_NAME_TO_REGION[geo.properties.name]
+                // Selected region keeps full opacity; everything else recedes.
+                const opacity = selectedRegion && region !== selectedRegion ? 0.4 : 1
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={getCountryColor(
+                      geo.properties.name,
+                      regionCounts,
+                      supplierCountries,
+                      supplierRegions,
+                      tier2Countries
+                    )}
+                    stroke={COLOR.paper}
+                    strokeWidth={0.5}
+                    onMouseEnter={() => setHoveredCountry(geo.properties.name)}
+                    onMouseLeave={() => setHoveredCountry(null)}
+                    onClick={() => handleCountryClick(geo.properties.name)}
+                    style={{
+                      default: { outline: "none", cursor: "pointer", opacity, transition: "opacity 0.2s ease" },
+                      hover: { outline: "none", cursor: "pointer", opacity, stroke: COLOR.ink, strokeWidth: 1 },
+                      pressed: { outline: "none", opacity },
+                    }}
+                  />
+                )
+              })
             }
           </Geographies>
         </ZoomableGroup>
       </ComposableMap>
 
-      <div className="flex flex-wrap gap-3 mt-3">
-        {[
-          { color: "#1e293b", label: "No events" },
-          { color: "#854d0e", label: "1–2 events" },
-          { color: "#c2410c", label: "3–5 events" },
-          { color: "#991b1b", label: "6+ events" },
-          { color: "#22d3ee", label: "Your supplier countries" },
-          { color: "#a78bfa", label: "Your suppliers' suppliers" },
-          { color: "#2563eb", label: "Selected" },
-        ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm border border-slate-600" style={{ backgroundColor: color }} />
-            <span className="text-xs text-slate-500">{label}</span>
-          </div>
+      <div className="flex flex-wrap gap-4 text-xs text-ink-2">
+        {LEGEND.map(({ color, hatch, label }) => (
+          <span key={label} className="flex items-center gap-1.5">
+            {hatch ? (
+              <svg width="12" height="12" className="rounded-[3px]" aria-hidden="true">
+                <defs>
+                  <HatchPattern id="tier2HatchLegend" />
+                </defs>
+                <rect width="12" height="12" fill="url(#tier2HatchLegend)" />
+              </svg>
+            ) : (
+              <span className="h-3 w-3 rounded-[3px]" style={{ backgroundColor: color }} aria-hidden="true" />
+            )}
+            {label}
+          </span>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

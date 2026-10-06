@@ -325,22 +325,26 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       <div className="min-h-[600px]">
 
         {activeTab === "overview" && (
-          <div>
+          <div className="space-y-7">
             <DisruptionUpdatePrompt events={scoredEvents} />
             <PerformanceAlertBanner />
             <InventoryRiskPanel events={scoredEvents} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <WorldMap
-                events={scoredEvents}
-                selectedRegion={selectedRegion}
-                onRegionSelect={setSelectedRegion}
-              />
-              <DisruptionFeed
-                events={scoredEvents}
-                regionFilter={selectedRegion}
-                onRegionClear={() => setSelectedRegion(null)}
-                kpiFilter={kpiFilter}
-              />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              <div className="lg:col-span-7">
+                <WorldMap
+                  events={scoredEvents}
+                  selectedRegion={selectedRegion}
+                  onRegionSelect={setSelectedRegion}
+                />
+              </div>
+              <div className="lg:col-span-5">
+                <DisruptionFeed
+                  events={scoredEvents}
+                  regionFilter={selectedRegion}
+                  onRegionClear={() => setSelectedRegion(null)}
+                  kpiFilter={kpiFilter}
+                />
+              </div>
             </div>
             <AIRiskRadarCard />
             <StructuralRiskCard />

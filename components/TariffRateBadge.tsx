@@ -36,21 +36,19 @@ export default function TariffRateBadge({ hsCode }: TariffRateBadgeProps) {
   }, [hsCode])
 
   if (isLoading) {
-    return <p className="text-xs text-slate-600 mt-1">Looking up duty rate…</p>
+    return <p className="text-xs text-ink-3">Looking up duty rate…</p>
   }
 
   if (error || !result) {
-    return <p className="text-xs text-slate-600 mt-1">Duty rate unavailable for HTS {hsCode}</p>
+    return <p className="text-xs text-ink-3">Duty rate unavailable for HTS {hsCode}</p>
   }
 
   return (
-    <p className="text-xs text-slate-400 mt-1">
+    <p className="text-xs text-ink-3">
       Est. duty rate:{" "}
-      <span className="text-slate-200 font-medium">{result.generalRate}</span>
+      <span className="font-medium text-ink">{result.generalRate}</span>
       {" "}(general rate, HTS {result.htsNumber})
-      {result.specialRate && (
-        <span className="text-slate-500"> · special program: {result.specialRate}</span>
-      )}
+      {result.specialRate && <> · special program: {result.specialRate}</>}
     </p>
   )
 }

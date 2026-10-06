@@ -5,6 +5,7 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { SupplyRegion } from "@/lib/profile"
 import Link from "next/link"
+import { ui } from "@/lib/ui"
 
 interface DisruptionUpdatePromptProps {
   events: ScoredEvent[]
@@ -82,52 +83,47 @@ export default function DisruptionUpdatePrompt({
   if (!showPrompt || !profile) return null
 
   return (
-    <div className="flex items-start gap-3 bg-blue-950 border border-blue-700 rounded-xl px-4 py-3 mb-4">
-      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center mt-0.5">
-        <span className="text-white text-xs">🔔</span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-blue-300 mb-0.5">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 rounded-xl border border-line bg-surface px-5 py-4">
+      <div className="min-w-0 space-y-0.5">
+        <p className="font-semibold text-ink">
           {newEventCount} new disruption{newEventCount > 1 ? "s" : ""} in your supplier regions since your last visit
         </p>
         {affectedSuppliers.length > 0 && (
-          <p className="text-xs text-blue-400 mb-1">
+          <p className="text-sm text-ink-2">
             Potentially affected: {affectedSuppliers.join(", ")}
           </p>
         )}
-        <p className="text-xs text-blue-500 leading-relaxed">
-          Have your lead times or delivery schedules changed? Keeping your data
-          current ensures accurate risk calculations.
+        <p className="text-sm text-ink-2">
+          Have lead times or delivery schedules changed? Current data keeps your risk scores accurate.
         </p>
-        <div className="flex items-center gap-3 mt-2">
-          <Link
-            href="/profile"
-            className="text-xs text-blue-300 hover:text-blue-200 font-medium underline transition-colors"
-          >
-            Update supplier data →
-          </Link>
-          <button
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent("switchTab", { detail: "advisor" })
-              )
-              handleDismiss()
-            }}
-            className="text-xs text-blue-500 hover:text-blue-300 transition-colors"
-          >
-            Review AI recommendations
-          </button>
-        </div>
       </div>
 
-      <button
-        onClick={handleDismiss}
-        className="flex-shrink-0 text-blue-600 hover:text-blue-400 text-lg leading-none transition-colors px-1"
-        title="Dismiss for today"
-      >
-        ×
-      </button>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <Link href="/profile" className={ui.btnSecondary}>
+          Update supplier data
+        </Link>
+        <button
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent("switchTab", { detail: "advisor" })
+            )
+            handleDismiss()
+          }}
+          className={ui.btnGhost}
+        >
+          Review recommendations
+        </button>
+        <button
+          onClick={handleDismiss}
+          aria-label="Dismiss"
+          title="Dismiss for today"
+          className="rounded-lg p-2 text-ink-3 transition-colors hover:text-ink"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M6 6 L18 18 M18 6 L6 18" />
+          </svg>
+        </button>
+      </div>
     </div>
   )
 }

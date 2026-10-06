@@ -134,10 +134,10 @@ export function getDaysSinceDate(isoDateString: string): number {
 
 export function getInventoryBarColor(riskLevel: RiskLevel): string {
   switch (riskLevel) {
-    case "critical": return "#ef4444"
-    case "warning":  return "#f59e0b"
-    case "safe":     return "#22c55e"
-    default:         return "#94a3b8"
+    case "critical": return "#B04A22"
+    case "warning":  return "#C4973B"
+    case "safe":     return "#3F6B4C"
+    default:         return "#8A8272"
   }
 }
 
@@ -181,13 +181,13 @@ export function calculateOrderRecommendation(
 
   if (currentInventoryDays <= product.reorderPointDays) {
     urgencyLabel = "Order Today"
-    urgencyColor = "text-red-400"
+    urgencyColor = "text-ember"
   } else if (currentInventoryDays <= product.reorderPointDays + 7) {
     urgencyLabel = "Order This Week"
-    urgencyColor = "text-amber-400"
+    urgencyColor = "text-ochre"
   } else {
     urgencyLabel = "Plan Ahead"
-    urgencyColor = "text-yellow-400"
+    urgencyColor = "text-sea-deep"
   }
 
   const rationale =

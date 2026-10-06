@@ -9,6 +9,9 @@ const newsreader = Newsreader({
   style: ["normal", "italic"],
   variable: "--font-newsreader",
   display: "swap",
+  // next/font has no fallback metrics for Newsreader; without this it logs
+  // "Failed to find font override values" on every compile.
+  adjustFontFallback: false,
 });
 const publicSans = Public_Sans({
   subsets: ["latin"],
