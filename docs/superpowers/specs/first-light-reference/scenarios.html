@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foreglow restyle · Scenarios (reference mockup)</title>
+<!-- REFERENCE MOCKUP ONLY. Fixed 1440px canvas with inline styles.
+     Do not copy inline styles into the app: translate them to the Tailwind tokens in the spec. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#F4EFE6;color:#1B2330}
+a{color:#1B2330;text-decoration:none}a:hover{color:#B04A22}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1980px; display: flex; flex-direction: column; background: #F4EFE6; color: #1B2330">
+<header style="height: 72px; flex-shrink: 0; box-sizing: border-box; padding: 0 80px; display: flex; align-items: center; justify-content: space-between; background: #FBF8F2; border-bottom: 1px solid #DDD5C6">
+<div style="display: flex; align-items: center; gap: 8px"><svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 30 A18 18 0 0 1 42 30" stroke="#E0A077" stroke-width="2"></path><path d="M12 30 A12 12 0 0 1 36 30 Z" fill="#B04A22"></path><path d="M3 30 H45" stroke="#1B2330" stroke-width="2.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 25px">Foreglow</div><span style="margin-left: 20px; font-size: 14px; color: #3E4955">Meridian Electronics Co.</span></div>
+<div style="font-size: 13px; color: #5A6470">Today's brief and KPIs sit above the tabs, as on Overview</div>
+</header>
+<div style="box-sizing: border-box; padding: 24px 80px 56px 80px; display: flex; flex-direction: column; gap: 28px">
+<nav aria-label="Sections" style="display: flex; gap: 36px; border-bottom: 1px solid #DDD5C6; font-size: 15px">
+<a href="#" style="padding: 12px 0; color: #3E4955">Overview</a>
+<a href="#" style="padding: 12px 0; color: #3E4955">Advisor</a>
+<a href="#" style="padding: 12px 0; border-bottom: 2px solid #B04A22; font-weight: 600">Scenarios</a>
+<a href="#" style="padding: 12px 0; color: #3E4955">Analytics</a>
+<a href="#" style="padding: 12px 0; color: #3E4955">History</a>
+</nav>
+
+<section style="padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 36px">Supply chain network</h1><p style="margin: 0; font-size: 15px; color: #3E4955">Click a supplier to trace what it would take down. Outlined in ember: in a region with an active disruption.</p></div>
+<div style="display: flex; gap: 16px; font-size: 12px; color: #3E4955; flex-shrink: 0"><span style="display: flex; gap: 6px; align-items: center"><span style="width: 14px; height: 10px; border: 2px solid #B04A22; border-radius: 3px"></span>Disrupted region</span><span style="display: flex; gap: 6px; align-items: center"><span style="width: 14px; height: 10px; background: #1B2330; border-radius: 3px"></span>Selected path</span></div>
+</div>
+<svg width="1224" height="400" viewBox="0 0 1224 400" fill="none" role="img" aria-label="Network diagram: five suppliers feed four product lines, which feed consumer demand. TSMC, Samsung SDI, Foxconn and Bosch are in disrupted regions. TSMC is selected, highlighting its path to the EV Charging Module.">
+<text x="60" y="22" font-family="Public Sans, sans-serif" font-size="12" letter-spacing="1.4" fill="#5A6470">SUPPLIERS</text>
+<text x="520" y="22" font-family="Public Sans, sans-serif" font-size="12" letter-spacing="1.4" fill="#5A6470">PRODUCT LINES</text>
+<text x="980" y="22" font-family="Public Sans, sans-serif" font-size="12" letter-spacing="1.4" fill="#5A6470">DEMAND</text>
+<path d="M280 68 C400 68 400 128 520 128" stroke="#1B2330" stroke-width="2.5"></path>
+<path d="M280 138 C400 138 400 268 520 268" stroke="#C9C0AF" stroke-width="1.5"></path>
+<path d="M280 208 C400 208 400 58 520 58" stroke="#C9C0AF" stroke-width="1.5"></path>
+<path d="M280 278 C400 278 400 198 520 198" stroke="#C9C0AF" stroke-width="1.5"></path>
+<path d="M740 58 C860 58 860 198 980 198" stroke="#C9C0AF" stroke-width="1.5"></path>
+<path d="M740 128 C860 128 860 198 980 198" stroke="#1B2330" stroke-width="2.5"></path>
+<path d="M740 198 C860 198 860 198 980 198" stroke="#C9C0AF" stroke-width="1.5"></path>
+<path d="M740 268 C860 268 860 198 980 198" stroke="#C9C0AF" stroke-width="1.5"></path>
+<rect x="60" y="44" width="220" height="48" rx="8" fill="#1B2330" stroke="#B04A22" stroke-width="2"></rect><text x="80" y="73" font-family="Public Sans, sans-serif" font-size="15" font-weight="600" fill="#F4EFE6">TSMC Semiconductor</text>
+<rect x="60" y="114" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#B04A22" stroke-width="2"></rect><text x="80" y="143" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Samsung SDI</text>
+<rect x="60" y="184" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#B04A22" stroke-width="2"></rect><text x="80" y="213" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Foxconn Assembly</text>
+<rect x="60" y="254" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#B04A22" stroke-width="2"></rect><text x="80" y="283" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Bosch Components</text>
+<rect x="60" y="324" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#DDD5C6" stroke-width="1.5"></rect><text x="80" y="353" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Flex Ltd</text>
+<rect x="520" y="34" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#DDD5C6" stroke-width="1.5"></rect><text x="540" y="63" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Smart Home Hub</text>
+<rect x="520" y="104" width="220" height="48" rx="8" fill="#1B2330"></rect><text x="540" y="133" font-family="Public Sans, sans-serif" font-size="15" font-weight="600" fill="#F4EFE6">EV Charging Module</text>
+<rect x="520" y="174" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#DDD5C6" stroke-width="1.5"></rect><text x="540" y="203" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Industrial IoT Sensor</text>
+<rect x="520" y="244" width="220" height="48" rx="8" fill="#FFFFFF" stroke="#DDD5C6" stroke-width="1.5"></rect><text x="540" y="273" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Portable Power Bank</text>
+<rect x="980" y="174" width="200" height="48" rx="8" fill="#EFE7D9"></rect><text x="1000" y="203" font-family="Public Sans, sans-serif" font-size="15" fill="#1B2330">Consumer demand</text>
+</svg>
+<div style="padding: 16px 20px; background: #FFFFFF; border: 1px solid #E6DFD2; border-radius: 10px; font-size: 15px; line-height: 1.6; color: #3E4955"><span style="font-weight: 600; color: #1B2330">If TSMC Semiconductor goes down:</span> EV Charging Module loses its only chip source. No backup supplier is assigned, so this is a single point of failure.</div>
+</section>
+
+<section style="padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 40px"><h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 28px">Simulated disruption risk</h2><div style="font-size: 13px; color: #5A6470; max-width: 640px; text-align: right">1,000 Monte Carlo trials: how often each product's supply network hits a disrupted node. A measure of exposure, not a stockout forecast.</div></div>
+<div style="display: grid; grid-template-columns: 220px 1fr 180px; row-gap: 14px; column-gap: 20px; align-items: center; font-size: 15px">
+<div style="font-weight: 600">EV Charging Module</div><div style="height: 10px; background: #EFE7D9; border-radius: 5px"><div style="width: 48%; height: 10px; background: #B04A22; border-radius: 5px"></div></div><div style="display: flex; flex-direction: column"><span style="font-weight: 600">48% exposure</span><span style="font-size: 12px; color: #B04A22">buffer already tight</span></div>
+<div style="font-weight: 600">Smart Home Hub</div><div style="height: 10px; background: #EFE7D9; border-radius: 5px"><div style="width: 41%; height: 10px; background: #C8704A; border-radius: 5px"></div></div><div style="font-weight: 600">41% exposure</div>
+<div style="font-weight: 600">Industrial IoT Sensor</div><div style="height: 10px; background: #EFE7D9; border-radius: 5px"><div style="width: 41%; height: 10px; background: #C8704A; border-radius: 5px"></div></div><div style="font-weight: 600">41% exposure</div>
+<div style="font-weight: 600">Portable Power Bank</div><div style="height: 10px; background: #EFE7D9; border-radius: 5px"><div style="width: 40%; height: 10px; background: #C8704A; border-radius: 5px"></div></div><div style="font-weight: 600">40% exposure</div>
+</div>
+</section>
+
+<section style="padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 28px">What if…</h2><p style="margin: 0; font-size: 15px; color: #3E4955">Model a disruption against Meridian's network and get the projected impact and a response plan.</p></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600">Type of disruption<select style="padding: 12px; background: #FFFFFF; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400; color: #1B2330"><option>Port closure or severe congestion</option></select></label>
+<label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600">Where<input type="text" placeholder="e.g. Vietnam, Asia Pacific, Strait of Hormuz" style="padding: 12px; background: #FFFFFF; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400; color: #1B2330"></label>
+</div>
+<div style="display: flex; gap: 8px; align-items: center; font-size: 13px"><span style="color: #5A6470">Your supplier countries:</span><button type="button" style="padding: 5px 11px; background: transparent; border: 1px solid #DDD5C6; border-radius: 999px; font: inherit; font-size: 13px; color: #1B2330">Taiwan</button><button type="button" style="padding: 5px 11px; background: transparent; border: 1px solid #DDD5C6; border-radius: 999px; font: inherit; font-size: 13px; color: #1B2330">South Korea</button><button type="button" style="padding: 5px 11px; background: transparent; border: 1px solid #DDD5C6; border-radius: 999px; font: inherit; font-size: 13px; color: #1B2330">China</button><button type="button" style="padding: 5px 11px; background: transparent; border: 1px solid #DDD5C6; border-radius: 999px; font: inherit; font-size: 13px; color: #1B2330">Germany</button><button type="button" style="padding: 5px 11px; background: transparent; border: 1px solid #DDD5C6; border-radius: 999px; font: inherit; font-size: 13px; color: #1B2330">Mexico</button></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="font-size: 13px; font-weight: 600">How long</div><div style="display: flex; gap: 8px"><button type="button" style="padding: 9px 16px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">1 week</button><button type="button" style="padding: 9px 16px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">2 weeks</button><button type="button" style="padding: 9px 16px; background: #1B2330; color: #F4EFE6; border: 1px solid #1B2330; border-radius: 8px; font: inherit; font-size: 14px">1 month</button><button type="button" style="padding: 9px 16px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">2 months</button><button type="button" style="padding: 9px 16px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">3 months</button></div></div>
+<label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600">Planned response<select style="padding: 12px; background: #FFFFFF; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 400; color: #1B2330"><option>Activate secondary supplier</option></select></label>
+<button type="button" style="align-self: flex-start; padding: 14px 24px; background: #B04A22; color: #FFFFFF; border: none; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 600">Run scenario</button>
+</section>
+</div>
+</div>
+</body>
+</html>

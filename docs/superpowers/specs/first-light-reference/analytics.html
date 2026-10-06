@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foreglow restyle · Analytics (reference mockup)</title>
+<!-- REFERENCE MOCKUP ONLY. Fixed 1440px canvas with inline styles.
+     Do not copy inline styles into the app: translate them to the Tailwind tokens in the spec. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#F4EFE6;color:#1B2330}
+a{color:#1B2330;text-decoration:none}a:hover{color:#B04A22}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 1960px; display: flex; flex-direction: column; background: #F4EFE6; color: #1B2330">
+<header style="height: 72px; flex-shrink: 0; box-sizing: border-box; padding: 0 80px; display: flex; align-items: center; justify-content: space-between; background: #FBF8F2; border-bottom: 1px solid #DDD5C6">
+<div style="display: flex; align-items: center; gap: 8px"><svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 30 A18 18 0 0 1 42 30" stroke="#E0A077" stroke-width="2"></path><path d="M12 30 A12 12 0 0 1 36 30 Z" fill="#B04A22"></path><path d="M3 30 H45" stroke="#1B2330" stroke-width="2.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 25px">Foreglow</div><span style="margin-left: 20px; font-size: 14px; color: #3E4955">Meridian Electronics Co.</span></div>
+<div style="font-size: 13px; color: #5A6470">Today's brief and KPIs sit above the tabs, as on Overview</div>
+</header>
+<div style="box-sizing: border-box; padding: 24px 80px 56px 80px; display: flex; flex-direction: column; gap: 28px">
+<nav aria-label="Sections" style="display: flex; gap: 36px; border-bottom: 1px solid #DDD5C6; font-size: 15px">
+<a href="#" style="padding: 12px 0; color: #3E4955">Overview</a>
+<a href="#" style="padding: 12px 0; color: #3E4955">Advisor</a>
+<a href="#" style="padding: 12px 0; color: #3E4955">Scenarios</a>
+<a href="#" style="padding: 12px 0; border-bottom: 2px solid #B04A22; font-weight: 600">Analytics</a>
+<a href="#" style="padding: 12px 0; color: #3E4955">History</a>
+</nav>
+
+<section style="padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 34px">Events by category</h1><div style="font-size: 13px; color: #5A6470">Today · with change over 7 days</div></div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border-top: 1px solid #E6DFD2">
+<div style="padding: 20px 20px 0 0; display: flex; flex-direction: column; gap: 10px"><div style="font-size: 14px; color: #3E4955">Weather</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 44px; line-height: 1">12</div><svg width="120" height="28" viewBox="0 0 120 28" fill="none" aria-hidden="true"><path d="M0 20 L20 20 L40 20 L60 20 L80 20 L95 8 L110 20 L120 20" stroke="#5A6470" stroke-width="1.75"></path></svg><div style="font-size: 13px; color: #5A6470">Stable · 0%</div></div>
+<div style="padding: 20px 20px 0 20px; border-left: 1px solid #E6DFD2; display: flex; flex-direction: column; gap: 10px"><div style="font-size: 14px; color: #3E4955">Port</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 44px; line-height: 1">7</div><svg width="120" height="28" viewBox="0 0 120 28" fill="none" aria-hidden="true"><path d="M0 22 L20 22 L40 22 L60 22 L80 22 L100 20 L120 6" stroke="#B04A22" stroke-width="1.75"></path></svg><div style="font-size: 13px; color: #B04A22; font-weight: 600">Rising · +250%</div></div>
+<div style="padding: 20px 20px 0 20px; border-left: 1px solid #E6DFD2; display: flex; flex-direction: column; gap: 10px"><div style="font-size: 14px; color: #3E4955">General</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 44px; line-height: 1">7</div><svg width="120" height="28" viewBox="0 0 120 28" fill="none" aria-hidden="true"><path d="M0 24 L20 24 L40 24 L60 24 L80 22 L100 16 L120 6" stroke="#B04A22" stroke-width="1.75"></path></svg><div style="font-size: 13px; color: #B04A22; font-weight: 600">Rising · +600%</div></div>
+<div style="padding: 20px 20px 0 20px; border-left: 1px solid #E6DFD2; display: flex; flex-direction: column; gap: 10px"><div style="font-size: 14px; color: #3E4955">Tariff</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 44px; line-height: 1">1</div><svg width="120" height="28" viewBox="0 0 120 28" fill="none" aria-hidden="true"><path d="M0 10 L20 10 L40 10 L60 10 L80 10 L100 22 L120 16" stroke="#4F6B78" stroke-width="1.75"></path></svg><div style="font-size: 13px; color: #33505C">Falling · −50%</div></div>
+<div style="padding: 20px 20px 0 20px; border-left: 1px solid #E6DFD2; display: flex; flex-direction: column; gap: 10px"><div style="font-size: 14px; color: #3E4955">Labor</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 44px; line-height: 1">0</div><svg width="120" height="28" viewBox="0 0 120 28" fill="none" aria-hidden="true"><path d="M0 8 L20 8 L40 8 L60 8 L80 8 L100 22 L120 22" stroke="#4F6B78" stroke-width="1.75"></path></svg><div style="font-size: 13px; color: #33505C">Falling · −100%</div></div>
+<div style="padding: 20px 0 0 20px; border-left: 1px solid #E6DFD2; display: flex; flex-direction: column; gap: 10px"><div style="font-size: 14px; color: #3E4955">Geopolitical</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 44px; line-height: 1">0</div><svg width="120" height="28" viewBox="0 0 120 28" fill="none" aria-hidden="true"><path d="M0 8 L20 8 L40 8 L60 8 L80 8 L100 22 L120 22" stroke="#4F6B78" stroke-width="1.75"></path></svg><div style="font-size: 13px; color: #33505C">Falling · −100%</div></div>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<section style="padding: 26px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px"><h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 26px">Commodity prices</h2><div style="font-size: 12px; color: #5A6470">Yahoo Finance · Sep 27</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="display: flex; flex-direction: column"><span style="font-weight: 600">Copper</span><span style="font-size: 12px; color: #B04A22">Your sector</span></div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 20 L15 18 L30 17 L45 14 L60 13 L75 10 L90 9 L110 6" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">14,916</div><div style="text-align: right; font-size: 13px; color: #8A3A1A">+2.6%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="display: flex; flex-direction: column"><span style="font-weight: 600">Natural gas</span><span style="font-size: 12px; color: #B04A22">Your sector</span></div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 18 L15 19 L30 16 L45 17 L60 14 L75 12 L90 8 L110 5" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">3.22</div><div style="text-align: right; font-size: 13px; color: #8A3A1A">+9.9%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">Crude oil</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 16 L15 17 L30 15 L45 16 L60 12 L75 11 L90 9 L110 6" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">92.41</div><div style="text-align: right; font-size: 13px; color: #8A3A1A">+7.8%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">Wheat</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 6 L15 8 L30 7 L45 10 L60 12 L75 14 L90 16 L110 18" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">258.40</div><div style="text-align: right; font-size: 13px; color: #33505C">−7.0%</div></div>
+<div style="padding-top: 10px; font-size: 12px; color: #5A6470">$/mt copper and wheat · $/bbl crude · $/mmbtu gas</div>
+</section>
+
+<section style="padding: 26px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px"><h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 26px">Currency exposure</h2><div style="font-size: 12px; color: #5A6470">Your supplier currencies · per US$1</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">Chinese yuan</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 6 L15 7 L30 9 L45 12 L60 12 L75 14 L90 15 L110 16" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">6.70</div><div style="text-align: right; font-size: 13px; color: #33505C">−0.1%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">South Korean won</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 16 L15 12 L30 14 L45 11 L60 8 L75 4 L90 16 L110 18" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">1,355.28</div><div style="text-align: right; font-size: 13px; color: #33505C">−0.5%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">Taiwan dollar</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 18 L15 14 L30 15 L45 12 L60 14 L75 10 L90 13 L110 12" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">31.71</div><div style="text-align: right; font-size: 13px; color: #33505C">−0.3%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">Mexican peso</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 8 L15 7 L30 10 L45 14 L60 15 L75 16 L90 14 L110 12" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">17.68</div><div style="text-align: right; font-size: 13px; color: #8A3A1A">+0.8%</div></div>
+<div style="display: grid; grid-template-columns: 1fr 120px 110px 70px; align-items: center; padding: 14px 0; border-top: 1px solid #E6DFD2; font-size: 15px"><div style="font-weight: 600">Euro</div><svg width="110" height="24" viewBox="0 0 110 24" fill="none" aria-hidden="true"><path d="M0 12 L110 12" stroke="#1B2330" stroke-width="1.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 20px; text-align: right">0.88</div><div style="text-align: right; font-size: 13px; color: #5A6470">0.0%</div></div>
+</section>
+</div>
+
+<section style="padding: 26px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 26px">Container freight rates</h2><span style="padding: 3px 10px; background: #E6DFD2; border-radius: 999px; font-size: 12px; font-weight: 600; color: #3E4955">Reference · not live · as of May 1, 2026</span></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<div style="padding: 16px; background: #FFFFFF; border: 1px solid #E6DFD2; border-radius: 10px; display: flex; flex-direction: column; gap: 6px"><div style="font-size: 13px; color: #3E4955">Asia-Pacific → US West Coast</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 30px">$2,350</div><div style="font-size: 12px; color: #5A6470">per 40 ft · −4.2%</div></div>
+<div style="padding: 16px; background: #FFFFFF; border: 1px solid #E6DFD2; border-radius: 10px; display: flex; flex-direction: column; gap: 6px"><div style="font-size: 13px; color: #3E4955">Asia-Pacific → Europe</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 30px">$3,100</div><div style="font-size: 12px; color: #5A6470">per 40 ft · +1.8%</div></div>
+<div style="padding: 16px; background: #FFFFFF; border: 1px solid #E6DFD2; border-radius: 10px; display: flex; flex-direction: column; gap: 6px"><div style="font-size: 13px; color: #3E4955">Europe → US</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 30px">$1,850</div><div style="font-size: 12px; color: #5A6470">per 40 ft · −1.1%</div></div>
+<div style="padding: 16px; background: #FFFFFF; border: 1px solid #E6DFD2; border-radius: 10px; display: flex; flex-direction: column; gap: 6px"><div style="font-size: 13px; color: #3E4955">Middle East → Europe</div><div style="font-family: 'Newsreader', Georgia, serif; font-size: 30px">$2,050</div><div style="font-size: 12px; color: #5A6470">per 40 ft · +6.3%</div></div>
+</div>
+</section>
+</div>
+</div>
+</body>
+</html>
