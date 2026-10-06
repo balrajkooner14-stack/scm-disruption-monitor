@@ -12,7 +12,7 @@ import { fetchDisruptions } from "@/lib/fetchDisruptions"
 export const revalidate = 1800
 
 export const metadata = {
-  title: "Scenario Planner | SCM Disruption Monitor",
+  title: "Scenario planner",
   description: "Model disruption scenarios against your supply chain and get AI-powered impact analysis.",
 }
 

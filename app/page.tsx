@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { Suspense } from "react"
 import Navbar from "@/components/Navbar"
 import DashboardClient from "@/components/DashboardClient"
+import { BRAND } from "@/lib/brand"
 import { fetchDisruptions } from "@/lib/fetchDisruptions"
 
 // ISR: re-fetch disruptions every 30 minutes instead of once per deploy.
@@ -14,8 +15,9 @@ import { fetchDisruptions } from "@/lib/fetchDisruptions"
 export const revalidate = 1800
 
 export const metadata: Metadata = {
-  title: "SCM Disruption Monitor | Live Supply Chain Risk Feed",
-  description: "Real-time supply chain disruption monitoring powered by GDELT and Gemini AI",
+  // absolute: the home page carries its own full title, never the template.
+  title: { absolute: `${BRAND.name} | ${BRAND.descriptor}` },
+  description: BRAND.description,
 }
 
 export default async function Home() {

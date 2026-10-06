@@ -1,28 +1,35 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
+import type { Metadata, Viewport } from "next";
+import { Newsreader, Public_Sans } from "next/font/google";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+// Self-hosted at build time by next/font — no runtime request to Google.
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+  display: "swap",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+const publicSans = Public_Sans({
+  subsets: ["latin"],
+  variable: "--font-public-sans",
+  display: "swap",
 });
 
 // Default title/description for pages that don't set their own — /profile,
-// /login, /signup and /about all inherit this. Until v4.9 it was still the
-// create-next-app scaffold text.
+// /login, /signup and /about all inherit this.
 export const metadata: Metadata = {
   title: {
-    default: "SCM Disruption Monitor",
-    template: "%s | SCM Disruption Monitor",
+    default: BRAND.name,
+    template: `%s | ${BRAND.name}`,
   },
-  description:
-    "Real-time supply chain disruption monitoring — trade-press, GDELT, GDACS and NOAA signals scored against your own supplier network.",
+  description: BRAND.description,
+};
+
+// First Light is light-only: keep native form controls light even when the
+// OS is in dark mode.
+export const viewport: Viewport = {
+  colorScheme: "light",
 };
 
 export default function RootLayout({
@@ -31,10 +38,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" className={`${newsreader.variable} ${publicSans.variable}`}>
+      <body className="bg-paper font-sans text-ink antialiased">
         {children}
       </body>
     </html>
