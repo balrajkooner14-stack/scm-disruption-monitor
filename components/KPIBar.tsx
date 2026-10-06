@@ -3,6 +3,7 @@
 import { DisruptionEvent } from "@/lib/types"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { CompanyProfile } from "@/lib/profile"
+import { ui } from "@/lib/ui"
 
 interface KPIBarProps {
   events: DisruptionEvent[]
@@ -62,127 +63,125 @@ export default function KPIBar({ events, kpiFilter, onKpiFilter, scoredEvents, p
     return entries.sort((a, b) => b[1] - a[1])[0][0]
   })()
 
+  // Shared card shell. Value colour is the only state signal.
+  const shell =
+    "bg-paper-raised border border-line rounded-xl px-5 py-5 text-left flex flex-col gap-1.5 transition-colors hover:border-line-strong"
+  const activeRing = "ring-1 ring-ink border-ink"
+  const label = ui.meta
+  const sub = ui.meta
+
+  // Card 4 value colour: the HHI card shows diversified as all-clear,
+  // anything else neutral (concentrated/critical take the concentration
+  // branch above it).
+  const hhiValueClass = (level: string) => (level === "diversified" ? "text-moss" : "text-ink")
+
   return (
     <div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1 — Active Events / Events Affecting You */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-blue-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">
-            {hasProfile ? "Events Affecting You" : "Active Events"}
-          </p>
-          <p className="text-3xl font-black text-blue-400">
+        <div className={shell}>
+          <p className={label}>{hasProfile ? "Events affecting you" : "Active events"}</p>
+          <p className={`${ui.stat} text-ink`}>
             {hasProfile ? profileMatchCount : events.length}
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            {hasProfile ? `of ${events.length} total events` : "→ Updated live"}
+          <p className={sub}>
+            {hasProfile ? `of ${events.length} monitored` : "Updated live"}
           </p>
         </div>
 
         {/* Card 2 — Critical */}
-        <div
+        <button
+          type="button"
           onClick={() => onKpiFilter(kpiFilter === "critical" ? null : "critical")}
-          className={`rounded-lg border border-t-2 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01] ${
-            criticalCount > 0
-              ? "bg-red-950 border-slate-700 border-t-red-500"
-              : "bg-slate-800 border-slate-700 border-t-slate-600"
-          } ${kpiFilter === "critical" ? "ring-2 ring-red-500" : ""}`}
+          aria-pressed={kpiFilter === "critical"}
+          className={`${shell} ${kpiFilter === "critical" ? activeRing : ""}`}
         >
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Critical</p>
-          <div className="flex items-center gap-2">
-            <p className={`text-3xl font-black ${criticalCount > 0 ? "text-red-400" : "text-slate-400"}`}>
-              {criticalCount}
-            </p>
-            {criticalCount > 0 && (
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <span className={label}>Critical</span>
+          <span className={`${ui.stat} ${criticalCount > 0 ? "text-ember" : "text-moss"}`}>
+            {criticalCount}
+          </span>
+          <span className={sub}>
             {hasProfile && criticalCount > 0
-              ? <span className="text-red-400">{criticalProfileMatchCount} affecting your network</span>
+              ? `${criticalProfileMatchCount} in your network`
               : criticalCount > 0
               ? "Requires immediate attention"
               : "No critical alerts"}
-          </p>
-        </div>
+          </span>
+        </button>
 
         {/* Card 3 — Region */}
-        <div
+        <button
+          type="button"
           onClick={() => onKpiFilter(kpiFilter === "region" ? null : "region")}
-          className={`bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-amber-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01] ${
-            kpiFilter === "region" ? "ring-2 ring-amber-500" : ""
-          }`}
+          aria-pressed={kpiFilter === "region"}
+          className={`${shell} ${kpiFilter === "region" ? activeRing : ""}`}
         >
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">
-            {hasProfile ? "Your Highest Risk Region" : "Most Affected Region"}
-          </p>
+          <span className={label}>{hasProfile ? "Highest-risk region" : "Most affected region"}</span>
           {hasProfile ? (
             highestRiskSupplierRegion ? (
-              <p className="text-base font-bold text-amber-400 leading-tight">{highestRiskSupplierRegion}</p>
+              <span className="font-serif text-[32px] leading-tight text-ink">{highestRiskSupplierRegion}</span>
             ) : (
-              <p className="text-base font-bold text-green-400 leading-tight">Your regions: Clear ✓</p>
+              <span className="font-serif text-[32px] leading-tight text-moss">Your regions are clear</span>
             )
           ) : mostAffectedRegion === "Unknown" ? (
-            <p className="text-base font-bold text-slate-500 italic leading-tight">Calculating...</p>
+            <span className="font-serif text-[32px] leading-tight text-ink-3">Calculating…</span>
           ) : (
-            <p className="text-base font-bold text-amber-400 leading-tight">{mostAffectedRegion}</p>
+            <span className="font-serif text-[32px] leading-tight text-ink">{mostAffectedRegion}</span>
           )}
-        </div>
+        </button>
 
         {/* Card 4 — Priority: inventory critical > concentration risk > single points of failure > inventory warning > HHI > data window */}
         {inventorySnapshot && inventorySnapshot.criticalCount > 0 ? (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-red-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
-            <p className="text-3xl font-black text-red-400">{inventorySnapshot.criticalCount}</p>
-            <p className="text-xs text-slate-500 mt-1">items need reorder</p>
+          <div className={shell}>
+            <p className={label}>Inventory alerts</p>
+            <p className={`${ui.stat} text-ember`}>{inventorySnapshot.criticalCount}</p>
+            <p className={sub}>items need reorder</p>
           </div>
         ) : concentrationResult && (concentrationResult.level === "concentrated" || concentrationResult.level === "critical") ? (
-          <div className="bg-orange-950 rounded-lg border border-orange-800 border-t-2 border-t-orange-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Concentration Risk</p>
-            <p className={`text-3xl font-black ${concentrationResult.colorClass}`}>
+          <div className={shell}>
+            <p className={label}>Concentration risk</p>
+            <p className={`${ui.stat} text-ochre`}>
               {concentrationResult.hhi.toLocaleString()}
             </p>
-            <p className="text-xs text-slate-500 mt-1">{concentrationResult.label}</p>
+            <p className={sub}>{concentrationResult.label}</p>
           </div>
         ) : spofCount && spofCount > 0 ? (
-          <div className="bg-purple-950 rounded-lg border border-purple-800 border-t-2 border-t-purple-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Single Points of Failure</p>
-            <p className="text-3xl font-black text-purple-400">{spofCount}</p>
-            <p className="text-xs text-slate-500 mt-1">product{spofCount > 1 ? "s" : ""} with no backup path</p>
+          <div className={shell}>
+            <p className={label}>Single points of failure</p>
+            <p className={`${ui.stat} text-ochre`}>{spofCount}</p>
+            <p className={sub}>product{spofCount > 1 ? "s" : ""} with no backup path</p>
           </div>
         ) : inventorySnapshot && inventorySnapshot.warningCount > 0 ? (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-amber-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Inventory Alerts</p>
-            <p className="text-3xl font-black text-amber-400">{inventorySnapshot.warningCount}</p>
-            <p className="text-xs text-slate-500 mt-1">items below reorder point</p>
+          <div className={shell}>
+            <p className={label}>Inventory alerts</p>
+            <p className={`${ui.stat} text-ochre`}>{inventorySnapshot.warningCount}</p>
+            <p className={sub}>items below reorder point</p>
           </div>
         ) : concentrationResult ? (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-blue-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Network HHI</p>
-            <p className={`text-3xl font-black ${concentrationResult.colorClass}`}>
+          <div className={shell}>
+            <p className={label}>Network HHI</p>
+            <p className={`${ui.stat} ${hhiValueClass(concentrationResult.level)}`}>
               {concentrationResult.hhi.toLocaleString()}
             </p>
-            <p className="text-xs text-slate-500 mt-1">{concentrationResult.label}</p>
+            <p className={sub}>{concentrationResult.label}</p>
           </div>
         ) : (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-green-500 p-4 cursor-pointer transition-all duration-150 hover:scale-[1.01]">
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-2">Data Window</p>
-            <p className="text-2xl font-black text-green-400">Last 24h</p>
-            <p className="text-xs text-slate-500 mt-1">↻ Live · GDELT 4,500+ sources</p>
+          <div className={shell}>
+            <p className={label}>Data window</p>
+            <p className="font-serif text-[32px] leading-tight text-ink">Last 24h</p>
+            <p className={sub}>Live · GDELT 4,500+ sources</p>
           </div>
         )}
       </div>
 
-      {/* Clear filter pill */}
+      {/* Clear filter */}
       {kpiFilter && (
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            onClick={() => onKpiFilter(null)}
-            className="text-xs text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-full border border-slate-600 transition-colors flex items-center gap-1"
-          >
-            ✕ Clear filter
+        <div className="mt-2">
+          <button type="button" onClick={() => onKpiFilter(null)} className={ui.btnGhost}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M6 6 L18 18 M18 6 L6 18" />
+            </svg>
+            Clear filter
           </button>
         </div>
       )}

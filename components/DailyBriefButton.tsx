@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import { generateDailyBrief, BriefData } from "@/lib/generateBrief"
+import { ui } from "@/lib/ui"
 
 interface DailyBriefButtonProps {
   events: ScoredEvent[]
@@ -69,33 +70,10 @@ export default function DailyBriefButton({
     <button
       onClick={handleGenerate}
       disabled={isGenerating}
-      className={`
-        flex items-center gap-2 px-4 py-2 rounded-lg text-sm
-        font-medium transition-all duration-150 border
-        ${
-          justDownloaded
-            ? "bg-green-900 border-green-700 text-green-300"
-            : "bg-slate-800 border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white"
-        }
-        disabled:opacity-50 disabled:cursor-not-allowed
-      `}
+      aria-live="polite"
+      className={`${ui.btnPrimary} disabled:cursor-not-allowed`}
     >
-      {isGenerating ? (
-        <>
-          <span className="animate-spin text-base">↻</span>
-          Generating PDF...
-        </>
-      ) : justDownloaded ? (
-        <>
-          <span>✅</span>
-          Downloaded!
-        </>
-      ) : (
-        <>
-          <span>📄</span>
-          Export Daily Brief
-        </>
-      )}
+      {isGenerating ? "Preparing…" : justDownloaded ? "✓ Downloaded" : "Export daily brief"}
     </button>
   )
 }

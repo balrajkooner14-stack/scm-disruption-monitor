@@ -31,6 +31,7 @@ import { calculateInventoryRisk, getDaysSinceDate, calculateOrderRecommendation 
 import { calculateConcentrationRisk } from "@/lib/concentrationRisk"
 import { findSinglePointsOfFailure } from "@/lib/supplyChainGraph"
 import { ENABLE_SANCTIONS_SCREENING } from "@/lib/featureFlags"
+import { ui } from "@/lib/ui"
 import type { BriefData } from "@/lib/generateBrief"
 import type { MarketData } from "@/app/api/market-data/route"
 
@@ -39,11 +40,11 @@ type TabId = "overview" | "advisor" | "scenarios" | "analytics" | "history"
 const VALID_TABS: TabId[] = ["overview", "advisor", "scenarios", "analytics", "history"]
 
 const TABS = [
-  { id: "overview",  label: "Overview",  icon: "🗺️", description: "Live map & disruption feed" },
-  { id: "advisor",   label: "Advisor",   icon: "🤖", description: "AI recommendations" },
-  { id: "scenarios", label: "Scenarios", icon: "🔮", description: "What-if analysis" },
-  { id: "analytics", label: "Analytics", icon: "📊", description: "Category breakdown" },
-  { id: "history",   label: "History",   icon: "🕐", description: "90-day disruption log" },
+  { id: "overview",  label: "Overview",  description: "Live map & disruption feed" },
+  { id: "advisor",   label: "Advisor",   description: "AI recommendations" },
+  { id: "scenarios", label: "Scenarios", description: "What-if analysis" },
+  { id: "analytics", label: "Analytics", description: "Category breakdown" },
+  { id: "history",   label: "History",   description: "90-day disruption log" },
 ] as const
 
 interface DashboardClientProps {
@@ -89,6 +90,19 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   })
 
   const searchParams = useSearchParams()
+
+  // Set after mount: the page is prerendered, so a render-time clock would
+  // not match between server and client.
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  useEffect(() => {
+    setUpdatedAt(
+      new Date().toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }),
+    )
+  }, [])
 
   useEffect(() => {
     if (searchParams.get("profileSaved") === "true") {
@@ -222,43 +236,20 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       <ProfilePromptModal />
 
       {showToast && (
-        <div className="mb-4 bg-green-900 border border-green-700 text-green-300 text-sm px-4 py-2 rounded-lg animate-pulse">
-          ✅ Company profile saved! Your dashboard is now personalized.
+        <div className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink">
+          <span className="text-moss">✓</span> Profile saved. Your dashboard now reflects your supply chain.
         </div>
       )}
 
-      {/* AI Risk Summary — moved inside DashboardClient so state can be lifted */}
+      {/* Brief — inside DashboardClient so summary state can be lifted for the PDF */}
       <AIInsightPanel
         headlines={top5Headlines}
         onSummaryLoaded={setAiSummaryPoints}
         onStatusChange={handleAiStatusChange}
+        relevantCount={profileMatchCount}
+        criticalCount={criticalCount}
+        totalCount={scoredEvents.length}
       />
-
-      {/* Export bar — between AI summary and KPI bar */}
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-slate-500">
-          {scoredEvents.length} events · Updated{" "}
-          {new Date().toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZoneName: "short",
-          })}
-        </div>
-        <DailyBriefButton
-          events={scoredEvents}
-          aiSummaryPoints={aiSummaryPoints}
-          recommendations={advisorRecs}
-          commodityPrices={commodityData}
-          concentrationRisk={concentrationResult ? {
-            hhi: concentrationResult.hhi,
-            label: concentrationResult.label,
-            largestCountry: concentrationResult.largestSingleCountry,
-            largestCountryShare: concentrationResult.largestCountryShare,
-          } : undefined}
-          historyEntries={historyForBrief}
-          inventoryRecommendations={inventoryRecs}
-        />
-      </div>
 
       <KPIBar
         events={scoredEvents}
@@ -271,42 +262,63 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         spofCount={spofCount}
       />
 
-      {/* Tab navigation bar */}
-      <div className="flex gap-1 bg-slate-800/50 border border-slate-700 rounded-xl p-1 mb-6">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={`
-              flex-1 flex items-center justify-center gap-2 px-3 py-2.5
-              rounded-lg text-sm font-medium transition-all duration-150
-              ${
-                activeTab === tab.id
-                  ? "bg-slate-700 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-              }
-            `}
-          >
-            <span className="text-base hidden sm:inline">{tab.icon}</span>
-            <span>{tab.label}</span>
+      {/* Tab bar + export */}
+      <div className="flex flex-wrap items-end justify-between gap-x-6 border-b border-line">
+        <nav aria-label="Sections" className="flex gap-9 overflow-x-auto">
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                title={tab.description}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex items-center py-3 text-[15px] -mb-px border-b-2 whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "border-ember font-semibold text-ink"
+                    : "border-transparent text-ink-2 hover:text-ink"
+                }`}
+              >
+                {tab.label}
 
-            {tab.id === "overview" && criticalCount > 0 && (
-              <span className="text-xs bg-red-600 text-white rounded-full px-1.5 py-0.5 flex-shrink-0 font-bold leading-none">
-                {criticalCount}
-              </span>
-            )}
+                {tab.id === "overview" && criticalCount > 0 && (
+                  <span className="ml-2 rounded-full bg-ember px-2 text-xs text-white">
+                    {criticalCount}
+                  </span>
+                )}
 
-            {tab.id === "advisor" && profile && profileMatchCount > 0 && (
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-            )}
+                {tab.id === "advisor" && profile && profileMatchCount > 0 && (
+                  <span className="ml-2 h-1.5 w-1.5 rounded-full bg-ember" aria-label="Relevant events" />
+                )}
 
-            {tab.id === "history" && historyCount > 0 && (
-              <span className="text-xs bg-slate-600 text-slate-300 rounded-full px-1.5 py-0.5 flex-shrink-0">
-                {historyCount}
-              </span>
-            )}
-          </button>
-        ))}
+                {tab.id === "history" && historyCount > 0 && (
+                  <span className="ml-2 rounded-full bg-line-soft px-2 text-xs text-ink-2">
+                    {historyCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
+        <div className="flex items-center gap-4 pb-2">
+          <span className={ui.meta}>
+            {scoredEvents.length} events{updatedAt && ` · Updated ${updatedAt}`}
+          </span>
+          <DailyBriefButton
+            events={scoredEvents}
+            aiSummaryPoints={aiSummaryPoints}
+            recommendations={advisorRecs}
+            commodityPrices={commodityData}
+            concentrationRisk={concentrationResult ? {
+              hhi: concentrationResult.hhi,
+              label: concentrationResult.label,
+              largestCountry: concentrationResult.largestSingleCountry,
+              largestCountryShare: concentrationResult.largestCountryShare,
+            } : undefined}
+            historyEntries={historyForBrief}
+            inventoryRecommendations={inventoryRecs}
+          />
+        </div>
       </div>
 
       {/* Tab content */}
@@ -349,7 +361,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         )}
 
         {activeTab === "scenarios" && (
-          <div className="max-w-3xl mx-auto">
+          <div className="space-y-6">
             <SupplyChainNetworkGraph events={scoredEvents} />
             <ScenarioPlanner events={scoredEvents} defaultOpen={true} />
           </div>

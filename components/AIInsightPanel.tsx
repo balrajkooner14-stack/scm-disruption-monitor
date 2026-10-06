@@ -2,16 +2,46 @@
 
 import { useEffect, useState } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { ui } from "@/lib/ui"
 
 interface AIInsightPanelProps {
   headlines: string[]
   onSummaryLoaded?: (points: string[]) => void
   onStatusChange?: (status: "live" | "cached" | "error") => void
+  /** Events matching the profile — drives the computed headline. */
+  relevantCount?: number
+  /** Severity-3 events today. */
+  criticalCount?: number
+  /** All events monitored today (headline when there is no profile). */
+  totalCount?: number
 }
 
 type Status = "loading" | "success" | "error"
 
-export default function AIInsightPanel({ headlines, onSummaryLoaded, onStatusChange }: AIInsightPanelProps) {
+// The API returns "Title: body text" strings. Split on the first ": " when
+// the part before it is short enough to be a title; otherwise it's all body.
+// Display only — onSummaryLoaded still receives the original strings.
+function splitPoint(point: string): { title: string | null; body: string } {
+  const clean = point.replace(/^[•\-\s]+/, "")
+  const idx = clean.indexOf(": ")
+  if (idx > 0 && idx <= 80) {
+    return { title: clean.slice(0, idx), body: clean.slice(idx + 2) }
+  }
+  return { title: null, body: clean }
+}
+
+function plural(n: number, one: string, many: string) {
+  return n === 1 ? one : many
+}
+
+export default function AIInsightPanel({
+  headlines,
+  onSummaryLoaded,
+  onStatusChange,
+  relevantCount = 0,
+  criticalCount = 0,
+  totalCount = 0,
+}: AIInsightPanelProps) {
   const [summary, setSummary] = useState<string[]>([])
   const [status, setStatus] = useState<Status>("loading")
   const [isStale, setIsStale] = useState(false)
@@ -62,41 +92,50 @@ export default function AIInsightPanel({ headlines, onSummaryLoaded, onStatusCha
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, profile?.updatedAt])
 
+  // Computed, not AI-written.
+  const firstSentence = profile
+    ? `${relevantCount} ${plural(relevantCount, "event touches", "events touch")} ${profile.companyName} today.`
+    : `${totalCount} ${plural(totalCount, "event", "events")} monitored today.`
+  const secondSentence =
+    criticalCount === 0
+      ? "None are critical."
+      : `${criticalCount} ${plural(criticalCount, "is", "are")} critical.`
+
+  // Only rendered after the client fetch resolves, so the date never comes
+  // from the prerendered HTML (no hydration mismatch).
+  const dateLabel = new Date().toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  })
+
   if (status === "loading") {
     return (
-      <div className="bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-400 rounded-r-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">⚡</span>
-          <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-            AI Risk Summary
-          </span>
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-7 border-b border-line" aria-busy="true">
+        <div className="lg:col-span-4 space-y-3">
+          <p className={ui.eyebrow}>Today&apos;s brief</p>
+          <div className={`${ui.skeleton} h-10 w-full`} />
+          <p className={ui.meta}>Analyzing today&apos;s signals…</p>
         </div>
-        <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
-          🤖 Analyzing global disruption signals with Gemini...
-        </p>
-        <div className="space-y-2">
+        <div className="lg:col-start-6 lg:col-span-7 space-y-3">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-4 bg-blue-200 dark:bg-slate-600 rounded animate-pulse"
-              style={{ width: `${70 + i * 10}%` }}
-            />
+            <div key={i} className={`${ui.skeleton} h-4`} style={{ width: `${70 + i * 10}%` }} />
           ))}
         </div>
-      </div>
+      </section>
     )
   }
 
   if (status === "error") {
     return (
-      <div className="bg-gray-50 dark:bg-slate-800 border-l-4 border-gray-300 rounded-r-lg p-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+      <div className={ui.card}>
+        <p className={ui.meta}>
           AI analysis unavailable — add your free Gemini API key at{" "}
           <a
             href="https://aistudio.google.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
+            className="text-ember underline"
           >
             aistudio.google.com
           </a>
@@ -106,34 +145,31 @@ export default function AIInsightPanel({ headlines, onSummaryLoaded, onStatusCha
   }
 
   return (
-    <div className="bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-400 rounded-r-lg p-4">
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-lg">⚡</span>
-        <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-          AI Risk Summary
-        </span>
-        {profile && (
-          <span className="text-xs text-blue-400 bg-blue-950 border border-blue-800 px-2 py-0.5 rounded-full">
-            Personalized for {profile.companyName}
-          </span>
-        )}
-      </div>
-      <ul className="space-y-2">
-        {summary.map((point, i) => (
-          <li key={i} className="flex gap-2 text-sm text-blue-900 dark:text-blue-200">
-            <span className="text-blue-400 mt-0.5 flex-shrink-0">•</span>
-            <span>{point}</span>
-          </li>
-        ))}
-      </ul>
-      {isStale && (
-        <p className="text-xs text-slate-600 mt-2 italic">
-          ↻ Showing cached data — live analysis will refresh shortly
+    <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-7 border-b border-line">
+      <div className="lg:col-span-4 flex flex-col gap-2.5">
+        <p className={ui.eyebrow}>Today&apos;s brief · {dateLabel}</p>
+        <h1 className="font-serif text-[40px] leading-[1.1] font-normal text-ink">
+          {firstSentence} {secondSentence}
+        </h1>
+        <p className={ui.meta}>
+          AI summary · refreshes every 15 min · verify before acting
+          {isStale && " · showing cached analysis"}
         </p>
-      )}
-      <p className="text-xs text-gray-400 mt-3 text-right">
-        Powered by Gemini 2.5 Flash · Refreshes every 15 min
-      </p>
-    </div>
+      </div>
+      <ol className="lg:col-start-6 lg:col-span-7 flex flex-col gap-4">
+        {summary.map((point, i) => {
+          const { title, body } = splitPoint(point)
+          return (
+            <li key={i} className="flex gap-4">
+              <span className="font-serif text-xl text-ember w-6 flex-shrink-0">{i + 1}</span>
+              <div className="flex flex-col gap-1">
+                {title && <p className="text-base font-semibold text-ink">{title}</p>}
+                <p className={ui.body}>{body}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }

@@ -1,6 +1,8 @@
 import Navbar from "@/components/Navbar"
+import SiteFooter from "@/components/SiteFooter"
 import ScenarioPageClient from "@/components/ScenarioPageClient"
 import { fetchDisruptions } from "@/lib/fetchDisruptions"
+import { ui } from "@/lib/ui"
 
 // ISR: re-fetch disruptions every 30 minutes instead of once per deploy.
 // GDELT's free API throttles datacenter IPs hard (often 0 of 3 queries
@@ -20,14 +22,12 @@ export default async function ScenariosPage() {
   const events = await fetchDisruptions()
 
   return (
-    <main className="min-h-screen bg-slate-900">
+    <main className="min-h-screen bg-paper">
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-10 pb-12">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white mb-2">
-            Scenario Planner
-          </h1>
-          <p className="text-slate-400 text-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-14">
+        <div className="mb-8 space-y-2">
+          <h1 className={ui.h1}>Scenario planner</h1>
+          <p className={`${ui.body} max-w-3xl`}>
             Model disruption scenarios against your supply chain.
             Get AI-powered impact analysis and recovery recommendations
             specific to your company profile and inventory position.
@@ -35,6 +35,7 @@ export default async function ScenariosPage() {
         </div>
         <ScenarioPageClient events={events} />
       </div>
+      <SiteFooter />
     </main>
   )
 }

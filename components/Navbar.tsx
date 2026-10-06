@@ -4,24 +4,26 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { useAuth } from "@/hooks/useAuth"
+import Logo from "@/components/ui/Logo"
+import { ui } from "@/lib/ui"
+
+const AI_STATUS = {
+  live: { dot: "bg-moss", label: "AI live" },
+  cached: { dot: "bg-[#C4973B]", label: "AI cached" },
+  error: { dot: "bg-ember", label: "AI recovering" },
+} as const
 
 export default function Navbar() {
-  const [isDark, setIsDark] = useState(false)
-  const [now, setNow] = useState(new Date())
+  // null until mounted: the page is prerendered, so a server-side clock
+  // would never match the client's and cause a hydration mismatch.
+  const [now, setNow] = useState<Date | null>(null)
   const [aiStatus, setAiStatus] = useState<"live" | "cached" | "error">("live")
   const { profile, isLoaded } = useCompanyProfile()
   const { user, signOut } = useAuth()
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme")
-    if (saved === "dark") {
-      document.documentElement.classList.add("dark")
-      setIsDark(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000)
+    setNow(new Date())
+    const timer = setInterval(() => setNow(new Date()), 30_000)
     return () => clearInterval(timer)
   }, [])
 
@@ -33,144 +35,64 @@ export default function Navbar() {
     return () => window.removeEventListener("ai-status-change", handler)
   }, [])
 
-  const dateStr = now.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-  const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
+  // "Tue, Oct 6 · 4:10 PM"
+  const clockStr = now
+    ? `${now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+    : ""
 
-  function toggleDark() {
-    const next = !isDark
-    setIsDark(next)
-    if (next) {
-      document.documentElement.classList.add("dark")
-      localStorage.setItem("theme", "dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-      localStorage.setItem("theme", "light")
-    }
-  }
+  const status = AI_STATUS[aiStatus]
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-slate-900 border-b border-slate-700 py-3 px-6 flex flex-row items-center justify-between gap-4">
-      {/* Left: Logo */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="text-2xl">📡</span>
-          <div className="flex flex-col">
-            <div className="flex items-baseline gap-0">
-              <span className="text-blue-400 font-black text-xl leading-none">SCM</span>
-              <span className="text-white font-light text-xl leading-none"> Disruption Monitor</span>
-            </div>
-            <span className="text-slate-500 text-xs mt-0.5">Real-time global supply chain intelligence</span>
-            <p className="hidden lg:block text-xs text-slate-600 mt-0.5">
-              Supply chain intelligence platform
-            </p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Right: LIVE + date + profile + shortcuts + dark mode */}
-      <div className="flex flex-row items-center gap-3 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-          </span>
-          <span className="text-green-400 text-sm font-bold tracking-widest">LIVE</span>
+    <nav className="sticky top-0 z-50 h-[72px] bg-paper-raised border-b border-line">
+      <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        {/* Left: logo + profile */}
+        <div className="flex items-center gap-5 min-w-0">
+          <Link href="/" className="flex-shrink-0" aria-label="Home">
+            <Logo />
+          </Link>
+          <div className="h-6 w-px bg-line flex-shrink-0" aria-hidden="true" />
+          {isLoaded && (
+            profile ? (
+              <Link href="/profile" className={`${ui.btnSecondary} max-w-xs overflow-hidden`}>
+                <span className="truncate">{profile.companyName}</span>
+              </Link>
+            ) : (
+              <Link href="/profile" className={ui.btnSecondary.replace("text-ink", "text-ember")}>
+                Set up your profile
+              </Link>
+            )
+          )}
         </div>
 
-        {aiStatus === "live" && (
-          <span className="text-xs text-green-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            AI Live
+        {/* Right: AI status, clock, auth */}
+        <div className="flex items-center gap-5 flex-shrink-0">
+          <span className="flex items-center gap-2 text-[13px] text-ink-2">
+            <span className={`h-2 w-2 rounded-full ${status.dot}`} aria-hidden="true" />
+            {status.label}
           </span>
-        )}
-        {aiStatus === "cached" && (
-          <span className="text-xs text-amber-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            AI Cached
+
+          <span className="hidden sm:block text-[13px] text-ink-3 tabular-nums">
+            {clockStr}
           </span>
-        )}
-        {aiStatus === "error" && (
-          <span className="text-xs text-red-400 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-            AI Recovering
-          </span>
-        )}
 
-        <div className="w-px h-5 bg-slate-600 mx-1" />
-
-        <span className="hidden sm:block text-slate-300 text-sm">{dateStr} · {timeStr}</span>
-
-        {isLoaded && (
-          <Link
-            href="/profile"
-            className="flex items-center gap-1.5 border border-slate-600 hover:border-slate-400 rounded-md px-2 py-1 transition-colors text-xs font-medium"
-          >
-            {profile ? (
-              <>
-                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-slate-300">My Profile</span>
-              </>
-            ) : (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                </span>
-                <span className="text-amber-400">Set Up Profile</span>
-              </>
-            )}
-          </Link>
-        )}
-
-        {user ? (
-          <div className="hidden md:flex items-center gap-2">
-            <span className="text-xs text-slate-400">
-              {user.email?.split("@")[0]}
-            </span>
-            <button
-              onClick={signOut}
-              className="text-xs text-slate-500 hover:text-red-400 transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        ) : (
-          <div className="hidden md:flex items-center gap-2">
-            <Link
-              href="/login"
-              className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-md px-2 py-1 transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signup"
-              className="text-xs text-white bg-blue-600 hover:bg-blue-500 rounded-md px-2 py-1 transition-colors"
-            >
-              Sign up
-            </Link>
-          </div>
-        )}
-
-        <span className="hidden md:inline text-xs text-slate-700 border border-slate-800 rounded px-1.5 py-0.5 ml-1">
-          / chat
-        </span>
-
-        <button
-          onClick={toggleDark}
-          className="text-slate-400 hover:text-white transition text-lg ml-1"
-          aria-label="Toggle dark mode"
-        >
-          {isDark ? "☀️" : "🌙"}
-        </button>
+          {user ? (
+            <div className="hidden md:flex items-center gap-2">
+              <span className="text-[13px] text-ink-3">{user.email?.split("@")[0]}</span>
+              <button onClick={signOut} className={ui.btnGhost}>
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center gap-2">
+              <Link href="/login" className={ui.btnSecondary}>
+                Sign in
+              </Link>
+              <Link href="/signup" className={ui.btnPrimary}>
+                Sign up
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   )
