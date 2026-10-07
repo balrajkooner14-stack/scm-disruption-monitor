@@ -1,14 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { exportHistoryAsCSV, groupEntriesByMonth } from "@/lib/disruptionHistory"
 import { useDisruptionHistory } from "@/hooks/useDisruptionHistory"
 import { useAuth } from "@/hooks/useAuth"
+import { ui } from "@/lib/ui"
 
-const SEVERITY_CONFIG = {
-  CRITICAL: { badge: "bg-red-600 text-white", dot: "bg-red-500" },
-  WARNING: { badge: "bg-amber-600 text-white", dot: "bg-amber-500" },
-  MONITOR: { badge: "bg-slate-600 text-slate-200", dot: "bg-slate-500" },
+// App-wide severity system.
+const SEVERITY_CHIP = {
+  CRITICAL: ui.chipCritical,
+  WARNING: ui.chipWarning,
+  MONITOR: ui.chipMonitor,
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className={open ? "rotate-180" : ""}>
+      <path d="M6 9 L12 15 L18 9" />
+    </svg>
+  )
 }
 
 export default function DisruptionHistoryTab() {
@@ -43,105 +53,78 @@ export default function DisruptionHistoryTab() {
 
   if (!isLoaded) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 animate-pulse">
-          <div className="h-4 bg-slate-700 rounded w-1/3 mb-4" />
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-slate-700 rounded-lg" />
-            ))}
-          </div>
-        </div>
+      <div className={`${ui.card} space-y-4`} aria-busy="true">
+        <div className={`${ui.skeleton} h-6 w-1/3`} />
+        {[1, 2, 3].map(i => (
+          <div key={i} className={`${ui.skeleton} h-10`} />
+        ))}
       </div>
     )
   }
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-4">
-      {/* Header card */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm">🕐</span>
-              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-                Disruption History Log
-              </h2>
-            </div>
-            <p className="text-xs text-slate-500">
-              {entries.length > 0
-                ? `${entries.length} events logged · ${dateRange} · 90-day rolling window`
-                : "No events logged yet — history auto-saves when you visit the dashboard"}
-            </p>
-          </div>
+  const counts = {
+    all: entries.length,
+    profile: entries.filter(e => e.isProfileMatch).length,
+    critical: entries.filter(e => e.severity === 3).length,
+  }
+  const FILTER_LABELS = { all: "All", profile: "Profile matches", critical: "Critical only" } as const
 
-          <div className="flex items-center gap-2">
-            {entries.length > 0 && (
-              <>
-                <button
-                  onClick={handleExport}
-                  className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 rounded-lg px-3 py-1.5 transition-colors"
-                >
-                  <span>⬇</span>
-                  Export CSV
-                </button>
-                {!showClearConfirm ? (
-                  <button
-                    onClick={() => setShowClearConfirm(true)}
-                    className="text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1.5"
-                  >
-                    Clear
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-red-400">Sure?</span>
-                    <button
-                      onClick={handleClear}
-                      className="text-xs text-red-400 hover:text-red-300 font-medium px-2 py-1"
-                    >
-                      Yes
-                    </button>
-                    <button
-                      onClick={() => setShowClearConfirm(false)}
-                      className="text-xs text-slate-500 px-2 py-1"
-                    >
-                      No
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className={ui.h1}>Disruption history</h1>
+          <p className={ui.meta}>
+            {entries.length > 0
+              ? `${entries.length} events logged · ${dateRange} · 90-day rolling window`
+              : "No events logged yet — history auto-saves when you visit the dashboard"}
+          </p>
         </div>
 
-        {/* Filter pills */}
-        <div className="flex gap-2">
-          {(["all", "profile", "critical"] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-150 ${
-                filter === f
-                  ? "bg-slate-600 border-slate-500 text-white"
-                  : "bg-slate-700/50 border-slate-700 text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {f === "all"
-                ? `All (${entries.length})`
-                : f === "profile"
-                ? `Profile matches (${entries.filter(e => e.isProfileMatch).length})`
-                : `Critical only (${entries.filter(e => e.severity === 3).length})`}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div role="group" aria-label="Filter" className="flex flex-wrap gap-1.5">
+            {(["all", "profile", "critical"] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                aria-pressed={filter === f}
+                className={filter === f ? ui.pillActive : ui.pill}
+              >
+                {FILTER_LABELS[f]} {counts[f]}
+              </button>
+            ))}
+          </div>
+          {entries.length > 0 && (
+            <>
+              <button onClick={handleExport} className={ui.btnSecondary}>
+                Export CSV
+              </button>
+              {!showClearConfirm ? (
+                <button onClick={() => setShowClearConfirm(true)} className={ui.btnGhost}>
+                  Clear
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className={ui.meta}>Clear all history?</span>
+                  <button onClick={handleClear} className={ui.btnAccent}>
+                    Clear history
+                  </button>
+                  <button onClick={() => setShowClearConfirm(false)} className={ui.btnGhost}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
       {/* Empty state */}
       {entries.length === 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center">
-          <p className="text-2xl mb-3">🕐</p>
-          <p className="text-slate-300 font-medium mb-2">No history yet</p>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto">
+        <div className={`${ui.card} space-y-2`}>
+          <h2 className={ui.h3}>No history yet</h2>
+          <p className={ui.emptyText}>
             Every time you visit the dashboard, critical and warning events are
             automatically saved here. Come back after your next session to see
             your history build up.
@@ -151,123 +134,116 @@ export default function DisruptionHistoryTab() {
 
       {/* No filter results */}
       {entries.length > 0 && filtered.length === 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center">
-          <p className="text-slate-500 text-sm">
-            No events match this filter in your history.
-          </p>
+        <div className={ui.card}>
+          <p className={ui.emptyText}>No events match this filter in your history.</p>
         </div>
       )}
 
-      {/* Timeline grouped by month */}
+      {/* Monthly tables */}
       {grouped.map(({ monthLabel, entries: monthEntries }) => (
-        <div key={monthLabel}>
-          {/* Month header */}
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-              {monthLabel}
-            </span>
-            <div className="flex-1 h-px bg-slate-700" />
-            <span className="text-xs text-slate-600">
+        <section key={monthLabel} className={`${ui.card} pt-5 pb-3`}>
+          <div className="flex items-baseline justify-between pb-2">
+            <h2 className={ui.h3}>{monthLabel}</h2>
+            <span className={ui.meta}>
               {monthEntries.length} event{monthEntries.length !== 1 ? "s" : ""}
             </span>
           </div>
 
-          {/* Entries */}
-          <div className="space-y-2">
-            {monthEntries.map(entry => {
-              const sevConfig =
-                SEVERITY_CONFIG[entry.severityLabel as keyof typeof SEVERITY_CONFIG] ??
-                SEVERITY_CONFIG.MONITOR
-              const isExpanded = expandedId === entry.id
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <thead>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-ink-3">
+                  <th scope="col" className="py-2.5 pr-4 font-semibold w-[90px]">Date</th>
+                  <th scope="col" className="py-2.5 pr-4 font-semibold w-[120px]">Severity</th>
+                  <th scope="col" className="py-2.5 pr-4 font-semibold w-[120px]">Category</th>
+                  <th scope="col" className="py-2.5 pr-4 font-semibold w-[150px]">Region</th>
+                  <th scope="col" className="py-2.5 pr-4 font-semibold">Event</th>
+                  <th scope="col" className="py-2.5 w-8"><span className="sr-only">Details</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthEntries.map(entry => {
+                  const chip =
+                    SEVERITY_CHIP[entry.severityLabel as keyof typeof SEVERITY_CHIP] ??
+                    SEVERITY_CHIP.MONITOR
+                  const isExpanded = expandedId === entry.id
+                  const toggle = () => setExpandedId(isExpanded ? null : entry.id)
 
-              return (
-                <div
-                  key={entry.id}
-                  className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden"
-                >
-                  {/* Entry row */}
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                    className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-700/30 transition-colors"
-                  >
-                    {/* Severity dot */}
-                    <div className="flex-shrink-0 mt-1">
-                      <div className={`w-2 h-2 rounded-full ${sevConfig.dot}`} />
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span
-                          className={`text-xs font-bold px-1.5 py-0.5 rounded ${sevConfig.badge}`}
-                        >
-                          {entry.severityLabel}
-                        </span>
-                        <span className="text-xs text-slate-500 bg-slate-700 px-1.5 py-0.5 rounded">
-                          {entry.category}
-                        </span>
-                        <span className="text-xs text-slate-500">{entry.region}</span>
-                        {entry.isProfileMatch && (
-                          <span className="text-xs text-cyan-400 bg-cyan-950 border border-cyan-800 px-1.5 py-0.5 rounded">
-                            Your network
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-200 leading-snug truncate">
-                        {entry.title}
-                      </p>
-                    </div>
-
-                    {/* Date + expand */}
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-xs text-slate-500">
-                        {new Date(entry.savedAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                      <p className="text-xs text-slate-600 mt-0.5">
-                        {isExpanded ? "▲" : "▼"}
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Expanded detail */}
-                  {isExpanded && (
-                    <div className="border-t border-slate-700 px-4 py-3 bg-slate-700/20 space-y-2">
-                      {entry.relevanceReason && (
-                        <p className="text-xs text-slate-400 italic">
-                          &ldquo;{entry.relevanceReason}&rdquo;
-                        </p>
+                  return (
+                    <Fragment key={entry.id}>
+                      <tr
+                        onClick={toggle}
+                        className="border-t border-line-soft cursor-pointer transition-colors hover:bg-surface"
+                      >
+                        <td className="py-3.5 pr-4 text-[15px] text-ink-3 tabular-nums whitespace-nowrap">
+                          {new Date(entry.savedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          <span className={`${ui.chip} ${chip}`}>{entry.severityLabel}</span>
+                        </td>
+                        <td className="py-3.5 pr-4 text-[15px] text-ink">{entry.category}</td>
+                        <td className={`py-3.5 pr-4 text-[15px] ${entry.region === "Unknown" ? "text-ink-3" : "text-ink"}`}>
+                          {entry.region}
+                        </td>
+                        <td className="py-3.5 pr-4 text-[15px] text-ink">
+                          <span className="line-clamp-2">{entry.title}</span>
+                          {entry.isProfileMatch && (
+                            <span className="text-xs font-semibold text-ember">Your network</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-right">
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              toggle()
+                            }}
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? "Hide details" : "Show details"}
+                            className="rounded p-1 text-ink-3 transition-colors hover:text-ink"
+                          >
+                            <Chevron open={isExpanded} />
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="pb-3.5">
+                            <div className={`${ui.cardInner} space-y-2`}>
+                              {entry.relevanceReason && (
+                                <p className="text-sm text-ink-2">&ldquo;{entry.relevanceReason}&rdquo;</p>
+                              )}
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-3">
+                                  <span>Source: {entry.sourceDomain || "Unknown"}</span>
+                                  <span>Relevance: {entry.relevanceScore}/100</span>
+                                  <span>Logged: {new Date(entry.savedAt).toLocaleString()}</span>
+                                </div>
+                                <a
+                                  href={entry.eventUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[13px] text-ember transition-colors hover:text-ember-deep"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  Read article →
+                                </a>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-xs text-slate-500">
-                          <span>Source: {entry.sourceDomain || "Unknown"}</span>
-                          <span>Relevance: {entry.relevanceScore}/100</span>
-                          <span>Logged: {new Date(entry.savedAt).toLocaleString()}</span>
-                        </div>
-                        <a
-                          href={entry.eventUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          Read article →
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </section>
       ))}
 
       {/* Footer info */}
       {entries.length > 0 && (
-        <p className="text-xs text-slate-700 text-center pb-2">
+        <p className="text-xs text-ink-3">
           {user ? "History synced to your account" : "History stored locally in your browser"}
           {" "}· 90-day rolling window · Max 500 entries · Export CSV to preserve long-term records
         </p>
