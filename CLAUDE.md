@@ -12,8 +12,7 @@ systematic trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v5.0 (First Light redesign + Foreglow rebrand) committed on branch
-  feat/first-light-redesign, not yet merged or deployed — production is v4.9 until it is
+- Status: v5.0 live (First Light redesign + Foreglow rebrand), deployed Oct 6, 2026
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -1647,13 +1646,20 @@ v5.0 — First Light redesign + Foreglow rebrand (Oct 6, 2026). Presentation onl
           focus rings, console errors/hydration warnings, OS dark mode still light.
           The LaborCalendarCard is dormant until ~Jan 2028; use the v4.7 trick
           (temporarily widen the window) to see its restyle.
+        Shipped: the owner reviewed the app on a local dev server and approved it,
+          then main was fast-forwarded to the branch (f41617c) and pushed; Vercel
+          production deploy went Ready on Oct 6, 2026. Live smoke test: every route
+          200 with the Foreglow titles. That build's log: TradeNews 12 events (5 live
+          / 1 empty / 0 failed), GDELT timed out from Vercel (the known v4.8
+          limitation, unrelated to this release).
 
 ## Known issues / next session notes
-- v5.0 NOT VERIFIED IN A BROWSER: the Chrome extension again refused to drive
-  the page (navigation reported success, tab stayed blank). Lint/build/verify,
-  all six section-12 greps, an HTTP smoke test of every route and a rendered
-  PNG of the PDF passed; every interactive/visual check in section 12 of the
-  spec still needs a manual pass (list in the v5.0 history entry).
+- v5.0 browser checks: the Chrome extension again refused to drive the page
+  (navigation reported success, tab stayed blank), so the agent could not run
+  the spec's section-12 browser checklist itself. The owner reviewed the app
+  locally and approved it before deploy, but the individual checklist items
+  were not reported item by item — if something looks off, start from the
+  list in the v5.0 history entry.
 - v5.0: one transient "fetch failed / other side closed" + "failed to pipe
   response" on the first cold dev render of / (179s, then 500). A second pass
   of every route was clean (200s, no new errors). The error never named a
