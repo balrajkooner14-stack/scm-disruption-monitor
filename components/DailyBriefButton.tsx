@@ -53,7 +53,7 @@ export default function DailyBriefButton({
       const dateStr = new Date().toISOString().split("T")[0]
       const companySlug =
         profile?.companyName.toLowerCase().replace(/\s+/g, "-") ?? "global"
-      const filename = `scm-brief-${companySlug}-${dateStr}.pdf`
+      const filename = `foreglow-brief-${companySlug}-${dateStr}.pdf`
 
       doc.save(filename)
 

@@ -1,6 +1,7 @@
 import jsPDF from "jspdf"
 import { CompanyProfile } from "@/lib/profile"
 import { ScoredEvent } from "@/lib/scoreEvents"
+import { BRAND } from "@/lib/brand"
 
 export interface BriefData {
   profile: CompanyProfile | null
@@ -52,6 +53,28 @@ export interface BriefData {
   }>
 }
 
+// First Light palette (RGB). jsPDF's built-in fonts only: "times" for
+// headings and big numbers, "helvetica" for body. Built-in fonts are
+// WinAnsi-encoded, so arrows (→ ▲ ▼) can't be drawn — use words and signs.
+type RGB = [number, number, number]
+const PDF = {
+  ink: [27, 35, 48] as RGB,
+  paper: [244, 239, 230] as RGB,
+  paperRaised: [251, 248, 242] as RGB,
+  line: [221, 213, 198] as RGB,
+  secondary: [62, 73, 85] as RGB,
+  caption: [90, 100, 112] as RGB,
+  bandSecondary: [201, 194, 181] as RGB,
+  dawn: [224, 160, 119] as RGB,
+  ember: [176, 74, 34] as RGB,
+  ochre: [110, 75, 12] as RGB,
+  ochreTint: [243, 230, 200] as RGB,
+  sea: [51, 80, 92] as RGB,
+  moss: [63, 107, 76] as RGB,
+}
+
+const PT = 0.3528 // 1pt in mm
+
 function formatPDFCurrency(amount: number): string {
   if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`
   if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`
@@ -91,7 +114,7 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     const {
       fontSize = 10,
       fontStyle = "normal",
-      color = [30, 30, 30] as [number, number, number],
+      color = PDF.ink,
       align = "left",
       maxWidth = contentWidth,
     } = opts
@@ -103,15 +126,9 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     return yPos + lines.length * (fontSize * 0.45)
   }
 
-  const addDivider = (
-    yPos: number,
-    color: [number, number, number] = [200, 200, 200],
-  ): number => {
-    setDraw(color)
-    doc.setLineWidth(0.3)
-    doc.line(margin, yPos, pageWidth - margin, yPos)
-    return yPos + 4
-  }
+  // Section spacer. Each section title now carries its own rule, so a second
+  // line here would double up.
+  const addDivider = (yPos: number): number => yPos + 4
 
   const checkPageBreak = (yPos: number, neededSpace = 20): number => {
     if (yPos + neededSpace > pageHeight - margin) {
@@ -121,34 +138,49 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     return yPos
   }
 
-  const addSectionHeader = (
-    title: string,
-    yPos: number,
-    bgColor: [number, number, number] = [15, 23, 42],
-  ): number => {
-    setFill(bgColor)
-    doc.rect(margin, yPos - 4, contentWidth, 8, "F")
-    doc.setFontSize(9)
-    doc.setFont("helvetica", "bold")
-    doc.setTextColor(255, 255, 255)
-    doc.text(title.toUpperCase(), margin + 3, yPos + 1)
+  // Section title in Times 14pt ink with a thin rule beneath — no filled bars.
+  const addSectionHeader = (title: string, yPos: number): number => {
+    doc.setFontSize(14)
+    doc.setFont("times", "normal")
+    setColor(PDF.ink)
+    doc.text(title, margin, yPos + 1)
+    setDraw(PDF.line)
+    doc.setLineWidth(0.3 * PT)
+    doc.line(margin, yPos + 3, pageWidth - margin, yPos + 3)
     return yPos + 8
   }
 
   // ── Page 1 Header ──────────────────────────────────────
 
-  setFill([15, 23, 42])
-  doc.rect(0, 0, pageWidth, 35, "F")
+  const bandHeight = 35
+  setFill(PDF.ink)
+  doc.rect(0, 0, pageWidth, bandHeight, "F")
 
-  doc.setFontSize(18)
-  doc.setFont("helvetica", "bold")
-  doc.setTextColor(255, 255, 255)
-  doc.text("SCM Disruption Monitor", margin, 15)
+  // Logo mark (~8mm wide): half sun on the horizon with one arc of glow.
+  // Draw order: dawn outline -> ember disc -> cover lower half -> horizon.
+  const sunR = 2.6
+  const sunCx = margin + sunR * 1.5
+  const horizonY = 15
+  setDraw(PDF.dawn)
+  doc.setLineWidth(0.3 * PT)
+  doc.circle(sunCx, horizonY, sunR * 1.5, "S")
+  setFill(PDF.ember)
+  doc.circle(sunCx, horizonY, sunR, "F")
+  setFill(PDF.ink)
+  doc.rect(sunCx - sunR * 1.5 - 1, horizonY, sunR * 3 + 2, sunR * 1.5 + 1, "F")
+  setDraw(PDF.paper)
+  doc.setLineWidth(0.6 * PT)
+  doc.line(sunCx - sunR - 1.5, horizonY, sunCx + sunR + 1.5, horizonY)
+
+  doc.setFontSize(20)
+  doc.setFont("times", "normal")
+  setColor(PDF.paper)
+  doc.text(BRAND.name, margin + sunR * 3 + 3, horizonY)
 
   doc.setFontSize(10)
   doc.setFont("helvetica", "normal")
-  setColor([148, 163, 184])
-  doc.text("Daily Supply Chain Intelligence Brief", margin, 22)
+  setColor(PDF.bandSecondary)
+  doc.text("Daily supply chain intelligence brief", margin, 24)
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -157,11 +189,11 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     day: "numeric",
   })
   doc.setFontSize(9)
-  setColor([148, 163, 184])
+  setColor(PDF.bandSecondary)
   doc.text(today, pageWidth - margin, 15, { align: "right" })
 
   if (data.profile) {
-    setColor([34, 211, 238])
+    setColor(PDF.dawn)
     doc.text(
       `Personalized for ${data.profile.companyName}`,
       pageWidth - margin,
@@ -174,14 +206,14 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
   // ── Executive Summary ──────────────────────────────────
 
-  y = addSectionHeader("Executive Summary — AI Risk Assessment", y)
+  y = addSectionHeader("Executive summary — AI risk assessment", y)
   y += 2
 
   if (data.aiSummaryPoints.length > 0) {
     for (const point of data.aiSummaryPoints) {
       y = checkPageBreak(y, 15)
-      setFill([59, 130, 246])
-      doc.circle(margin + 2, y - 1, 1, "F")
+      setFill(PDF.ember)
+      doc.circle(margin + 2, y - 1, 0.8, "F")
       y = addText(point, margin + 6, y, {
         fontSize: 10,
         maxWidth: contentWidth - 6,
@@ -190,7 +222,7 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     }
   } else {
     y = addText("AI summary not available for this brief.", margin, y, {
-      color: [100, 116, 139],
+      color: PDF.caption,
     })
   }
 
@@ -200,7 +232,7 @@ export function generateDailyBrief(data: BriefData): jsPDF {
   // ── KPI Snapshot ───────────────────────────────────────
 
   y = checkPageBreak(y, 25)
-  y = addSectionHeader("Situation Snapshot", y)
+  y = addSectionHeader("Situation snapshot", y)
   y += 4
 
   const criticalCount = data.events.filter((e) => e.severity === 3).length
@@ -213,35 +245,33 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     value: string
     color: [number, number, number]
   }> = [
-    { label: "ACTIVE EVENTS", value: String(data.events.length), color: [59, 130, 246] },
+    { label: "ACTIVE EVENTS", value: String(data.events.length), color: PDF.ink },
     {
       label: "CRITICAL",
       value: String(criticalCount),
-      color: criticalCount > 0 ? [239, 68, 68] : [100, 116, 139],
+      color: criticalCount > 0 ? PDF.ember : PDF.ink,
     },
     {
       label: data.profile ? "AFFECTING YOUR NETWORK" : "WARNINGS",
       value: String(data.profile ? profileMatchCount : warningCount),
-      color: [245, 158, 11],
+      color: PDF.ink,
     },
   ]
 
   for (let i = 0; i < kpiBoxes.length; i++) {
     const kpi = kpiBoxes[i]
     const x = margin + i * (kpiWidth + 4)
-    setFill([248, 250, 252])
-    setDraw(kpi.color)
-    doc.setLineWidth(0.5)
-    doc.rect(x, y, kpiWidth, 16, "FD")
-    setFill(kpi.color)
-    doc.rect(x, y, kpiWidth, 2, "F")
-    doc.setFontSize(16)
-    doc.setFont("helvetica", "bold")
+    setFill(PDF.paperRaised)
+    setDraw(PDF.line)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(x, y, kpiWidth, 16, 1.5, 1.5, "FD")
+    doc.setFontSize(18)
+    doc.setFont("times", "normal")
     setColor(kpi.color)
-    doc.text(kpi.value, x + kpiWidth / 2, y + 10, { align: "center" })
+    doc.text(kpi.value, x + kpiWidth / 2, y + 9.5, { align: "center" })
     doc.setFontSize(7)
     doc.setFont("helvetica", "normal")
-    setColor([100, 116, 139])
+    setColor(PDF.caption)
     doc.text(kpi.label, x + kpiWidth / 2, y + 14, { align: "center" })
   }
 
@@ -252,17 +282,17 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     y = checkPageBreak(y, 12)
     doc.setFontSize(9)
     doc.setFont("helvetica", "bold")
-    setColor([30, 30, 30])
-    doc.text("Network Concentration:", margin + 2, y)
+    setColor(PDF.ink)
+    doc.text("Network concentration:", margin + 2, y)
     doc.setFont("helvetica", "normal")
     const hhiColor: [number, number, number] =
       concentrationRisk.hhi > 5000
-        ? [239, 68, 68]
+        ? PDF.ember
         : concentrationRisk.hhi > 2500
-        ? [249, 115, 22]
+        ? PDF.ochre
         : concentrationRisk.hhi > 1500
-        ? [245, 158, 11]
-        : [34, 197, 94]
+        ? PDF.secondary
+        : PDF.moss
     setColor(hhiColor)
     doc.text(
       `HHI ${concentrationRisk.hhi.toLocaleString()} — ${concentrationRisk.label} ` +
@@ -279,7 +309,7 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
   if (data.inventoryRecommendations && data.inventoryRecommendations.length > 0) {
     y = checkPageBreak(y, 25)
-    y = addSectionHeader("Inventory Action Required", y, [139, 0, 0])
+    y = addSectionHeader("Inventory action required", y)
     y += 4
 
     data.inventoryRecommendations.forEach(item => {
@@ -287,10 +317,10 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
       const urgencyColor: [number, number, number] =
         item.urgencyLabel === "Order Today"
-          ? [239, 68, 68]
+          ? PDF.ember
           : item.urgencyLabel === "Order This Week"
-          ? [245, 158, 11]
-          : [234, 179, 8]
+          ? PDF.ochre
+          : PDF.secondary
 
       doc.setFontSize(8)
       doc.setFont("helvetica", "bold")
@@ -298,13 +328,13 @@ export function generateDailyBrief(data: BriefData): jsPDF {
       doc.text(`[${item.urgencyLabel.toUpperCase()}]`, margin + 2, y)
 
       doc.setFont("helvetica", "bold")
-      setColor([30, 30, 30])
+      setColor(PDF.ink)
       doc.text(item.productName, margin + 35, y)
 
       doc.setFont("helvetica", "normal")
-      setColor([71, 85, 105])
+      setColor(PDF.secondary)
       doc.text(
-        `${item.daysRemaining}d remaining → order ${item.recommendedOrderDays}d supply from ${item.supplierName}`,
+        `${item.daysRemaining}d remaining · order ${item.recommendedOrderDays}d supply from ${item.supplierName}`,
         margin + 4,
         y + 5
       )
@@ -318,7 +348,7 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
   if (data.recommendations.length > 0) {
     y = checkPageBreak(y, 30)
-    y = addSectionHeader("AI Advisor — Recommended Actions", y)
+    y = addSectionHeader("AI advisor — recommended actions", y)
     y += 4
 
     for (const rec of data.recommendations.slice(0, 4)) {
@@ -326,34 +356,33 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
       const priorityColor: [number, number, number] =
         rec.priority === "CRITICAL"
-          ? [239, 68, 68]
+          ? PDF.ember
           : rec.priority === "HIGH"
-            ? [245, 158, 11]
-            : [100, 116, 139]
-
-      setFill(priorityColor)
-      doc.rect(margin, y, 2, 18, "F")
+            ? PDF.ochre
+            : PDF.sea
+      // Same labels as the app: MEDIUM reads "MONITOR".
+      const priorityLabel = rec.priority === "MEDIUM" ? "MONITOR" : rec.priority
 
       doc.setFontSize(7)
       doc.setFont("helvetica", "bold")
       setColor(priorityColor)
-      doc.text(rec.priority, margin + 5, y + 4)
+      doc.text(priorityLabel, margin, y + 4)
 
       doc.setFontSize(7)
       doc.setFont("helvetica", "normal")
-      setColor([100, 116, 139])
-      doc.text(rec.timeframe, margin + 30, y + 4)
+      setColor(PDF.caption)
+      doc.text(rec.timeframe, margin + 25, y + 4)
 
-      doc.setFontSize(10)
-      doc.setFont("helvetica", "bold")
-      setColor([30, 30, 30])
-      doc.text(rec.title, margin + 5, y + 9)
+      doc.setFontSize(12)
+      doc.setFont("times", "normal")
+      setColor(PDF.ink)
+      doc.text(rec.title, margin, y + 9.5)
 
       doc.setFontSize(9)
       doc.setFont("helvetica", "normal")
-      setColor([71, 85, 105])
-      const actionLines = doc.splitTextToSize(rec.action, contentWidth - 8) as string[]
-      doc.text(actionLines, margin + 5, y + 14)
+      setColor(PDF.secondary)
+      const actionLines = doc.splitTextToSize(rec.action, contentWidth - 3) as string[]
+      doc.text(actionLines, margin, y + 14)
 
       y += 14 + actionLines.length * 4 + 2
 
@@ -364,11 +393,11 @@ export function generateDailyBrief(data: BriefData): jsPDF {
         y = checkPageBreak(y, 10)
         doc.setFontSize(8)
         doc.setFont("helvetica", "bold")
-        doc.setTextColor(245, 158, 11)
+        setColor(PDF.ochre)
         doc.text(
           `Financial impact: ${formatPDFCurrency(costMatch.revenueAtRiskLow)}–${formatPDFCurrency(costMatch.revenueAtRiskHigh)} at risk · ` +
           `${formatPDFCurrency(costMatch.mitigationCost)} mitigation (${costMatch.mitigationAction})`,
-          margin + 5,
+          margin,
           y
         )
         y += 5
@@ -388,8 +417,8 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     y = checkPageBreak(y, 30)
     y = addSectionHeader(
       data.profile
-        ? "Top Events — Filtered for Your Supply Chain"
-        : "Top Events — Critical & Warning",
+        ? "Top events — filtered for your supply chain"
+        : "Top events — critical and warning",
       y,
     )
     y += 4
@@ -397,43 +426,42 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     for (const event of topEvents) {
       y = checkPageBreak(y, 16)
 
-      const sevColor: [number, number, number] =
-        event.severity === 3 ? [239, 68, 68] : [245, 158, 11]
-      const sevLabel = event.severity === 3 ? "CRITICAL" : "WARNING"
+      // Critical: white on ember. Warning: ochre on ochre tint (as in the app).
+      const isCritical = event.severity === 3
+      const sevLabel = isCritical ? "CRITICAL" : "WARNING"
 
-      setFill(sevColor)
-      doc.roundedRect(margin, y - 3, 18, 5, 1, 1, "F")
+      setFill(isCritical ? PDF.ember : PDF.ochreTint)
+      doc.roundedRect(margin, y - 3, 18, 5, 2.5, 2.5, "F")
       doc.setFontSize(6)
       doc.setFont("helvetica", "bold")
-      doc.setTextColor(255, 255, 255)
+      if (isCritical) doc.setTextColor(255, 255, 255)
+      else setColor(PDF.ochre)
       doc.text(sevLabel, margin + 9, y + 0.5, { align: "center" })
 
       doc.setFontSize(7)
       doc.setFont("helvetica", "normal")
-      setColor([100, 116, 139])
+      setColor(PDF.caption)
       doc.text(`${event.category} · ${event.region}`, margin + 21, y)
 
       if (event.isProfileMatch) {
-        setFill([34, 211, 238])
-        doc.roundedRect(margin + 68, y - 3, 20, 5, 1, 1, "F")
         doc.setFontSize(6)
         doc.setFont("helvetica", "bold")
-        setColor([15, 23, 42])
-        doc.text("RELEVANT", margin + 78, y + 0.5, { align: "center" })
+        setColor(PDF.ember)
+        doc.text("YOUR NETWORK", margin + 70, y)
       }
 
       y += 5
 
       doc.setFontSize(9)
       doc.setFont("helvetica", "bold")
-      setColor([30, 30, 30])
+      setColor(PDF.ink)
       const titleLines = doc.splitTextToSize(event.title, contentWidth - 4) as string[]
       doc.text(titleLines, margin + 2, y)
       y += titleLines.length * 4
 
       doc.setFontSize(7)
       doc.setFont("helvetica", "normal")
-      setColor([148, 163, 184])
+      setColor(PDF.caption)
       doc.text(event.sourceDomain || "Source unavailable", margin + 2, y)
       y += 6
     }
@@ -450,23 +478,23 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
   if (historicalEntries.length > 0) {
     y = checkPageBreak(y, 20)
-    y = addSectionHeader("Historical Context — Recent Past Events", y)
+    y = addSectionHeader("Historical context — recent past events", y)
     y += 4
 
     historicalEntries.forEach(entry => {
       y = checkPageBreak(y, 8)
       const sevColor: [number, number, number] =
-        entry.severityLabel === "CRITICAL" ? [239, 68, 68] : [245, 158, 11]
+        entry.severityLabel === "CRITICAL" ? PDF.ember : PDF.ochre
       doc.setFontSize(7)
       doc.setFont("helvetica", "bold")
       setColor(sevColor)
       doc.text(`[${entry.severityLabel}]`, margin + 2, y)
       doc.setFont("helvetica", "normal")
-      setColor([100, 116, 139])
+      setColor(PDF.caption)
       doc.text(`${entry.date} · ${entry.category}`, margin + 22, y)
       y += 4
       doc.setFontSize(8)
-      setColor([30, 30, 30])
+      setColor(PDF.ink)
       const titleLines = doc.splitTextToSize(entry.title, contentWidth - 6) as string[]
       doc.text(titleLines, margin + 4, y)
       y += titleLines.length * 3.5 + 3
@@ -479,28 +507,29 @@ export function generateDailyBrief(data: BriefData): jsPDF {
 
   if (data.commodityPrices.length > 0) {
     y = checkPageBreak(y, 30)
-    y = addSectionHeader("Market Snapshot — Commodity Prices", y)
+    y = addSectionHeader("Market snapshot — commodity prices", y)
     y += 4
 
     for (const commodity of data.commodityPrices) {
       y = checkPageBreak(y, 10)
 
-      const trendArrow =
-        commodity.trend === "up" ? "▲" : commodity.trend === "down" ? "▼" : "→"
+      // Signed percent instead of arrows (built-in PDF fonts lack them).
+      const sign =
+        commodity.trend === "up" ? "+" : commodity.trend === "down" ? "-" : ""
       const trendColor: [number, number, number] =
         commodity.trend === "up"
-          ? [239, 68, 68]
+          ? PDF.ember
           : commodity.trend === "down"
-            ? [34, 197, 94]
-            : [100, 116, 139]
+            ? PDF.sea
+            : PDF.caption
 
       doc.setFontSize(9)
       doc.setFont("helvetica", "bold")
-      setColor([30, 30, 30])
+      setColor(PDF.ink)
       doc.text(commodity.name, margin + 2, y)
 
       doc.setFont("helvetica", "normal")
-      setColor([71, 85, 105])
+      setColor(PDF.secondary)
       doc.text(
         `${commodity.currentValue.toLocaleString()} ${commodity.unit}`,
         margin + 50,
@@ -510,7 +539,7 @@ export function generateDailyBrief(data: BriefData): jsPDF {
       doc.setFont("helvetica", "bold")
       setColor(trendColor)
       doc.text(
-        `${trendArrow} ${Math.abs(commodity.changePercent).toFixed(1)}%`,
+        `${sign}${Math.abs(commodity.changePercent).toFixed(1)}%`,
         margin + 110,
         y,
       )
@@ -529,12 +558,11 @@ export function generateDailyBrief(data: BriefData): jsPDF {
     doc.setPage(i)
     doc.setFontSize(7)
     doc.setFont("helvetica", "normal")
-    setColor([148, 163, 184])
+    setColor(PDF.caption)
     doc.text(
-      `SCM Disruption Monitor · Data: GDELT Project · AI: Google Gemini 2.5 Flash · Generated ${new Date().toLocaleString()}`,
-      pageWidth / 2,
+      `${BRAND.name} · News data from the GDELT Project, GDACS and NOAA · AI analysis by Google Gemini · Generated ${new Date().toLocaleDateString()}`,
+      margin,
       pageHeight - 8,
-      { align: "center" },
     )
     doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 8, {
       align: "right",
