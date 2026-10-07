@@ -1,8 +1,14 @@
-# SCM Disruption Monitor
+# Foreglow
 
-> Supply chain risk intelligence — live disruption signals scored against your own supplier network
+> Supply chain risk intelligence. See it coming.
 
-**[Live demo](https://scm-disruption-monitor.vercel.app)** · Next.js 14 + Vercel
+Foreglow reads the news, weather and trade policy that touch your suppliers, then shows
+which products are exposed and what to do next.
+
+Formerly SCM Disruption Monitor. "Foreglow" is a working name; the repository and the
+deployment URL keep their original names.
+
+**[Live app](https://scm-disruption-monitor.vercel.app)** · Next.js 14 + Vercel
 
 ## What it does
 
@@ -27,7 +33,7 @@ Every source is free and requires no paid account.
 | NOAA / NWS | US weather warnings, filtered to genuinely disruptive types | no |
 | Yahoo Finance | Commodity futures and FX rates | no |
 | USITC HTS | Duty-rate lookup by HS code | no |
-| US Treasury OFAC | Supplier name screening against the SDN list | no |
+| US Treasury OFAC | Supplier name screening against the SDN list (built, currently disabled behind a feature flag) | no |
 | Google Gemini | AI summaries, advisor, chat, scenario analysis | yes (free tier) |
 | Supabase | Auth and cross-device persistence | yes (free tier) |
 
@@ -56,7 +62,8 @@ supply chain graph rather than the model guessing at them.
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 14 (App Router, TypeScript strict) |
-| Styling | Tailwind CSS |
+| Styling | Tailwind CSS with the First Light design tokens (`lib/ui.ts`, `lib/brand.ts`) |
+| Type | Newsreader (headings) + Public Sans (UI) via `next/font/google` |
 | Map | react-simple-maps |
 | Charts | Recharts |
 | AI | Google Gemini 2.5 Flash (`@google/genai`), with Google Search grounding |
@@ -98,5 +105,4 @@ casually, and the known-issues list. Read it before making changes.
 
 ## About
 
-A portfolio project pairing supply chain management domain knowledge with full-stack
-development and applied AI. Not financial advice.
+Built by Balraj Kooner. Not financial advice.

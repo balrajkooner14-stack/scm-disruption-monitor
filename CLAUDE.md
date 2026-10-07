@@ -1,18 +1,24 @@
-# SCM Disruption Monitor — Project Memory
+# Foreglow (formerly SCM Disruption Monitor) — Project Memory
 
 ## What this project is
 Full-stack Next.js 14 (App Router, TypeScript) supply chain risk monitoring dashboard.
-Portfolio project for a Supply Chain Management master's student with a systematic 
-trading and financial markets background.
+Product name: **Foreglow** (working name, not yet legally cleared — every user-visible
+occurrence comes from lib/brand.ts so a rename is a one-file change). The repo name,
+npm package name, Vercel URL, Supabase tables and scm_* localStorage keys all keep
+their original "scm" names on purpose. Aimed at operations and procurement leads at
+mid-sized importers; built by a Supply Chain Management master's student with a
+systematic trading and financial markets background.
 
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v4.9 live
+- Status: v5.0 (First Light redesign + Foreglow rebrand) committed on branch
+  feat/first-light-redesign, not yet merged or deployed — production is v4.9 until it is
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
-- Styling: Tailwind CSS
+- Styling: Tailwind CSS with First Light design tokens (see "Design system (First Light)")
+- Fonts: Newsreader (serif headings/numbers) + Public Sans (UI) via next/font/google
 - Map: react-simple-maps (world heatmap)
 - News API: GDELT DOC 2.0 — https://api.gdeltproject.org/api/v2/doc/doc (FREE, no key)
 - AI summary: Google Gemini API — model: gemini-2.5-flash — env var: GEMINI_API_KEY
@@ -44,6 +50,9 @@ trading and financial markets background.
   /signup/page.tsx                → Supabase sign up with confirm password (force-dynamic)
   /profile/page.tsx               → 5-step company profile form (force-dynamic)
   /scenarios/page.tsx             → Standalone scenario planner page
+  icon.svg                        → Favicon/app icon: small Foreglow mark (paper square, half sun, horizon) (v5.0)
+  layout.tsx                      → Root layout: Newsreader + Public Sans fonts, BRAND metadata, light-only
+                                    viewport colorScheme (v5.0)
   /api/analyze/route.ts           → Gemini AI summary (profile-aware, 10min cache)
   /api/advisor/route.ts           → Proactive AI recommendations (profile + events, 10min cache). Prompt now
                                     includes a computed MULTI-TIER DEPENDENCY IMPACT section (buildGraph +
@@ -69,46 +78,61 @@ trading and financial markets background.
                                     finding when search turns up nothing specific.
 
 /components
-  Navbar.tsx                      → Sticky nav: logo, LIVE indicator, clock, profile button, dark mode,
-                                    auth state (Sign in/Sign up for guests; email + Sign out when logged in)
-  AIInsightPanel.tsx              → Gemini AI summary panel (profile-aware, 10min cache)
-  DashboardClient.tsx             → 5-tab hub: Overview / Advisor / Scenarios / Analytics / History.
+  ui/Logo.tsx                     → Foreglow logo: half-sun mark + Newsreader wordmark (v5.0)
+  SiteFooter.tsx                  → Shared footer with GDELT attribution (licence requirement) (v5.0)
+  MarketRow.tsx                   → Shared commodity/currency row + formatSignedPercent/changeClass (v5.0)
+  Navbar.tsx                      → Sticky header: Logo, company/profile link, static AI-status dot, date+time
+                                    (30s tick, set after mount), auth state. No dark toggle (light-only, v5.0)
+  AIInsightPanel.tsx              → "Today's brief": computed headline (relevant/critical counts) + AI summary
+                                    points split client-side into title + body. onSummaryLoaded still gets the
+                                    original unsplit strings (the PDF uses them) (v5.0)
+  DashboardClient.tsx             → 5-tab hub: Overview / Advisor / Scenarios / Analytics / History. Order:
+                                    notice → brief → KPI row → underline tab bar (with event count + Export daily
+                                    brief on the right) → tab content. Advisor is a 12-col grid (8 + 4 sidebar) (v5.0).
                                     switchTab custom event listener. DisruptionUpdatePrompt + PerformanceAlertBanner on Overview.
   KPIBar.tsx                      → KPI cards (profile-aware: events affecting you, risk region). Card 4 priority
                                     chain (v4.3): inventory critical > concentration risk > single points of
                                     failure > inventory warning > network HHI > data window.
-  WorldMap.tsx                    → Choropleth heatmap (supplier countries highlighted cyan #22d3ee, tier-2
-                                    sub-supplier countries violet #a78bfa, "INDIRECT EXPOSURE via X" hover text — v4.0)
+  WorldMap.tsx                    → Choropleth heatmap on the First Light heat ramp (COLOR.heat0-3). Supplier
+                                    countries ink, tier-2 countries a diagonal hatch pattern (url(#tier2Hatch)),
+                                    "indirect exposure via X" hover text. Selecting a region dims the others to
+                                    40% opacity instead of recolouring it (v5.0)
   DisruptionFeed.tsx              → Event cards with relevance scores, search, sort toggle, click-to-expand brief
   EventBriefPanel.tsx             → Expandable per-event AI brief: impact badge, explanation, recommendation
-  DailyBriefButton.tsx            → PDF export trigger: loading state, success flash, auto-named download
-  CategoryChart.tsx               → Bar chart: events by category (recharts)
+  DailyBriefButton.tsx            → PDF export trigger: loading state, success flash, foreglow-brief-{company}-{date}.pdf
   AIAdvisor.tsx                   → Proactive AI recommendations panel (collapsible cards)
-  AIChatPanel.tsx                 → Floating chat bubble, streaming multi-turn AI chat
+  AIChatPanel.tsx                 → Floating "Ask the analyst" launcher (kept floating on purpose in v5.0), streaming
+                                    multi-turn AI chat, "/" shortcut
   ScenarioPlanner.tsx             → What-if scenario form + streaming analysis output
   SupplyChainNetworkGraph.tsx     → SVG dependency-graph diagram (v4.3): tier-2 suppliers -> suppliers -> raw
                                     materials -> product lines -> demand. Click a supplier/tier-2 node to
                                     highlight its downstream cascade (traverseDownstream). Includes a "Simulated
                                     Disruption Risk" section (Monte Carlo network-exposure %, not a stockout-date
-                                    forecast). Rendered on the Scenarios tab above ScenarioPlanner.
+                                    forecast). Rendered on the Scenarios tab above ScenarioPlanner. Returns two
+                                    cards (network, simulated risk); simulation rows sorted by exposure (v5.0).
   ScenarioPageClient.tsx          → Client wrapper for /scenarios page
   ProfilePromptModal.tsx          → First-visit modal prompting profile setup
-  AnalyticsTab.tsx                → Analytics tab: CategoryChart + CommodityChart + FreightRateCard
+  AnalyticsTab.tsx                → Analytics tab: "Events by category" strip (today's counts + 7-day trend
+                                    sparklines, merged from the old bar chart + trend cards; CategoryChart.tsx
+                                    deleted in v5.0), CommodityChart + CurrencyExposureCard side by side,
+                                    FreightRateCard, "How to read these indicators" <details>
   CommodityChart.tsx              → Yahoo Finance commodity sparklines (sector-relevant highlights)
   FreightRateCard.tsx             → Container freight rates by trade lane
   InventoryRiskPanel.tsx          → Product risk cards: progress bars, reorder alerts, disruption indicators.
-                                    Amber warning on cards still defaulting to highest-share supplier.
+                                    Ochre note on cards still defaulting to highest-share supplier.
                                     Raw materials list (name, vendor, lead time) shown per card when present (v4.1).
-                                    Single-point-of-failure badge shown when findSinglePointsOfFailure() flags
-                                    the product (v4.3).
-  SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, 4-column metrics row (OTD/quality/delay/lead time trend),
+                                    Single-point-of-failure shown as a plain text line when
+                                    findSinglePointsOfFailure() flags the product (v4.3; boxed badge removed v5.0).
+                                    One ember "N products need a reorder today" banner — the only tinted-ember
+                                    surface in the app (v5.0).
+  SupplierHealthScorecard.tsx     → Supplier score cards with grade badges, 2×2 metrics grid in the Advisor sidebar (OTD/quality/delay/lead time trend),
                                     inline edit forms, OTD+quality alert triggering, lead time recording on save
   CostImpactPanel.tsx             → Financial impact panel: 3-metric display, urgency bar, lazy-fetch on first open
   ConcentrationRiskCard.tsx       → HHI score card with scale bar, country/region breakdown, recommendation panel
-  DisruptionHistoryTab.tsx        → History tab: timeline by month, severity dots, filter pills, Export CSV, Clear
-  PerformanceAlertBanner.tsx      → Dismissible amber alert banner on Overview tab for OTD/quality/lead time crossings.
+  DisruptionHistoryTab.tsx        → History tab: one table per month (date/severity/category/region/event, expandable rows), filter pills, Export CSV, two-step Clear
+  PerformanceAlertBanner.tsx      → Dismissible alert banner (warning chip) on Overview tab for OTD/quality/lead time crossings.
                                     Listens for "performanceAlertCreated" window event to refresh.
-  DisruptionUpdatePrompt.tsx      → Blue banner on Overview: detects new critical events in supplier regions since
+  DisruptionUpdatePrompt.tsx      → Banner on Overview: detects new critical events in supplier regions since
                                     last visit. Once-per-day dismissal. "Review AI recommendations" fires switchTab event.
   ImportProfileFlow.tsx           → 4-step import flow: drag-and-drop upload → AI processing → editable review
                                     with confidence indicators → confirm and save to Supabase or localStorage
@@ -143,6 +167,10 @@ trading and financial markets background.
   TariffRateBadge.tsx             → Self-fetching HTS duty rate badge (v4.0) shown on product cards with hsCode set
 
 /lib
+  brand.ts                        → BRAND (name, descriptor, tagline, description) + COLOR (raw hex for SVG,
+                                    Recharts, jsPDF). Single source of truth for the product name (v5.0)
+  ui.ts                           → First Light class recipes (card, h1-h3, buttons, inputs, chips, pills,
+                                    skeleton, errorBox). tailwind.config.ts scans lib/ so these aren't purged (v5.0)
   types.ts                        → DisruptionEvent, DisruptionCategory
   fetchDisruptions.ts             → GDELT fetcher (3 queries, OR clauses parenthesized — GDELT rejects
                                     unparenthesized OR syntax outright) run sequentially with a 6s gap
@@ -220,7 +248,9 @@ trading and financial markets background.
                                     — no per-product consumption-rate data exists to compute that honestly).
                                     Verified against a fixture script (matching the roadmap notes' Nittobo -> SuppB
                                     -> ProdA sketch) before being wired into any UI or API route.
-  generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief()
+  generateBrief.ts                → jsPDF layout engine: BriefData interface, generateDailyBrief(). First Light
+                                    palette (PDF constant), ink header band with vector logo mark, Times headings,
+                                    signed percentages instead of arrows (built-in fonts can't encode them) (v5.0)
   inventoryRisk.ts                → Risk calculation engine: calculateInventoryRisk(), getDaysSinceDate(), getInventoryBarColor().
                                     Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
                                     ProductRisk now includes supplierAssigned boolean, backupSupplier (v4.0,
@@ -382,6 +412,47 @@ Retries and backoff do not fix this; the per-query cache and ISR do.
 - Always run: npm run build before declaring any change done
 - Commit format: git commit -m "feat: [description]"
 - Do NOT modify /lib/profile.ts, /lib/scoreEvents.ts, /lib/gemini.ts, or any API routes without explicit instruction
+
+## Design system (First Light)
+Light-only, warm paper ground, dark ink text, editorial serif headings, one signal colour.
+Full spec: docs/superpowers/specs/2026-10-06-first-light-redesign.md (reference mockups beside it).
+
+| Token (Tailwind) | Hex | Use |
+| --- | --- | --- |
+| paper / paper-raised / paper-sunk | #F4EFE6 / #FBF8F2 / #EFE7D9 | Page / cards, header, footer / tracks, skeletons |
+| surface | #FFFFFF | Inner cards, inputs, the most important card in a group |
+| ink / ink-2 / ink-3 | #1B2330 / #3E4955 / #5A6470 | Primary text / body / captions (never lighter than ink-3 for text) |
+| line / line-soft / line-strong / line-control | #DDD5C6 / #E6DFD2 / #C9C0AF / #8A8272 | Card borders / dividers / button borders / form-field borders |
+| ember / ember-deep / ember-tint / ember-line | #B04A22 / #8A3A1A / #F6E1D6 / #E8B9A2 | The signal colour: critical chips, key numbers, primary CTA, active tab |
+| dawn | #E0A077 | Decorative only (logo arc, thin rules). Never text |
+| ochre / ochre-tint | #6E4B0C / #F3E6C8 | Warning |
+| sea / sea-deep / sea-tint | #4F6B78 / #33505C / #E3EAEC | Monitor, "falling" trends |
+| moss / moss-deep / moss-tint | #3F6B4C / #2F5A3C / #DCE5DE | Positive |
+| ai / ai-tint | #7A4A1A / #F7EBDD | "AI-sourced" chip |
+| heat-0..3 | #E6DFD2 #F0CFB6 #E3A27E #C8704A | Map and intensity ramps only |
+
+Rules:
+- Styling goes through lib/ui.ts recipes and the tokens above only. Raw hex (SVG attributes,
+  Recharts props, jsPDF) comes from COLOR in lib/brand.ts. Do not invent colours.
+- Never use Tailwind palette classes (slate/gray/zinc/neutral/blue/sky/indigo/cyan/red/rose/
+  amber/orange/yellow/green/emerald/purple/violet), dark: variants, bg-black or bg-white.
+  text-white only on bg-ember chips/buttons.
+- Severity is always a word in a chip: Critical = ui.chipCritical (ember), Warning =
+  ui.chipWarning (ochre), Monitor = ui.chipMonitor (sea), Positive = ui.chipPositive (moss).
+  Advisor MEDIUM is labelled "MONITOR"; HIGH is "HIGH".
+- Ember discipline: ember marks what needs a decision. The only tinted-ember surface is the
+  Overview reorder banner (plus ui.errorBox).
+- No emoji or pictographs in UI or PDF. Allowed glyphs: → ↑ ↓ · — ✓ (and none of the arrows in
+  the PDF — jsPDF's built-in fonts can't encode them). Icons are inline stroke SVGs with
+  aria-label on icon-only buttons. Signed numbers use U+2212 for minus in the UI.
+- No coloured side/top accent borders (border-l-4, border-t-2). border-b-2 only on the active tab.
+- No animate-ping; animate-pulse only on skeleton blocks (ui.skeleton); no hover:scale.
+  Reduced-motion users get no animation (globals.css).
+- Sentence-case headings, buttons and labels; all-caps only for eyebrows and severity chips.
+  Minimum text size 12px. Newsreader for headings and big numbers, Public Sans for the rest.
+- Light-only: darkMode "class" in tailwind.config.ts (never toggled), viewport colorScheme "light".
+- Keep every honesty caveat (AI-sourced · unverified, Reference · not live, verify manually,
+  sourced footers) — restyle, never remove or soften.
 
 ## Version history
 v0.1 — Scaffold and config files
@@ -1505,7 +1576,89 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
           checks, the 60-check harness, and the production event counts
           above).
 
+v5.0 — First Light redesign + Foreglow rebrand (Oct 6, 2026). Presentation only:
+        no data, scoring, caching, prompt, API or storage behaviour changed. Built
+        from docs/superpowers/specs/2026-10-06-first-light-redesign.md and the five
+        reference mockups beside it, on branch feat/first-light-redesign, one commit
+        per phase (tokens → shell → Overview → Advisor → Scenarios → Analytics →
+        History → profile/auth/about → PDF → docs).
+        Rebrand: product name "Foreglow" (working name) everywhere user-visible, all
+          sourced from lib/brand.ts. Repo, npm package, Vercel URL, Supabase tables and
+          scm_* localStorage keys intentionally keep their old names.
+        Design system: light-only First Light tokens in tailwind.config.ts (paper/ink/
+          line/ember/ochre/sea/moss/ai/heat), Newsreader + Public Sans via next/font,
+          class recipes in lib/ui.ts, raw hex in COLOR (lib/brand.ts). Geist fonts,
+          favicon.ico and the dark-mode toggle were removed; app/icon.svg added. See
+          "Design system (First Light)" above for the rules.
+        Removed everywhere: emoji/pictographs, animate-ping, non-skeleton pulses,
+          hover:scale, coloured side/top accent borders, all-caps section labels.
+        Layout changes: underline tab bar with the export button on its right;
+          computed brief headline; 12-col map/feed grid; Advisor as main column +
+          sidebar; Scenarios as three full-width cards; Analytics bar chart + 7-day
+          trend cards merged into one category strip (CategoryChart.tsx deleted);
+          History as monthly tables.
+        Non-protected lib colour strings swapped to tokens (logic untouched):
+          inventoryRisk.ts (bar/urgency colours, per spec), categoryTrends.ts (per
+          spec), and — beyond the spec's list, because they returned old palette
+          classes — concentrationRisk.ts and supplierHealth.ts.
+        Deliberate deviations from the spec / mockups:
+          - Chat launcher stays floating (spec 6.6); Export daily brief sits in the
+            tab-bar row, not the header; the header company "dropdown" is a link.
+          - SupplierHealthScorecard stays in the Advisor sidebar (rows + 2×2 metrics
+            + stacked form fit ~390px). Fit at 1280px is NOT browser-verified — if it
+            clips, move it to a full-width row under the grid per spec 7.2.
+          - New shared components not named in the spec: SiteFooter.tsx (footer on /,
+            /scenarios, /about) and MarketRow.tsx (commodity/currency rows).
+          - AIInsightPanel got a third optional prop, totalCount, for the no-profile
+            headline (the spec's two props don't carry the total).
+          - Header clock, tab-bar "Updated" time and brief date are set after mount —
+            the pages are prerendered, so render-time clocks always mismatched on
+            hydration (this should also retire the v4.1 Navbar hydration warning).
+          - SPOF KPI value uses ochre (spec gives no colour for that state).
+          - Newsreader gets adjustFontFallback: false — next/font has no metrics
+            for it and logged "Failed to find font override values" every compile.
+          - Profile page: there was no back-to-dashboard link or "Clear profile"
+            button despite the spec describing both. Added the Logo + back link
+            (navigation only); did NOT add a clear button (that would be new behaviour).
+            Validation stays a single form-level error (ui.errorBox), as before.
+          - Scenario result text is formatted client-side (numbered section titles →
+            headings, "- "/"* " lines → ember bullets); "Copy analysis" still copies
+            the raw text.
+          - PDF: the old addDivider rules now render as spacing only (each section title
+            carries its own rule, so two lines stacked); footer left-aligned so it no
+            longer collides with "Page N of M"; arrows replaced by signed percents
+            because jsPDF's built-in fonts can't encode → ▲ ▼ (they printed as
+            garbage before).
+          - README keeps the line "Formerly SCM Disruption Monitor" as the spec
+            requests, so spec grep #5 has exactly that one intended hit.
+        Verified: npm run lint (only the 3 pre-existing exhaustive-deps warnings),
+          npm run build and npm run verify after every phase; all six section-12
+          greps clean (bar the README line above); text-white only on ember; every
+          route returns 200 with the right <title>; the PDF was generated in Node
+          from fixture data and rendered to PNG (pdftoppm) and inspected — header
+          band + logo mark, Times headings, chip colours, footer.
+        NOT verified (Chrome extension refused to drive the page again): every
+          browser check in spec section 12 — visual comparison with the mockups at
+          1440/1280px, no horizontal scroll, KPI/map/feed filters, Why-this-matters,
+          tab switching + switchTab links, advisor expand + cost estimate, supplier
+          health log/save, a real scenario run, history filters/expand/CSV, PDF
+          download in the browser, chat open/send/close + "/", no-profile modal,
+          loading/error states, /profile all 5 steps + import dropzone, keyboard
+          focus rings, console errors/hydration warnings, OS dark mode still light.
+          The LaborCalendarCard is dormant until ~Jan 2028; use the v4.7 trick
+          (temporarily widen the window) to see its restyle.
+
 ## Known issues / next session notes
+- v5.0 NOT VERIFIED IN A BROWSER: the Chrome extension again refused to drive
+  the page (navigation reported success, tab stayed blank). Lint/build/verify,
+  all six section-12 greps, an HTTP smoke test of every route and a rendered
+  PNG of the PDF passed; every interactive/visual check in section 12 of the
+  spec still needs a manual pass (list in the v5.0 history entry).
+- v5.0: one transient "fetch failed / other side closed" + "failed to pipe
+  response" on the first cold dev render of / (179s, then 500). A second pass
+  of every route was clean (200s, no new errors). The error never named a
+  font, so it was attributed to an upstream data fetch, but the root cause
+  was not proven. Watch for it on the Vercel preview.
 - v4.9 KNOWN ISSUE, live in production: keyword matching uses a LEADING word
   boundary, so "bankruptcy" matches `\bban` and "portal" matches `\bport`.
   Confirmed live: "Spiking US diesel prices increase surcharges, truck
@@ -1679,6 +1832,18 @@ v4.9 — Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
       soft-throttle detection, ISR revalidation (Sep 2026)
 - [x] Trade-press RSS as primary source for Port/Tariff/Labor/Geopolitical,
       word-boundary category and severity matching (Sep 2026)
+- [x] First Light redesign + Foreglow rebrand (v5.0, Oct 2026)
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
+- [ ] Inventory numbers disagree between panels: Inventory cards decay days-of-cover by
+      time since the profile was updated (0 days after 76 days), while the Advisor prompt
+      uses the raw profile figure. Aligning them touches app/api/advisor/route.ts (protected).
+- [ ] Header "Ask the analyst" button (mockup) instead of the floating launcher — needs a
+      small event bridge between Navbar and AIChatPanel.
+- [ ] "Export daily brief" in the header (mockup) instead of the tab-bar row.
+- [ ] Company switcher dropdown in the header (only one profile exists today, so it's a link).
+- [ ] Dark theme built from the same tokens.
+- [ ] Mobile-specific layouts.
+- [ ] Marketing site (landing page, pricing) on the same design system.
+- [ ] Name clearance: USPTO search and domain for "Foreglow" (lib/brand.ts makes a rename cheap).
