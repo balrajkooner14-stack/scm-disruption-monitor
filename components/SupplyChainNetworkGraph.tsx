@@ -11,6 +11,8 @@ import {
   GraphNode,
   GraphNodeType,
 } from "@/lib/supplyChainGraph"
+import { COLOR } from "@/lib/brand"
+import { ui } from "@/lib/ui"
 
 interface SupplyChainNetworkGraphProps {
   events: ScoredEvent[]
@@ -18,10 +20,10 @@ interface SupplyChainNetworkGraphProps {
 
 const COLUMN_ORDER: GraphNodeType[] = ["tier2-supplier", "supplier", "raw-material", "product-line", "demand"]
 const COLUMN_LABELS: Record<GraphNodeType, string> = {
-  "tier2-supplier": "Tier-2 Suppliers",
+  "tier2-supplier": "Tier-2 suppliers",
   supplier: "Suppliers",
-  "raw-material": "Raw Materials",
-  "product-line": "Product Lines",
+  "raw-material": "Raw materials",
+  "product-line": "Product lines",
   demand: "Demand",
 }
 const COL_WIDTH = 210
@@ -84,164 +86,182 @@ export default function SupplyChainNetworkGraph({ events }: SupplyChainNetworkGr
   if (!isLoaded || !profile || !graph || !layout) return null
   if (profile.suppliers.length === 0 || profile.productLines.length === 0) return null
 
+  // Display order only: highest exposure first.
+  const sortedSimulation = simulation
+    .slice()
+    .sort((a, b) => b.networkDisruptionProbabilityPercent - a.networkDisruptionProbabilityPercent)
+
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-lg">🕸️</span>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-          Supply Chain Network
-        </h2>
-      </div>
-      <p className="text-xs text-slate-500 mb-4">
-        Click any supplier or sub-supplier to see what it would take down downstream —
-        {" "}<span className="text-red-400">red</span> nodes are in a region with an active disruption right now.
-      </p>
-
-      <div className="overflow-x-auto">
-        <svg
-          width={layout.width}
-          height={layout.height}
-          viewBox={`0 0 ${layout.width} ${layout.height}`}
-          className="min-w-full"
-        >
-          <defs>
-            <marker id="scg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
-            </marker>
-            <marker id="scg-arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
-            </marker>
-          </defs>
-
-          {layout.activeColumns.map((type, i) => (
-            <text
-              key={type}
-              x={i * COL_WIDTH + COL_WIDTH / 2}
-              y={16}
-              textAnchor="middle"
-              className="fill-slate-500"
-              fontSize={10}
-              letterSpacing={0.5}
-            >
-              {COLUMN_LABELS[type].toUpperCase()}
-            </text>
-          ))}
-
-          {graph.edges.map((edge, i) => {
-            const from = layout.positions.get(edge.from)
-            const to = layout.positions.get(edge.to)
-            if (!from || !to) return null
-            const inCascade = !!selection && selection.visited.has(edge.from) && selection.visited.has(edge.to)
-            return (
-              <line
-                key={i}
-                x1={from.x + NODE_W / 2}
-                y1={from.y}
-                x2={to.x - NODE_W / 2}
-                y2={to.y}
-                stroke={inCascade ? "#f59e0b" : "#475569"}
-                strokeWidth={inCascade ? 2 : 1.25}
-                opacity={selection && !inCascade ? 0.25 : 1}
-                markerEnd={inCascade ? "url(#scg-arrow-active)" : "url(#scg-arrow)"}
-              />
-            )
-          })}
-
-          {Array.from(graph.nodes.values()).map(node => {
-            const pos = layout.positions.get(node.id)
-            if (!pos) return null
-            const isSelectable = node.type === "supplier" || node.type === "tier2-supplier"
-            const isDisrupted = !!node.region && !!hasDisruptionByRegion[node.region]
-            const isSelected = node.id === selectedNodeId
-            const inCascade = !!selection && selection.visited.has(node.id) && !isSelected
-            const dimmed = !!selection && !selection.visited.has(node.id)
-
-            let fill = "#1e293b"
-            let stroke = "#475569"
-            if (isDisrupted) { fill = "#450a0a"; stroke = "#dc2626" }
-            if (inCascade) { fill = "#451a03"; stroke = "#f59e0b" }
-            if (isSelected) { stroke = "#3b82f6" }
-
-            return (
-              <g
-                key={node.id}
-                onClick={() => isSelectable && setSelectedNodeId(prev => (prev === node.id ? null : node.id))}
-                className={isSelectable ? "cursor-pointer" : ""}
-                opacity={dimmed ? 0.35 : 1}
-              >
-                <title>{node.label}</title>
-                <rect
-                  x={pos.x - NODE_W / 2}
-                  y={pos.y - NODE_H / 2}
-                  width={NODE_W}
-                  height={NODE_H}
-                  rx={6}
-                  fill={fill}
-                  stroke={stroke}
-                  strokeWidth={isSelected ? 2.5 : 1.25}
-                />
-                <text
-                  x={pos.x}
-                  y={pos.y + 4}
-                  textAnchor="middle"
-                  fontSize={11}
-                  className="fill-slate-200 pointer-events-none select-none"
-                >
-                  {node.label.length > 22 ? `${node.label.slice(0, 21)}…` : node.label}
-                </text>
-              </g>
-            )
-          })}
-        </svg>
-      </div>
-
-      {selection && (
-        <div className="mt-3 bg-amber-950/40 border border-amber-800 rounded-lg px-3 py-2">
-          <p className="text-xs text-amber-300 font-medium mb-1">
-            If {graph.nodes.get(selectedNodeId as string)?.label} is disrupted:
-          </p>
-          {selection.paths.length > 0 ? (
-            selection.paths.map((p, i) => (
-              <p key={i} className="text-xs text-amber-500/80">{p}</p>
-            ))
-          ) : (
-            <p className="text-xs text-amber-500/80">No product line currently depends on this node.</p>
-          )}
-        </div>
-      )}
-
-      {simulation.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-slate-700">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-            Simulated Disruption Risk
-          </p>
-          <p className="text-xs text-slate-600 mb-3">
-            Monte Carlo, 1,000 trials — probability a product&apos;s supply network sees at least one
-            disrupted node, given active regional disruptions and known structural risk severity.
-            This measures network exposure frequency, not a precise stockout date — the app has no
-            per-product consumption-rate data to forecast that.
-          </p>
+    <>
+      <section className={`${ui.card} p-7 flex flex-col gap-5`}>
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-x-10 gap-y-3">
           <div className="space-y-1.5">
-            {simulation.map(s => {
-              const color =
-                s.networkDisruptionProbabilityPercent >= 50
-                  ? "text-red-400"
-                  : s.networkDisruptionProbabilityPercent >= 20
-                  ? "text-amber-400"
-                  : "text-green-400"
-              return (
-                <div key={s.productLineId} className="flex items-center justify-between text-xs bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
-                  <span className="text-slate-300">{s.productLineName}</span>
-                  <span className="flex items-center gap-2">
-                    {s.bufferIsTight && <span className="text-amber-500">buffer already tight ·</span>}
-                    <span className={`font-bold ${color}`}>{s.networkDisruptionProbabilityPercent}% network exposure</span>
-                  </span>
-                </div>
-              )
-            })}
+            <h1 className={ui.h1}>Supply chain network</h1>
+            <p className={ui.body}>
+              Click a supplier to trace what it would take down. Outlined in ember: in a region
+              with an active disruption.
+            </p>
+          </div>
+          <div className="flex gap-4 text-xs text-ink-2 flex-shrink-0">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-3.5 rounded-[3px] border-2 border-ember" aria-hidden="true" />
+              Disrupted region
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-3.5 rounded-[3px] bg-ink" aria-hidden="true" />
+              Selected path
+            </span>
           </div>
         </div>
+
+        <div className="overflow-x-auto">
+          <svg
+            width={layout.width}
+            height={layout.height}
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
+            className="min-w-full"
+            role="img"
+            aria-label="Supply chain dependency diagram"
+          >
+            <defs>
+              <marker id="scg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={COLOR.lineStrong} />
+              </marker>
+              <marker id="scg-arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={COLOR.ink} />
+              </marker>
+            </defs>
+
+            {layout.activeColumns.map((type, i) => (
+              <text
+                key={type}
+                x={i * COL_WIDTH + COL_WIDTH / 2}
+                y={16}
+                textAnchor="middle"
+                fill={COLOR.ink3}
+                fontSize={12}
+                letterSpacing={1.4}
+              >
+                {COLUMN_LABELS[type].toUpperCase()}
+              </text>
+            ))}
+
+            {graph.edges.map((edge, i) => {
+              const from = layout.positions.get(edge.from)
+              const to = layout.positions.get(edge.to)
+              if (!from || !to) return null
+              const inCascade = !!selection && selection.visited.has(edge.from) && selection.visited.has(edge.to)
+              return (
+                <line
+                  key={i}
+                  x1={from.x + NODE_W / 2}
+                  y1={from.y}
+                  x2={to.x - NODE_W / 2}
+                  y2={to.y}
+                  stroke={inCascade ? COLOR.ink : COLOR.lineStrong}
+                  strokeWidth={inCascade ? 2.5 : 1.5}
+                  opacity={selection && !inCascade ? 0.25 : 1}
+                  markerEnd={inCascade ? "url(#scg-arrow-active)" : "url(#scg-arrow)"}
+                />
+              )
+            })}
+
+            {Array.from(graph.nodes.values()).map(node => {
+              const pos = layout.positions.get(node.id)
+              if (!pos) return null
+              const isSelectable = node.type === "supplier" || node.type === "tier2-supplier"
+              const isDisrupted = !!node.region && !!hasDisruptionByRegion[node.region]
+              const isSelected = node.id === selectedNodeId
+              const inCascade = !!selection && selection.visited.has(node.id) && !isSelected
+              const dimmed = !!selection && !selection.visited.has(node.id)
+              const isDemand = node.type === "demand"
+
+              const dark = inCascade || isSelected
+              const fill = isDemand ? COLOR.paperSunk : dark ? COLOR.ink : COLOR.surface
+              const stroke = isDemand ? "none" : isDisrupted ? COLOR.ember : dark ? COLOR.ink : COLOR.line
+              const strokeWidth = isDisrupted ? 2 : 1.5
+
+              return (
+                <g
+                  key={node.id}
+                  onClick={() => isSelectable && setSelectedNodeId(prev => (prev === node.id ? null : node.id))}
+                  className={isSelectable ? "cursor-pointer" : ""}
+                  opacity={dimmed ? 0.35 : 1}
+                >
+                  <title>{node.label}</title>
+                  <rect
+                    x={pos.x - NODE_W / 2}
+                    y={pos.y - NODE_H / 2}
+                    width={NODE_W}
+                    height={NODE_H}
+                    rx={8}
+                    fill={fill}
+                    stroke={stroke}
+                    strokeWidth={strokeWidth}
+                  />
+                  <text
+                    x={pos.x}
+                    y={pos.y + 4}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fontWeight={dark ? 600 : 400}
+                    fill={dark && !isDemand ? COLOR.onInk : COLOR.ink}
+                    className="pointer-events-none select-none"
+                  >
+                    {node.label.length > 22 ? `${node.label.slice(0, 21)}…` : node.label}
+                  </text>
+                </g>
+              )
+            })}
+          </svg>
+        </div>
+
+        {selection && (
+          <div className={`${ui.cardInner} px-5 text-[15px] leading-relaxed text-ink-2`}>
+            <p className="font-semibold text-ink">
+              If {graph.nodes.get(selectedNodeId as string)?.label} goes down:
+            </p>
+            {selection.paths.length > 0 ? (
+              selection.paths.map((p, i) => <p key={i}>{p}</p>)
+            ) : (
+              <p>No product line currently depends on this node.</p>
+            )}
+          </div>
+        )}
+      </section>
+
+      {sortedSimulation.length > 0 && (
+        <section className={`${ui.card} p-7 flex flex-col gap-4`}>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-x-10 gap-y-1">
+            <h2 className={ui.h2}>Simulated disruption risk</h2>
+            <p className={`${ui.meta} max-w-2xl md:text-right`}>
+              Monte Carlo, 1,000 trials — probability a product&apos;s supply network sees at least one
+              disrupted node, given active regional disruptions and known structural risk severity.
+              This measures network exposure frequency, not a precise stockout date — the app has no
+              per-product consumption-rate data to forecast that.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr_180px] items-center gap-x-5 gap-y-3.5 text-[15px]">
+            {sortedSimulation.map(s => (
+              <div key={s.productLineId} className="contents">
+                <span className="font-semibold text-ink">{s.productLineName}</span>
+                <div className="h-2.5 rounded-full bg-paper-sunk overflow-hidden">
+                  <div
+                    className={`h-2.5 rounded-full ${s.bufferIsTight ? "bg-ember" : "bg-heat-3"}`}
+                    style={{ width: `${s.networkDisruptionProbabilityPercent}%` }}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-ink tabular-nums">
+                    {s.networkDisruptionProbabilityPercent}% exposure
+                  </span>
+                  {s.bufferIsTight && <span className="text-xs text-ember">buffer already tight</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
-    </div>
+    </>
   )
 }
