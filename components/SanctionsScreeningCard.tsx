@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import type { SanctionsMatch } from "@/lib/sanctionsScreening"
+import { ui } from "@/lib/ui"
 
 export default function SanctionsScreeningCard() {
   const { profile, isLoaded } = useCompanyProfile()
@@ -39,59 +40,43 @@ export default function SanctionsScreeningCard() {
   const matchedIds = new Set((matches ?? []).map(m => m.supplierId))
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-lg">🔍</span>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-          Sanctions Screening
-        </h2>
+    <section className={`${ui.card} flex flex-col gap-3`}>
+      <div className="space-y-1">
+        <h2 className={ui.h3}>Sanctions screening</h2>
+        <p className={ui.meta}>
+          Checks your suppliers&apos; names against the US Treasury OFAC Specially
+          Designated Nationals (SDN) list.
+        </p>
       </div>
-      <p className="text-xs text-slate-500 mb-4">
-        Checks your suppliers&apos; names against the US Treasury OFAC Specially
-        Designated Nationals (SDN) list.
-      </p>
 
       {isLoading && (
-        <div className="space-y-2 animate-pulse">
+        <div className="space-y-2" aria-busy="true">
           {profile.suppliers.map(s => (
-            <div key={s.id} className="h-8 bg-slate-700/50 rounded-lg" />
+            <div key={s.id} className={`${ui.skeleton} h-8`} />
           ))}
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="bg-red-950/50 border border-red-800 rounded-lg p-3">
-          <p className="text-xs text-red-400">
-            Could not reach the OFAC sanctions list right now. Try refreshing.
-          </p>
-        </div>
+        <p className={ui.errorBox}>Could not reach the OFAC sanctions list right now. Try refreshing.</p>
       )}
 
       {!isLoading && !error && matches !== null && (
-        <div className="space-y-2">
+        <div>
           {profile.suppliers.map(supplier => {
             const match = matches.find(m => m.supplierId === supplier.id)
             return (
-              <div
-                key={supplier.id}
-                className={`rounded-lg px-3 py-2 border ${
-                  match
-                    ? "bg-amber-950/40 border-amber-800"
-                    : "bg-slate-900/40 border-slate-700"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-200">{supplier.name}</span>
+              <div key={supplier.id} className="py-2.5 border-t border-line-soft space-y-1">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-ink">{supplier.name}</span>
                   {match ? (
-                    <span className="text-xs font-semibold text-amber-400">
-                      ⚠ Possible match — verify manually
-                    </span>
+                    <span className={`${ui.chip} ${ui.chipWarning}`}>POSSIBLE MATCH — VERIFY MANUALLY</span>
                   ) : (
-                    <span className="text-xs text-green-400">✓ No match found</span>
+                    <span className={`${ui.chip} ${ui.chipPositive}`}>NO MATCH FOUND</span>
                   )}
                 </div>
                 {match && (
-                  <p className="text-xs text-amber-500/80 mt-1">
+                  <p className="text-xs leading-relaxed text-ochre">
                     Closest OFAC entry: &quot;{match.matchedName}&quot; — this is an
                     automated name comparison only, not a confirmed match. Verify
                     directly against the{" "}
@@ -99,7 +84,7 @@ export default function SanctionsScreeningCard() {
                       href="https://sanctionssearch.ofac.treas.gov/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline hover:text-amber-400"
+                      className="underline hover:text-ember"
                     >
                       official OFAC Sanctions Search
                     </a>{" "}
@@ -112,7 +97,7 @@ export default function SanctionsScreeningCard() {
         </div>
       )}
 
-      <p className="text-xs text-slate-600 mt-4 leading-relaxed">
+      <p className="text-xs leading-relaxed text-ink-3">
         Automated name matching against ~
         {matches ? "19,000" : "the current"} SDN entries, by name only (no
         address/country cross-check in this pass). This is a screening aid,
@@ -120,6 +105,6 @@ export default function SanctionsScreeningCard() {
         and consult counsel before acting on a possible match.
         {matchedIds.size === 0 && matches !== null && " No matches found for your current supplier list."}
       </p>
-    </div>
+    </section>
   )
 }

@@ -51,9 +51,9 @@ export function calculateConcentrationRisk(
       description: "Add at least 2 suppliers to calculate concentration risk.",
       recommendation:
         "Add more suppliers to your profile to enable risk scoring.",
-      colorClass: "text-slate-400",
-      bgClass: "bg-slate-800",
-      borderClass: "border-slate-700",
+      colorClass: "text-ink-3",
+      bgClass: "bg-paper-raised",
+      borderClass: "border-line",
       breakdown: buildBreakdown(suppliers),
       supplierCount: suppliers.length,
       hasEnoughData: false,
@@ -78,9 +78,9 @@ export function calculateConcentrationRisk(
     description = `Your supplier network has healthy diversification across ${suppliers.length} suppliers.`
     recommendation =
       "Maintain current diversification strategy and monitor lead time variability."
-    colorClass = "text-green-400"
-    bgClass = "bg-green-950"
-    borderClass = "border-green-700"
+    colorClass = "text-moss-deep"
+    bgClass = "bg-moss-tint"
+    borderClass = "border-line"
   } else if (hhi < 2500) {
     level = "moderate"
     label = "Moderate Concentration"
@@ -88,9 +88,9 @@ export function calculateConcentrationRisk(
       "Some concentration exists in your network — manageable with active monitoring."
     recommendation =
       "Consider qualifying backup suppliers in your highest-share regions."
-    colorClass = "text-amber-400"
-    bgClass = "bg-amber-950"
-    borderClass = "border-amber-700"
+    colorClass = "text-sea-deep"
+    bgClass = "bg-sea-tint"
+    borderClass = "border-line"
   } else if (hhi < 5000) {
     level = "concentrated"
     label = "High Concentration"
@@ -98,9 +98,9 @@ export function calculateConcentrationRisk(
       "Your network is concentrated — a single disruption could affect a large portion of supply."
     recommendation =
       "Prioritize supplier diversification in your top 2 supply regions."
-    colorClass = "text-orange-400"
-    bgClass = "bg-orange-950"
-    borderClass = "border-orange-700"
+    colorClass = "text-ochre"
+    bgClass = "bg-ochre-tint"
+    borderClass = "border-line"
   } else {
     level = "critical"
     label = "Critical Concentration"
@@ -108,9 +108,9 @@ export function calculateConcentrationRisk(
       "Extreme concentration — your supply chain is highly vulnerable to single-point failures."
     recommendation =
       "Immediately begin qualifying alternative suppliers to reduce single-source dependency."
-    colorClass = "text-red-400"
-    bgClass = "bg-red-950"
-    borderClass = "border-red-700"
+    colorClass = "text-ember"
+    bgClass = "bg-ember-tint"
+    borderClass = "border-ember-line"
   }
 
   return {

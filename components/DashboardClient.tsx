@@ -353,14 +353,18 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         )}
 
         {activeTab === "advisor" && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <AIAdvisor
-              events={scoredEvents}
-              onRecsLoaded={setAdvisorRecs}
-            />
-            <ConcentrationRiskCard />
-            {ENABLE_SANCTIONS_SCREENING && <SanctionsScreeningCard />}
-            <SupplierHealthScorecard events={scoredEvents} />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-8 min-w-0">
+              <AIAdvisor
+                events={scoredEvents}
+                onRecsLoaded={setAdvisorRecs}
+              />
+            </div>
+            <aside className="lg:col-span-4 flex flex-col gap-5 min-w-0">
+              <ConcentrationRiskCard />
+              {ENABLE_SANCTIONS_SCREENING && <SanctionsScreeningCard />}
+              <SupplierHealthScorecard events={scoredEvents} />
+            </aside>
           </div>
         )}
 

@@ -8,37 +8,36 @@ import type { ScoredEvent } from "@/lib/scoreEvents"
 import type { AdvisorResponse, Recommendation } from "@/app/api/advisor/route"
 import type { BriefData } from "@/lib/generateBrief"
 import CostImpactPanel from "@/components/CostImpactPanel"
+import { ui } from "@/lib/ui"
 
 interface AIAdvisorProps {
   events: ScoredEvent[]
   onRecsLoaded?: (recs: BriefData["recommendations"]) => void
 }
 
-const PRIORITY_CONFIG: Record<
-  Recommendation["priority"],
-  { bg: string; border: string; badge: string; icon: string; label: string }
-> = {
-  CRITICAL: {
-    bg: "bg-red-950",
-    border: "border-red-700",
-    badge: "bg-red-600 text-white",
-    icon: "🚨",
-    label: "CRITICAL",
-  },
-  HIGH: {
-    bg: "bg-amber-950",
-    border: "border-amber-700",
-    badge: "bg-amber-600 text-white",
-    icon: "⚠️",
-    label: "HIGH PRIORITY",
-  },
-  MEDIUM: {
-    bg: "bg-slate-800",
-    border: "border-slate-600",
-    badge: "bg-slate-600 text-slate-200",
-    icon: "📋",
-    label: "MONITOR",
-  },
+// App-wide severity system: CRITICAL → critical, HIGH → warning,
+// MEDIUM → monitor (label stays "MONITOR").
+const PRIORITY_CONFIG: Record<Recommendation["priority"], { chip: string; label: string }> = {
+  CRITICAL: { chip: ui.chipCritical, label: "CRITICAL" },
+  HIGH: { chip: ui.chipWarning, label: "HIGH" },
+  MEDIUM: { chip: ui.chipMonitor, label: "MONITOR" },
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+      className={open ? "rotate-180" : ""}
+    >
+      <path d="M6 9 L12 15 L18 9" />
+    </svg>
+  )
 }
 
 export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
@@ -108,280 +107,187 @@ export default function AIAdvisor({ events, onRecsLoaded }: AIAdvisorProps) {
   // No profile state
   if (isLoaded && !profile) {
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">🤖</span>
-          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest">
-            AI Advisor
-          </h2>
-        </div>
-        <div className="text-center py-6">
-          <p className="text-2xl mb-2">🏭</p>
-          <p className="text-slate-300 font-medium mb-1">
-            Set up your company profile
-          </p>
-          <p className="text-slate-500 text-sm mb-4">
-            Get AI-powered recommendations specific to your supply chain —
-            not generic global news.
-          </p>
-          <Link
-            href="/profile"
-            className="inline-block bg-blue-600 hover:bg-blue-500 text-white
-                       text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            Set Up My Profile →
-          </Link>
-        </div>
-      </div>
+      <section className={`${ui.card} space-y-3`}>
+        <p className={ui.eyebrow}>AI advisor</p>
+        <h1 className={ui.h1}>Recommendations</h1>
+        <p className={ui.body}>
+          Set up your company profile to get recommendations specific to your supply chain,
+          not generic global news.
+        </p>
+        <Link href="/profile" className={ui.btnAccent}>
+          Set up your profile
+        </Link>
+      </section>
     )
   }
 
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-lg">🤖</span>
-          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest">
-            AI Advisor
-          </h2>
-          <span className="text-xs text-blue-400 animate-pulse ml-2">
-            Analyzing your supply chain...
-          </span>
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div
-              key={i}
-              className="bg-slate-700/50 rounded-lg p-4 animate-pulse"
-            >
-              <div className="h-3 bg-slate-600 rounded w-1/4 mb-2" />
-              <div className="h-4 bg-slate-600 rounded w-3/4 mb-2" />
-              <div className="h-3 bg-slate-600 rounded w-full mb-1" />
-              <div className="h-3 bg-slate-600 rounded w-5/6" />
-            </div>
-          ))}
-        </div>
-      </div>
+      <section className="space-y-4" aria-busy="true">
+        <p className={ui.eyebrow}>AI advisor</p>
+        <p className={ui.meta}>Analyzing your supply chain…</p>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-surface border border-line rounded-xl p-6 space-y-3">
+            <div className={`${ui.skeleton} h-3 w-1/4`} />
+            <div className={`${ui.skeleton} h-6 w-3/4`} />
+            <div className={`${ui.skeleton} h-3 w-full`} />
+            <div className={`${ui.skeleton} h-3 w-5/6`} />
+          </div>
+        ))}
+      </section>
     )
   }
 
   // Error state
   if (error) {
     return (
-      <div className="bg-slate-800 border border-red-900 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">🤖</span>
-          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest">
-            AI Advisor
-          </h2>
-        </div>
-        <p className="text-red-400 text-sm mb-3">{error}</p>
-        <button
-          onClick={fetchRecommendations}
-          className="text-sm text-blue-400 hover:text-blue-300 underline"
-        >
+      <section className={`${ui.card} space-y-3`}>
+        <p className={ui.eyebrow}>AI advisor</p>
+        <p className={ui.errorBox}>{error}</p>
+        <button onClick={fetchRecommendations} className={ui.btnSecondary}>
           Try again
         </button>
-      </div>
+      </section>
     )
   }
 
   // Not yet loaded (profile loading, no data yet)
   if (!advisorData) return null
 
+  const count = advisorData.recommendations.length
+
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <section className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🤖</span>
-          <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest">
-            AI Advisor
-          </h2>
-          <span className="text-xs text-slate-500 ml-1">
-            for {advisorData.profileName}
-          </span>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1.5">
+          <p className={ui.eyebrow}>
+            AI advisor · {advisorData.highRelevanceCount} of {advisorData.totalEventsAnalyzed} events relevant
+          </p>
+          <h1 className={ui.h1}>
+            {count} recommendation{count === 1 ? "" : "s"} for {advisorData.profileName}
+          </h1>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">
-            {advisorData.highRelevanceCount} of {advisorData.totalEventsAnalyzed} events relevant
-          </span>
-          <button
-            onClick={fetchRecommendations}
-            className="text-xs text-slate-400 hover:text-white border border-slate-600
-                       hover:border-slate-400 rounded px-2 py-1 transition-colors"
-          >
-            ↻ Refresh
-          </button>
-        </div>
+        <button onClick={fetchRecommendations} className={ui.btnSecondary}>
+          Refresh
+        </button>
       </div>
+
+      {advisorData.isStale && (
+        <p className={`${ui.meta} flex items-center gap-2`}>
+          <span className={`${ui.chip} ${ui.chipWarning}`}>CACHED</span>
+          Showing recent analysis — refreshing when quota resets
+        </p>
+      )}
+
+      {count === 0 && (
+        <p className={`${ui.card} ${ui.emptyText}`}>
+          No recommendations right now — nothing in today&apos;s events needs action for your network.
+        </p>
+      )}
 
       {/* Recommendations */}
-      <div className="space-y-3">
-        {advisorData.recommendations.map(rec => {
-          const config = PRIORITY_CONFIG[rec.priority]
-          const isExpanded = expandedId === rec.id
+      {advisorData.recommendations.map(rec => {
+        const config = PRIORITY_CONFIG[rec.priority]
+        const isExpanded = expandedId === rec.id
 
-          return (
-            <div
-              key={rec.id}
-              className={`${config.bg} border ${config.border} rounded-lg overflow-hidden
-                         transition-all duration-200`}
-            >
-              {/* Collapsed header — always visible */}
+        return (
+          <article key={rec.id} className="bg-surface border border-line rounded-xl p-6 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className={`${ui.chip} ${config.chip}`}>{config.label}</span>
+                <span className={ui.meta}>{rec.timeframe}</span>
+              </div>
               <button
                 onClick={() => setExpandedId(isExpanded ? null : rec.id)}
-                className="w-full text-left p-4"
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? "Collapse recommendation" : "Expand recommendation"}
+                className="rounded-lg p-1.5 text-ink-3 transition-colors hover:text-ink flex-shrink-0"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                    <span className="text-base flex-shrink-0 mt-0.5">
-                      {config.icon}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded
-                                      ${config.badge}`}
-                        >
-                          {config.label}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {rec.timeframe}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-slate-100 truncate">
-                        {rec.title}
-                      </p>
-                      {!isExpanded && (
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-1">
-                          {rec.problem}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-slate-500 text-xs flex-shrink-0 mt-1">
-                    {isExpanded ? "▲" : "▼"}
-                  </span>
-                </div>
+                <Chevron open={isExpanded} />
               </button>
-
-              {/* Expanded detail */}
-              {isExpanded && (
-                <div className="px-4 pb-4 border-t border-slate-700/50 pt-3">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                        The Problem
-                      </p>
-                      <p className="text-sm text-slate-200">{rec.problem}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                        Recommended Action
-                      </p>
-                      <p className="text-sm text-slate-200">{rec.action}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                        If You Don&apos;t Act
-                      </p>
-                      <p className="text-sm text-slate-300">{rec.impact}</p>
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="flex gap-2 flex-wrap">
-                        {rec.affectedSuppliers.map(s => (
-                          <span
-                            key={s}
-                            className="text-xs bg-slate-700 text-slate-300
-                                       border border-slate-600 px-2 py-0.5 rounded-full"
-                          >
-                            📦 {s}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-slate-500">
-                        Confidence: {rec.confidenceLevel}
-                      </span>
-                    </div>
-                    {rec.relatedEventTitles.length > 0 && (
-                      <div className="pt-1 border-t border-slate-700/50">
-                        <p className="text-xs text-slate-500">
-                          Based on: {rec.relatedEventTitles[0]}
-                        </p>
-                      </div>
-                    )}
-
-                    {(() => {
-                      if (!profile) return null
-                      const affectedSupplier =
-                        profile.suppliers.find(s =>
-                          rec.affectedSuppliers.some(
-                            name =>
-                              name.toLowerCase().includes(s.name.toLowerCase()) ||
-                              s.name.toLowerCase().includes(name.toLowerCase())
-                          )
-                        ) ?? profile.suppliers[0]
-
-                      const relevantEvent =
-                        events.find(e =>
-                          rec.relatedEventTitles.some(title =>
-                            title
-                              .toLowerCase()
-                              .includes(e.title.toLowerCase().slice(0, 30))
-                          )
-                        ) ?? events[0]
-
-                      if (!affectedSupplier || !relevantEvent) return null
-
-                      const isPanelOpen = costPanelOpenId === rec.id
-
-                      return (
-                        <div className="pt-2 border-t border-slate-700/50">
-                          <button
-                            onClick={() =>
-                              setCostPanelOpenId(isPanelOpen ? null : rec.id)
-                            }
-                            className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
-                              isPanelOpen
-                                ? "bg-amber-950 border-amber-700 text-amber-400"
-                                : "bg-slate-700 border-slate-600 text-slate-300 hover:border-amber-700 hover:text-amber-400"
-                            }`}
-                          >
-                            <span>💰</span>
-                            {isPanelOpen
-                              ? "Hide cost estimate"
-                              : "View cost estimate"}
-                          </button>
-
-                          <CostImpactPanel
-                            event={relevantEvent}
-                            supplier={affectedSupplier}
-                            isVisible={isPanelOpen}
-                          />
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-              )}
             </div>
-          )
-        })}
-      </div>
+
+            <h2 className={ui.h2}>{rec.title}</h2>
+            <p className={`${ui.body} ${isExpanded ? "" : "line-clamp-2"}`}>{rec.problem}</p>
+
+            {isExpanded && (
+              <div className={`${ui.divider} pt-3 space-y-4`}>
+                <div className="space-y-1">
+                  <p className={ui.eyebrow}>Recommended action</p>
+                  <p className="text-[15px] leading-relaxed text-ink">{rec.action}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className={ui.eyebrow}>If you don&apos;t act</p>
+                  <p className={ui.body}>{rec.impact}</p>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex gap-2 flex-wrap">
+                    {rec.affectedSuppliers.map(s => (
+                      <span key={s} className={`${ui.chip} ${ui.chipNeutral}`}>{s}</span>
+                    ))}
+                  </div>
+                  <span className={ui.meta}>Confidence: {rec.confidenceLevel}</span>
+                </div>
+                {rec.relatedEventTitles.length > 0 && (
+                  <p className="text-xs text-ink-3">Based on: {rec.relatedEventTitles[0]}</p>
+                )}
+
+                {(() => {
+                  if (!profile) return null
+                  const affectedSupplier =
+                    profile.suppliers.find(s =>
+                      rec.affectedSuppliers.some(
+                        name =>
+                          name.toLowerCase().includes(s.name.toLowerCase()) ||
+                          s.name.toLowerCase().includes(name.toLowerCase())
+                      )
+                    ) ?? profile.suppliers[0]
+
+                  const relevantEvent =
+                    events.find(e =>
+                      rec.relatedEventTitles.some(title =>
+                        title
+                          .toLowerCase()
+                          .includes(e.title.toLowerCase().slice(0, 30))
+                      )
+                    ) ?? events[0]
+
+                  if (!affectedSupplier || !relevantEvent) return null
+
+                  const isPanelOpen = costPanelOpenId === rec.id
+
+                  return (
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setCostPanelOpenId(isPanelOpen ? null : rec.id)}
+                        aria-expanded={isPanelOpen}
+                        className={ui.btnPrimary}
+                      >
+                        {isPanelOpen ? "Hide cost estimate" : "View cost estimate"}
+                      </button>
+
+                      <CostImpactPanel
+                        event={relevantEvent}
+                        supplier={affectedSupplier}
+                        isVisible={isPanelOpen}
+                      />
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+          </article>
+        )
+      })}
 
       {/* Footer */}
-      {advisorData.isStale && (
-        <p className="text-xs text-slate-600 mt-1 italic">
-          ↻ Showing recent analysis — refreshing when quota resets
-        </p>
-      )}
       {lastFetched && (
-        <p className="text-xs text-slate-600 mt-3 text-right">
-          Generated {lastFetched.toLocaleTimeString()} · Powered by Gemini 2.5 Flash
+        <p className="text-xs text-ink-3">
+          Generated {lastFetched.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · Google Gemini 2.5 Flash · AI-assisted, verify before acting
         </p>
       )}
-    </div>
+    </section>
   )
 }

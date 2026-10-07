@@ -10,6 +10,20 @@ import { SupplierHealthEntry, SupplierHealthScore } from "@/lib/supplierHealth"
 import { PerformanceAlert } from "@/lib/performanceAlerts"
 import { calculateLeadTimeDrift } from "@/lib/leadTimeHistory"
 import type { ScoredEvent } from "@/lib/scoreEvents"
+import { ui } from "@/lib/ui"
+
+// App-wide severity system for grades: Excellent/Good → positive,
+// Fair → warning, Poor/Critical → critical.
+const GRADE_CHIP: Record<SupplierHealthScore["grade"], string> = {
+  Excellent: ui.chipPositive,
+  Good: ui.chipPositive,
+  Fair: ui.chipWarning,
+  Poor: ui.chipCritical,
+  Critical: ui.chipCritical,
+}
+
+// Metric value colour: good → ink, borderline → ochre, bad → ember.
+const tone = (good: boolean, ok: boolean) => (good ? "text-ink" : ok ? "text-ochre" : "text-ember")
 
 interface SupplierHealthScorecardProps {
   events: ScoredEvent[]
@@ -177,44 +191,28 @@ export default function SupplierHealthScorecard({
       Math.max(0, 15 - Math.max(0, formValues.lastShipmentDelayDays) * 1.5)
   )
 
-  return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">📊</span>
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-            Supplier Health Scorecard
-          </h2>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          {avgScore !== null && (
-            <span className="text-slate-400">
-              Network avg:{" "}
-              <span
-                className={`font-bold ${
-                  avgScore >= 70
-                    ? "text-green-400"
-                    : avgScore >= 55
-                    ? "text-amber-400"
-                    : "text-red-400"
-                }`}
-              >
-                {avgScore}
-              </span>
-            </span>
-          )}
-          {lowestScoreSupplier && lowestScoreSupplier.compositeScore < 70 && (
-            <span className="text-amber-400">
-              ⚠ Lowest: {lowestScoreSupplier.supplierName} (
-              {lowestScoreSupplier.compositeScore})
-            </span>
-          )}
-        </div>
-      </div>
+  const compactSecondary = `${ui.btnSecondary} px-2.5 py-1.5 text-[13px]`
 
-      {/* Supplier cards */}
-      <div className="space-y-3">
+  return (
+    <section className={ui.card}>
+      {/* Header */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-2">
+        <h2 className={ui.h3}>Supplier health</h2>
+        {avgScore !== null && (
+          <p className={ui.meta}>
+            Network avg{" "}
+            <span className={`font-semibold ${tone(avgScore >= 70, avgScore >= 55)}`}>{avgScore}</span>
+          </p>
+        )}
+      </div>
+      {lowestScoreSupplier && lowestScoreSupplier.compositeScore < 70 && (
+        <p className="text-xs text-ochre mb-2">
+          Lowest: {lowestScoreSupplier.supplierName} ({lowestScoreSupplier.compositeScore})
+        </p>
+      )}
+
+      {/* Supplier rows */}
+      <div>
         {scores
           .slice()
           .sort((a, b) => {
@@ -231,297 +229,195 @@ export default function SupplierHealthScorecard({
             const isDisrupted = disruptedRegions.has(supplier.region)
             const isEditing = editingSupplierId === score.supplierId
             const justSaved = savedId === score.supplierId
+            const history = leadTimeHistory[score.supplierId] ?? []
+            const drift = calculateLeadTimeDrift(history)
 
             return (
-              <div
-                key={score.supplierId}
-                className={`border rounded-lg overflow-hidden ${
-                  isDisrupted && score.hasData && score.compositeScore < 70
-                    ? "border-red-700 bg-red-950/30"
-                    : "border-slate-700 bg-slate-700/30"
-                }`}
-              >
-                {/* Supplier header row */}
-                <div className="flex items-center justify-between px-4 py-3">
+              <div key={score.supplierId} className="py-3 border-t border-line-soft space-y-2.5">
+                {/* Header row */}
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Score circle */}
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border ${
-                        score.hasData
-                          ? `${score.gradeBg} ${score.gradeBorder}`
-                          : "bg-slate-700 border-slate-600"
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border-2 bg-surface ${
+                        score.hasData ? `${score.gradeBorder} ${score.gradeColor}` : "border-line text-ink-3"
                       }`}
+                      aria-label={score.hasData ? `Score ${score.compositeScore} of 100` : "No score yet"}
                     >
-                      <span
-                        className={`text-sm font-black ${
-                          score.hasData ? score.gradeColor : "text-slate-500"
-                        }`}
-                      >
+                      <span className="text-sm font-semibold tabular-nums">
                         {score.hasData ? score.compositeScore : "?"}
                       </span>
                     </div>
 
-                    <div className="min-w-0">
+                    <div className="min-w-0 space-y-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-slate-100">
-                          {score.supplierName}
-                        </p>
+                        <p className="text-[15px] font-semibold text-ink">{score.supplierName}</p>
                         {score.hasData && (
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full border ${score.gradeBg} ${score.gradeBorder} ${score.gradeColor}`}
-                          >
-                            {score.grade}
-                          </span>
-                        )}
-                        {!score.hasData && (
-                          <span className="text-xs text-slate-500 italic">
-                            No data logged yet
-                          </span>
-                        )}
-                        {isDisrupted && (
-                          <span className="flex items-center gap-1 text-xs text-red-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                            Active disruption
+                          <span className={`${ui.chip} ${GRADE_CHIP[score.grade]}`}>
+                            {score.grade.toUpperCase()}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {supplier.country} · {supplier.category} ·{" "}
-                        {supplier.sharePercent}% of supply
+                      <p className="text-xs text-ink-3">
+                        {supplier.country} · {supplier.category} · {supplier.sharePercent}%
                       </p>
+                      {isDisrupted && <p className="text-xs text-ember">Active disruption</p>}
+                      {!score.hasData && <p className="text-xs text-ink-3">No data logged yet</p>}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {justSaved && (
-                      <span className="text-xs text-green-400">✓ Saved</span>
+                    {justSaved && <span className="text-xs text-moss">✓ Saved</span>}
+                    {!isEditing && (
+                      <button onClick={() => openEdit(score)} className={compactSecondary}>
+                        {score.hasData ? "Update" : "Log performance"}
+                      </button>
                     )}
-                    <button
-                      onClick={() =>
-                        isEditing ? setEditingSupplierId(null) : openEdit(score)
-                      }
-                      className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded px-2 py-1 transition-colors"
-                    >
-                      {isEditing
-                        ? "Cancel"
-                        : score.hasData
-                        ? "Update"
-                        : "Log performance"}
-                    </button>
                   </div>
                 </div>
 
-                {/* Metrics row — only if data exists and not editing */}
+                {/* Metrics — only if data exists and not editing */}
                 {score.hasData && !isEditing && (
-                  <div className="grid grid-cols-4 divide-x divide-slate-700 border-t border-slate-700">
-                    <div className="px-4 py-2 text-center">
-                      <p className="text-xs text-slate-500 mb-0.5">
-                        On-time delivery
-                      </p>
-                      <p
-                        className={`text-sm font-bold ${
-                          score.onTimeDeliveryRate >= 90
-                            ? "text-green-400"
-                            : score.onTimeDeliveryRate >= 75
-                            ? "text-amber-400"
-                            : "text-red-400"
-                        }`}
-                      >
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-3">On-time</dt>
+                      <dd className={`font-semibold tabular-nums ${tone(score.onTimeDeliveryRate >= 90, score.onTimeDeliveryRate >= 75)}`}>
                         {score.onTimeDeliveryRate}%
-                      </p>
+                      </dd>
                     </div>
-                    <div className="px-4 py-2 text-center">
-                      <p className="text-xs text-slate-500 mb-0.5">
-                        Quality score
-                      </p>
-                      <p
-                        className={`text-sm font-bold ${
-                          score.qualityScore >= 90
-                            ? "text-green-400"
-                            : score.qualityScore >= 75
-                            ? "text-amber-400"
-                            : "text-red-400"
-                        }`}
-                      >
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-3">Quality</dt>
+                      <dd className={`font-semibold tabular-nums ${tone(score.qualityScore >= 90, score.qualityScore >= 75)}`}>
                         {score.qualityScore}%
-                      </p>
+                      </dd>
                     </div>
-                    <div className="px-4 py-2 text-center">
-                      <p className="text-xs text-slate-500 mb-0.5">
-                        Last delay
-                      </p>
-                      <p
-                        className={`text-sm font-bold ${
-                          score.lastShipmentDelayDays <= 0
-                            ? "text-green-400"
-                            : score.lastShipmentDelayDays <= 3
-                            ? "text-amber-400"
-                            : "text-red-400"
-                        }`}
-                      >
-                        {score.lastShipmentDelayDays <= 0
-                          ? "On time"
-                          : `+${score.lastShipmentDelayDays}d`}
-                      </p>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-3">Last delay</dt>
+                      <dd className={`font-semibold tabular-nums ${tone(score.lastShipmentDelayDays <= 0, score.lastShipmentDelayDays <= 3)}`}>
+                        {score.lastShipmentDelayDays <= 0 ? "On time" : `+${score.lastShipmentDelayDays} d`}
+                      </dd>
                     </div>
-                    {(() => {
-                      const history = leadTimeHistory[score.supplierId] ?? []
-                      const drift = calculateLeadTimeDrift(history)
-                      return (
-                        <div className="px-4 py-2 text-center">
-                          <p className="text-xs text-slate-500 mb-0.5">Lead time trend</p>
-                          {drift.trend === "insufficient_data" ? (
-                            <p className="text-sm text-slate-500">
-                              {supplier?.leadTimeDays ?? "—"}d
-                            </p>
-                          ) : (
-                            <p className={`text-sm font-bold ${
-                              drift.trend === "increasing" && drift.isSignificant
-                                ? "text-red-400"
-                                : drift.trend === "increasing"
-                                ? "text-amber-400"
-                                : drift.trend === "decreasing"
-                                ? "text-green-400"
-                                : "text-slate-400"
-                            }`}>
-                              {drift.currentDays}d{" "}
-                              {drift.trend === "increasing" ? "↑" :
-                               drift.trend === "decreasing" ? "↓" : "→"}
-                              {drift.driftPercent !== null && Math.abs(drift.driftPercent) >= 5
-                                ? ` ${Math.abs(drift.driftPercent)}%`
-                                : ""}
-                            </p>
-                          )}
-                        </div>
-                      )
-                    })()}
-                  </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-ink-3">Lead time</dt>
+                      {drift.trend === "insufficient_data" ? (
+                        <dd className="tabular-nums text-ink-2">{supplier?.leadTimeDays ?? "—"} d</dd>
+                      ) : (
+                        <dd className={`font-semibold tabular-nums ${
+                          drift.trend === "increasing" && drift.isSignificant
+                            ? "text-ember"
+                            : drift.trend === "increasing"
+                            ? "text-ochre"
+                            : drift.trend === "decreasing"
+                            ? "text-moss"
+                            : "text-ink-2"
+                        }`}>
+                          {drift.currentDays} d{" "}
+                          {drift.trend === "increasing" ? "↑" :
+                           drift.trend === "decreasing" ? "↓" : "→"}
+                          {drift.driftPercent !== null && Math.abs(drift.driftPercent) >= 5
+                            ? ` ${Math.abs(drift.driftPercent)}%`
+                            : ""}
+                        </dd>
+                      )}
+                    </div>
+                  </dl>
                 )}
 
-                {/* Notes row */}
+                {/* Notes */}
                 {score.hasData && !isEditing && score.notes && (
-                  <div className="px-4 py-2 border-t border-slate-700">
-                    <p className="text-xs text-slate-500 italic">
-                      &ldquo;{score.notes}&rdquo;
-                    </p>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Updated {new Date(score.updatedAt).toLocaleDateString()}
-                    </p>
-                  </div>
+                  <p className="text-xs text-ink-3">
+                    &ldquo;{score.notes}&rdquo; · Updated {new Date(score.updatedAt).toLocaleDateString()}
+                  </p>
                 )}
 
                 {/* Combined disruption + low score warning */}
-                {score.hasData &&
-                  isDisrupted &&
-                  score.compositeScore < 70 &&
-                  !isEditing && (
-                    <div className="px-4 py-2 bg-red-950/50 border-t border-red-800">
-                      <p className="text-xs text-red-300">
-                        ⚠ Low-scoring supplier in a disrupted region — consider
-                        activating backup sourcing immediately
-                      </p>
-                    </div>
-                  )}
+                {score.hasData && isDisrupted && score.compositeScore < 70 && !isEditing && (
+                  <p className={ui.errorBox}>
+                    Low-scoring supplier in a disrupted region — consider activating backup sourcing immediately
+                  </p>
+                )}
 
                 {/* Inline edit form */}
                 {isEditing && (
-                  <div className="border-t border-slate-700 p-4 bg-slate-800/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                          On-time delivery %
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={formValues.onTimeDeliveryRate}
-                          onChange={e =>
-                            setFormValues(v => ({
-                              ...v,
-                              onTimeDeliveryRate: Math.min(
-                                100,
-                                Math.max(0, Number(e.target.value))
-                              ),
-                            }))
-                          }
-                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                          Quality score %
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={formValues.qualityScore}
-                          onChange={e =>
-                            setFormValues(v => ({
-                              ...v,
-                              qualityScore: Math.min(
-                                100,
-                                Math.max(0, Number(e.target.value))
-                              ),
-                            }))
-                          }
-                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                          Last delay (days, 0 = on time)
-                        </label>
-                        <input
-                          type="number"
-                          min="-30"
-                          max="90"
-                          value={formValues.lastShipmentDelayDays}
-                          onChange={e =>
-                            setFormValues(v => ({
-                              ...v,
-                              lastShipmentDelayDays: Number(e.target.value),
-                            }))
-                          }
-                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                        Notes (optional)
-                      </label>
+                  <div className={`${ui.cardInner} space-y-3`}>
+                    <div className="space-y-1">
+                      <label htmlFor={`otd-${score.supplierId}`} className={ui.label}>On-time delivery %</label>
                       <input
-                        type="text"
-                        value={formValues.notes}
+                        id={`otd-${score.supplierId}`}
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formValues.onTimeDeliveryRate}
                         onChange={e =>
-                          setFormValues(v => ({ ...v, notes: e.target.value }))
+                          setFormValues(v => ({
+                            ...v,
+                            onTimeDeliveryRate: Math.min(100, Math.max(0, Number(e.target.value))),
+                          }))
                         }
-                        placeholder="e.g. Quality issues with last batch, new contact established..."
-                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className={ui.input}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-slate-500">
-                        Score preview:{" "}
-                        <span className="font-bold text-slate-300">
-                          {scorePreview}/100
-                        </span>{" "}
-                        (on-time 50% · quality 35% · delay 15%)
-                      </p>
-                      <button
-                        onClick={() =>
-                          handleSave(score.supplierId, score.supplierName)
+                    <div className="space-y-1">
+                      <label htmlFor={`quality-${score.supplierId}`} className={ui.label}>Quality score %</label>
+                      <input
+                        id={`quality-${score.supplierId}`}
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formValues.qualityScore}
+                        onChange={e =>
+                          setFormValues(v => ({
+                            ...v,
+                            qualityScore: Math.min(100, Math.max(0, Number(e.target.value))),
+                          }))
                         }
+                        className={ui.input}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor={`delay-${score.supplierId}`} className={ui.label}>Last delay (days)</label>
+                      <input
+                        id={`delay-${score.supplierId}`}
+                        type="number"
+                        min="-30"
+                        max="90"
+                        value={formValues.lastShipmentDelayDays}
+                        onChange={e =>
+                          setFormValues(v => ({ ...v, lastShipmentDelayDays: Number(e.target.value) }))
+                        }
+                        className={ui.input}
+                      />
+                      <p className={ui.help}>0 = on time</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor={`notes-${score.supplierId}`} className={ui.label}>Notes (optional)</label>
+                      <input
+                        id={`notes-${score.supplierId}`}
+                        type="text"
+                        value={formValues.notes}
+                        onChange={e => setFormValues(v => ({ ...v, notes: e.target.value }))}
+                        placeholder="e.g. Quality issues with last batch"
+                        className={ui.input}
+                      />
+                    </div>
+
+                    <p className={ui.help}>
+                      Score preview: <span className="font-semibold text-ink">{scorePreview}/100</span>{" "}
+                      (on-time 50% · quality 35% · delay 15%)
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleSave(score.supplierId, score.supplierName)}
                         disabled={isSaving}
-                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                        className={`${ui.btnPrimary} disabled:cursor-not-allowed`}
                       >
-                        {isSaving ? "Saving…" : "Save Performance Data"}
+                        {isSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button onClick={() => setEditingSupplierId(null)} className={ui.btnGhost}>
+                        Cancel
                       </button>
                     </div>
                   </div>
@@ -531,10 +427,10 @@ export default function SupplierHealthScorecard({
           })}
       </div>
 
-      <p className="text-xs text-slate-600 mt-3">
+      <p className="text-xs leading-relaxed text-ink-3 pt-3 border-t border-line-soft">
         {user ? "Performance data synced to your account" : "Performance data stored locally in your browser"}
         {" "}· Scores weighted: on-time delivery 50% · quality 35% · delay penalty 15%
       </p>
-    </div>
+    </section>
   )
 }

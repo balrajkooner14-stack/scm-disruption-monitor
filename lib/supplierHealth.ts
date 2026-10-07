@@ -45,35 +45,35 @@ export function getGrade(score: number): {
   if (score >= 85)
     return {
       grade: "Excellent",
-      gradeColor: "text-green-400",
-      gradeBg: "bg-green-950",
-      gradeBorder: "border-green-700",
+      gradeColor: "text-moss-deep",
+      gradeBg: "bg-moss-tint",
+      gradeBorder: "border-moss",
     }
   if (score >= 70)
     return {
       grade: "Good",
-      gradeColor: "text-blue-400",
-      gradeBg: "bg-blue-950",
-      gradeBorder: "border-blue-700",
+      gradeColor: "text-moss-deep",
+      gradeBg: "bg-moss-tint",
+      gradeBorder: "border-moss",
     }
   if (score >= 55)
     return {
       grade: "Fair",
-      gradeColor: "text-amber-400",
-      gradeBg: "bg-amber-950",
-      gradeBorder: "border-amber-700",
+      gradeColor: "text-ochre",
+      gradeBg: "bg-ochre-tint",
+      gradeBorder: "border-ochre",
     }
   if (score >= 40)
     return {
       grade: "Poor",
-      gradeColor: "text-orange-400",
-      gradeBg: "bg-orange-950",
-      gradeBorder: "border-orange-700",
+      gradeColor: "text-ember",
+      gradeBg: "bg-ember-tint",
+      gradeBorder: "border-ember",
     }
   return {
     grade: "Critical",
-    gradeColor: "text-red-400",
-    gradeBg: "bg-red-950",
-    gradeBorder: "border-red-700",
+    gradeColor: "text-ember",
+    gradeBg: "bg-ember-tint",
+    gradeBorder: "border-ember",
   }
 }
