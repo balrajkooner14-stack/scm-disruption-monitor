@@ -1,134 +1,150 @@
+import type { Metadata } from "next"
 import Navbar from "@/components/Navbar"
+import SiteFooter from "@/components/SiteFooter"
+import { BRAND } from "@/lib/brand"
+import { ui } from "@/lib/ui"
+
+export const metadata: Metadata = {
+  title: "About",
+}
+
+const linkClass = "text-ember underline transition-colors hover:text-ember-deep"
+
+const DATA_SOURCES: { name: string; href: string; what: string }[] = [
+  {
+    name: "Trade press (RSS)",
+    href: "https://www.supplychaindive.com/",
+    what:
+      "Supply Chain Dive, FreightWaves, The Maritime Executive, gCaptain, Splash247 and JOC. The primary source for port, tariff, labor and geopolitical news.",
+  },
+  {
+    name: "GDELT Project",
+    href: "https://www.gdeltproject.org/",
+    what: "Global news monitoring across thousands of sources, queried for supply chain, port and trade-policy coverage.",
+  },
+  {
+    name: "GDACS",
+    href: "https://www.gdacs.org/",
+    what: "Global disaster alerts: earthquakes, tropical cyclones, floods, volcanoes, droughts and wildfires.",
+  },
+  {
+    name: "NOAA National Weather Service",
+    href: "https://www.weather.gov/",
+    what: "US severe-weather warnings, filtered to event types that disrupt freight (hurricanes, floods, blizzards and similar).",
+  },
+  {
+    name: "Yahoo Finance",
+    href: "https://finance.yahoo.com/",
+    what: "Commodity futures (crude oil, natural gas, copper, wheat) and currency rates for your supplier countries.",
+  },
+  {
+    name: "USITC Harmonized Tariff Schedule",
+    href: "https://hts.usitc.gov/",
+    what: "Published US duty rates, looked up by the HS code on each product line.",
+  },
+  {
+    name: "Google Gemini 2.5 Flash",
+    href: "https://ai.google.dev/",
+    what: "Summaries, recommendations, scenario analysis and the AI risk radar (with live Google Search grounding).",
+  },
+]
+
+const SEVERITY_ROWS: { chip: string; label: string; score: number; keywords: string }[] = [
+  { chip: ui.chipCritical, label: "CRITICAL", score: 3, keywords: "strike, closure, sanctions, blocked, halt, shutdown, ban" },
+  { chip: ui.chipWarning, label: "WARNING", score: 2, keywords: "delay, shortage, disruption, tariff, congestion, reduced" },
+  { chip: ui.chipMonitor, label: "MONITOR", score: 1, keywords: "All other events" },
+]
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-slate-900">
+    <main className="min-h-screen bg-paper">
       <Navbar />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <article className="max-w-3xl mx-auto px-4 py-14 space-y-12">
+        <header className="space-y-3">
+          <p className={ui.eyebrow}>About</p>
+          <h1 className={ui.h1}>About {BRAND.name}</h1>
+          <p className="text-lg leading-relaxed text-ink-2">{BRAND.description}</p>
+        </header>
 
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            About SCM Disruption Monitor
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-            This project aggregates global supply chain disruption signals in real time,
-            helping logistics and procurement teams surface critical risks before they
-            impact operations. Built as a portfolio project combining Supply Chain
-            Management domain expertise with modern full-stack development and AI integration.
+        <section className="space-y-3">
+          <h2 className={ui.h2}>What it does</h2>
+          <p className={ui.body}>
+            {BRAND.name} watches the news, weather and trade policy that touch your suppliers. It
+            scores each event against your company profile (supplier countries, trade lanes and
+            product lines), traces how a disruption would cascade through your supplier tiers and
+            raw materials, and turns that into inventory alerts, recommendations and what-if
+            scenarios you can act on.
           </p>
-        </div>
+        </section>
 
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Data Sources
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-            News data comes from the{" "}
-            <a
-              href="https://www.gdeltproject.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              GDELT Project
-            </a>
-            , which monitors 4,500+ news sources across 100+ languages, updated every
-            15 minutes. The GDELT DOC 2.0 API is completely free with no API key required.
-            AI summaries are generated using Google Gemini 2.5 Flash via the free tier
-            at{" "}
-            <a
-              href="https://aistudio.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              Google AI Studio
-            </a>
-            .
+        <section className="space-y-4">
+          <h2 className={ui.h2}>Where the data comes from</h2>
+          <dl className="divide-y divide-line-soft border-y border-line-soft">
+            {DATA_SOURCES.map(source => (
+              <div key={source.name} className="grid sm:grid-cols-[200px_1fr] gap-x-6 gap-y-1 py-3.5">
+                <dt className="text-[15px] font-semibold text-ink">
+                  <a href={source.href} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                    {source.name}
+                  </a>
+                </dt>
+                <dd className={ui.body}>{source.what}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className={ui.meta}>
+            Container freight rates are manually verified reference figures, not a live feed. The
+            labor-contract calendar and long-term structural risk list are hand-curated, each entry
+            sourced and dated.
           </p>
-        </div>
+        </section>
 
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            Severity Methodology
-          </h2>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 dark:bg-slate-800">
-                <tr>
-                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Level</th>
-                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Score</th>
-                  <th className="text-left p-3 text-gray-700 dark:text-gray-300">Keywords</th>
+        <section className="space-y-3">
+          <h2 className={ui.h2}>How AI is used, and its limits</h2>
+          <p className={ui.body}>
+            Gemini writes the daily summary, the per-event briefs, the advisor&apos;s
+            recommendations, cost estimates and scenario analyses, always from your profile and
+            today&apos;s events. Numbers that can be computed (inventory days, concentration,
+            downstream impact paths) are calculated in code first and given to the model as fact.
+          </p>
+          <p className={ui.body}>
+            AI output can be wrong. Anything marked AI-sourced is unverified: check the cited
+            sources before acting. Nothing here is financial, legal or compliance advice.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className={ui.h2}>Severity methodology</h2>
+          <p className={ui.body}>
+            News headlines are scored by keyword, matched at word boundaries. Disaster and
+            weather alerts use the severity their source publishes.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left">
+              <thead>
+                <tr className="text-xs font-semibold uppercase tracking-wider text-ink-3">
+                  <th scope="col" className="py-2.5 pr-4 font-semibold">Level</th>
+                  <th scope="col" className="py-2.5 pr-4 font-semibold">Score</th>
+                  <th scope="col" className="py-2.5 font-semibold">Keywords</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-                <tr className="bg-white dark:bg-slate-900">
-                  <td className="p-3 font-semibold text-red-600">Critical</td>
-                  <td className="p-3 text-gray-600 dark:text-gray-300">3</td>
-                  <td className="p-3 text-gray-600 dark:text-gray-300">
-                    strike, closure, sanctions, blocked, halt, shutdown, ban
-                  </td>
-                </tr>
-                <tr className="bg-white dark:bg-slate-900">
-                  <td className="p-3 font-semibold text-amber-600">Warning</td>
-                  <td className="p-3 text-gray-600 dark:text-gray-300">2</td>
-                  <td className="p-3 text-gray-600 dark:text-gray-300">
-                    delay, shortage, disruption, tariff, congestion, reduced
-                  </td>
-                </tr>
-                <tr className="bg-white dark:bg-slate-900">
-                  <td className="p-3 font-semibold text-green-600">Monitor</td>
-                  <td className="p-3 text-gray-600 dark:text-gray-300">1</td>
-                  <td className="p-3 text-gray-600 dark:text-gray-300">
-                    All other events
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            Tech Stack
-          </h2>
-          <div className="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-                {[
-                  ["Framework", "Next.js 14 (App Router, TypeScript)"],
-                  ["Styling", "Tailwind CSS"],
-                  ["Map", "react-simple-maps"],
-                  ["News data", "GDELT DOC 2.0 API (free, no key needed)"],
-                  ["AI summary", "Google Gemini 2.5 Flash (free tier)"],
-                  ["Hosting", "Vercel (free Hobby tier)"],
-                ].map(([layer, tech]) => (
-                  <tr key={layer} className="bg-white dark:bg-slate-900">
-                    <td className="p-3 font-medium text-gray-700 dark:text-gray-300 w-1/3">
-                      {layer}
+              <tbody>
+                {SEVERITY_ROWS.map(row => (
+                  <tr key={row.label} className="border-t border-line-soft">
+                    <td className="py-3.5 pr-4">
+                      <span className={`${ui.chip} ${row.chip}`}>{row.label}</span>
                     </td>
-                    <td className="p-3 text-gray-600 dark:text-gray-400">{tech}</td>
+                    <td className="py-3.5 pr-4 text-[15px] text-ink tabular-nums">{row.score}</td>
+                    <td className="py-3.5 text-[15px] text-ink-2">{row.keywords}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Built by
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-            This project was built as a portfolio piece for supply chain and data analyst
-            roles, combining an MSc in Supply Chain Management with systematic trading
-            and quantitative analysis skills. The app demonstrates real-world API
-            integration, AI tooling, and domain knowledge applied to a genuine business
-            problem faced by logistics and procurement teams daily.
-          </p>
-        </div>
-
-      </div>
+        <p className={ui.meta}>Built by Balraj Kooner.</p>
+      </article>
+      <SiteFooter />
     </main>
   )
 }

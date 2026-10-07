@@ -17,6 +17,30 @@ import {
 } from "@/lib/profile"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import ImportProfileFlow from "@/components/ImportProfileFlow"
+import Link from "next/link"
+import Logo from "@/components/ui/Logo"
+import { BRAND } from "@/lib/brand"
+import { ui } from "@/lib/ui"
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className={open ? "rotate-180" : ""}>
+      <path d="M6 9 L12 15 L18 9" />
+    </svg>
+  )
+}
+
+function Required() {
+  return <span className="text-ember" aria-hidden="true"> *</span>
+}
+
+const noteBox = "rounded-lg bg-ochre-tint text-ochre px-4 py-3 text-sm"
+const groupCard = `${ui.cardInner} space-y-3`
+// Compact field for the nested tier-2 / raw-material rows.
+const smallInput =
+  "w-full rounded-lg border border-line-control bg-surface px-2 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
+const smallLabel = "block text-xs text-ink-3 mb-1"
+const disclosureBtn = "inline-flex items-center gap-1.5 text-sm text-ember transition-colors hover:text-ember-deep"
 
 const INDUSTRY_SECTORS: IndustrySector[] = [
   "Automotive", "Electronics", "Pharmaceuticals", "Retail",
@@ -53,10 +77,10 @@ const TRADE_LANES: TradeLane[] = [
 ]
 
 const STEP_NAMES = [
-  "Company Basics",
-  "Supplier Network",
-  "Inventory Profile",
-  "Pain Points & Concerns",
+  "Company basics",
+  "Supplier network",
+  "Inventory profile",
+  "Pain points",
   "Transportation",
 ]
 
@@ -323,62 +347,78 @@ export default function ProfilePage() {
     )
   }
 
-  const progressPercent = (step / 5) * 100
-
-  const inputCls =
-    "w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-blue-500 transition-colors"
-  const labelCls = "block text-sm text-slate-300 mb-1"
+  const inputCls = ui.input
+  const labelCls = `block ${ui.label} mb-1.5`
   const checkboxLabelCls =
-    "flex items-center gap-2 text-slate-300 text-sm cursor-pointer select-none"
+    "flex items-center gap-2 text-[15px] text-ink cursor-pointer select-none"
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 pb-16">
-      {/* Progress bar */}
-      <div className="w-full h-1 bg-slate-700">
-        <div
-          className="h-1 bg-blue-600 rounded transition-all duration-500"
-          style={{ width: `${progressPercent}%` }}
-        />
-      </div>
+    <div className="min-h-screen bg-paper">
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-10">
+          <Link href="/" aria-label="Home">
+            <Logo />
+          </Link>
+          <Link href="/" className={ui.btnGhost}>
+            Back to dashboard
+          </Link>
+        </div>
 
-      <div className="max-w-2xl mx-auto px-4 pt-10">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Set Up Your Supply Chain Profile</h1>
-          <p className="text-slate-400 text-sm mt-1">
+        <div className="mb-8 space-y-2">
+          <p className={ui.eyebrow}>Company profile</p>
+          <h1 className={ui.h1}>Tell {BRAND.name} about your supply chain</h1>
+          <p className={ui.body}>
             Takes about 5 minutes. Your data stays in your browser only.
-          </p>
-          <p className="text-slate-400 text-sm mt-2">
-            Step {step} of 5 — {STEP_NAMES[step - 1]}
           </p>
         </div>
 
+        {/* Stepper */}
+        <ol className="flex items-start mb-8" aria-label="Progress">
+          {STEP_NAMES.map((name, i) => {
+            const n = i + 1
+            const isCurrent = n === step
+            const isDone = n < step
+            return (
+              <li key={name} className="flex-1 flex flex-col items-center gap-2 relative" aria-current={isCurrent ? "step" : undefined}>
+                {i > 0 && (
+                  <span className="absolute top-3.5 right-1/2 w-full h-px bg-line z-0" aria-hidden="true" />
+                )}
+                <span
+                  className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                    isCurrent
+                      ? "bg-ink text-paper"
+                      : isDone
+                      ? "bg-moss-tint text-moss-deep"
+                      : "border border-line bg-paper text-ink-3"
+                  }`}
+                >
+                  {isDone ? "✓" : n}
+                </span>
+                <span className={`text-xs text-center ${isCurrent ? "font-semibold text-ink" : "text-ink-3"}`}>
+                  {name}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+
         {/* Import from file */}
         {!showImport ? (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">📂</span>
-                  <h3 className="text-sm font-semibold text-slate-200">Import from Excel or CSV</h3>
-                  <span className="text-xs bg-blue-950 text-blue-400 border border-blue-800 px-1.5 py-0.5 rounded-full">
-                    New
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Already have your supplier list or inventory data in a spreadsheet? Upload it and AI will automatically map your columns to the profile fields.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowImport(true)}
-                className="flex-shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-              >
-                Import file →
-              </button>
+          <div className="bg-paper-raised border border-line rounded-xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className={ui.h3}>Import from Excel or CSV</h2>
+              <p className={ui.meta}>
+                Already have your supplier list or inventory data in a spreadsheet? Upload it and AI will automatically map your columns to the profile fields.
+              </p>
             </div>
+            <button onClick={() => setShowImport(true)} className={`${ui.btnSecondary} flex-shrink-0`}>
+              Import file
+            </button>
           </div>
         ) : (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
+          <div className="mb-6">
             <ImportProfileFlow
               onComplete={() => {
                 setShowImport(false)
@@ -390,17 +430,21 @@ export default function ProfilePage() {
         )}
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-slate-700" />
-          <span className="text-xs text-slate-500">or enter manually</span>
-          <div className="flex-1 h-px bg-slate-700" />
+          <div className="flex-1 h-px bg-line" />
+          <span className={ui.meta}>or enter manually</span>
+          <div className="flex-1 h-px bg-line" />
         </div>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <div className="bg-paper-raised border border-line rounded-xl p-7 space-y-5">
+          <h2 className={ui.h2}>
+            Step {step} of 5 · {STEP_NAMES[step - 1]}
+          </h2>
+
           {/* Step 1 — Company Basics */}
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <label className={labelCls}>Company Name *</label>
+                <label className={labelCls}>Company name<Required /></label>
                 <input
                   type="text"
                   value={companyName}
@@ -411,7 +455,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className={labelCls}>Headquarters Country *</label>
+                <label className={labelCls}>Headquarters country<Required /></label>
                 <input
                   type="text"
                   value={headquartersCountry}
@@ -419,13 +463,13 @@ export default function ProfilePage() {
                   placeholder="e.g. United States"
                   className={inputCls}
                 />
-                <p className="text-xs text-slate-600 mt-1">
+                <p className={`${ui.help} mt-1`}>
                   Used to give the AI advisor context on your company&apos;s home base.
                 </p>
               </div>
 
               <div>
-                <label className={labelCls}>Industry Sector *</label>
+                <label className={labelCls}>Industry sector<Required /></label>
                 <select
                   value={sector}
                   onChange={(e) => setSector(e.target.value as IndustrySector)}
@@ -438,7 +482,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className={labelCls}>Revenue Range *</label>
+                <label className={labelCls}>Revenue range<Required /></label>
                 <div className="space-y-2 mt-1">
                   {(["$0–$10M", "$10M–$100M", "$100M–$1B", "$1B+"] as const).map((r) => (
                     <label key={r} className={checkboxLabelCls}>
@@ -448,7 +492,7 @@ export default function ProfilePage() {
                         value={r}
                         checked={revenueRange === r}
                         onChange={() => setRevenueRange(r)}
-                        className="accent-blue-500"
+                        className="accent-ink"
                       />
                       {r}
                     </label>
@@ -457,7 +501,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className={labelCls}>Primary Markets * (select all that apply)</label>
+                <label className={labelCls}>Primary markets<Required /> <span className="font-normal text-ink-3">(select all that apply)</span></label>
                 <div className="space-y-2 mt-1">
                   {SUPPLY_REGIONS.map((region) => (
                     <label key={region} className={checkboxLabelCls}>
@@ -471,7 +515,7 @@ export default function ProfilePage() {
                               : [...prev, region]
                           )
                         }
-                        className="accent-blue-500"
+                        className="accent-ink"
                       />
                       {region}
                     </label>
@@ -484,34 +528,30 @@ export default function ProfilePage() {
           {/* Step 2 — Supplier Network */}
           {step === 2 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-400 text-sm">{suppliers.length} of 10 suppliers added</span>
+              <div className="flex items-center justify-between">
+                <span className={ui.meta}>{suppliers.length} of 10 suppliers added</span>
                 <button
                   onClick={addSupplier}
                   disabled={suppliers.length >= 10}
-                  className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+                  className={`${ui.btnSecondary} disabled:cursor-not-allowed`}
                 >
-                  + Add Supplier
+                  Add supplier
                 </button>
               </div>
 
               {suppliers.map((supplier, idx) => (
-                <div key={supplier.id} className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 space-y-3">
+                <div key={supplier.id} className={groupCard}>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-300 text-sm font-medium">Supplier {idx + 1}</span>
+                    <span className="text-[15px] font-semibold text-ink">{supplier.name || `Supplier ${idx + 1}`}</span>
                     {suppliers.length > 1 && (
-                      <button
-                        onClick={() => removeSupplier(supplier.id)}
-                        className="text-slate-500 hover:text-red-400 transition-colors text-lg leading-none"
-                        aria-label="Remove supplier"
-                      >
-                        ×
+                      <button onClick={() => removeSupplier(supplier.id)} className={ui.btnGhost}>
+                        Remove
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className={labelCls}>Supplier Name *</label>
+                      <label className={labelCls}>Supplier name<Required /></label>
                       <input
                         type="text"
                         value={supplier.name}
@@ -521,7 +561,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Country of Origin *</label>
+                      <label className={labelCls}>Country of origin<Required /></label>
                       <input
                         type="text"
                         value={supplier.country}
@@ -531,7 +571,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Region *</label>
+                      <label className={labelCls}>Region<Required /></label>
                       <select
                         value={supplier.region}
                         onChange={(e) => updateSupplier(supplier.id, "region", e.target.value)}
@@ -543,7 +583,7 @@ export default function ProfilePage() {
                       </select>
                     </div>
                     <div>
-                      <label className={labelCls}>What they supply *</label>
+                      <label className={labelCls}>What they supply<Required /></label>
                       <input
                         type="text"
                         value={supplier.category}
@@ -584,22 +624,23 @@ export default function ProfilePage() {
                           expandedTier2SupplierId === supplier.id ? null : supplier.id
                         )
                       }
-                      className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                      aria-expanded={expandedTier2SupplierId === supplier.id}
+                      className={disclosureBtn}
                     >
-                      {expandedTier2SupplierId === supplier.id ? "▲" : "▼"}{" "}
+                      <Chevron open={expandedTier2SupplierId === supplier.id} />
                       Who does {supplier.name || "this supplier"} buy from?
                       {(supplier.tier2Suppliers?.length ?? 0) > 0 &&
                         ` (${supplier.tier2Suppliers?.length})`}
                     </button>
 
                     {expandedTier2SupplierId === supplier.id && (
-                      <div className="mt-2 space-y-2 border-l-2 border-slate-600 pl-3">
-                        <p className="text-xs text-slate-600">
+                      <div className="mt-3 space-y-2 border-t border-line-soft pt-3">
+                        <p className={ui.help}>
                           Optional — knowing your supplier&apos;s own suppliers helps surface
                           disruptions one step further upstream than you&apos;d normally see.
                         </p>
                         {(supplier.tier2Suppliers ?? []).map((t2) => (
-                          <div key={t2.id} className="grid grid-cols-3 gap-2 items-start">
+                          <div key={t2.id} className="grid sm:grid-cols-3 gap-2 items-start">
                             <input
                               type="text"
                               value={t2.name}
@@ -607,7 +648,7 @@ export default function ProfilePage() {
                                 updateTier2Supplier(supplier.id, t2.id, "name", e.target.value)
                               }
                               placeholder="Sub-supplier name"
-                              className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                              className={smallInput}
                             />
                             <input
                               type="text"
@@ -616,7 +657,7 @@ export default function ProfilePage() {
                                 updateTier2Supplier(supplier.id, t2.id, "country", e.target.value)
                               }
                               placeholder="Country"
-                              className="bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                              className={smallInput}
                             />
                             <div className="flex items-center gap-1">
                               <select
@@ -624,7 +665,7 @@ export default function ProfilePage() {
                                 onChange={(e) =>
                                   updateTier2Supplier(supplier.id, t2.id, "region", e.target.value)
                                 }
-                                className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                className={`${smallInput} flex-1`}
                               >
                                 {SUPPLY_REGIONS.map((r) => (
                                   <option key={r} value={r}>{r}</option>
@@ -633,10 +674,10 @@ export default function ProfilePage() {
                               <button
                                 type="button"
                                 onClick={() => removeTier2Supplier(supplier.id, t2.id)}
-                                className="text-slate-500 hover:text-red-400 transition-colors text-sm leading-none flex-shrink-0"
+                                className={`${ui.btnGhost} flex-shrink-0`}
                                 aria-label="Remove sub-supplier"
                               >
-                                ×
+                                Remove
                               </button>
                             </div>
                           </div>
@@ -644,9 +685,9 @@ export default function ProfilePage() {
                         <button
                           type="button"
                           onClick={() => addTier2Supplier(supplier.id)}
-                          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                          className={disclosureBtn}
                         >
-                          + Add sub-supplier
+                          Add sub-supplier
                         </button>
                       </div>
                     )}
@@ -660,50 +701,44 @@ export default function ProfilePage() {
           {step === 3 && (
             <div className="space-y-4">
               {isLoaded && profile && productLines.some(p => !p.primarySupplierId) && (
-                <div className="bg-amber-950 border border-amber-700 rounded-lg p-3 mb-4 flex items-start gap-2">
-                  <span className="text-amber-400 text-sm flex-shrink-0">⚠</span>
-                  <p className="text-xs text-amber-300 leading-relaxed">
+                <div className={noteBox}>
+                  <p>
                     Assign a primary supplier to each product line for accurate inventory risk calculations. Without this, all products default to your highest-share supplier&apos;s lead time.
                   </p>
                 </div>
               )}
               {isLoaded && profile && (
-                <div className="bg-amber-950 border border-amber-700 rounded-lg p-3 mb-4 flex items-start gap-2">
-                  <span className="text-amber-400 text-sm flex-shrink-0">⚠</span>
-                  <p className="text-xs text-amber-300 leading-relaxed">
+                <div className={noteBox}>
+                  <p>
                     Update your inventory days on hand to keep risk calculations accurate. These numbers were set on{" "}
                     {new Date(profile.updatedAt).toLocaleDateString()} and may no longer reflect current stock levels.
                   </p>
                 </div>
               )}
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-slate-400 text-sm">{productLines.length} of 5 product lines added</span>
+              <div className="flex items-center justify-between">
+                <span className={ui.meta}>{productLines.length} of 5 product lines added</span>
                 <button
                   onClick={addProductLine}
                   disabled={productLines.length >= 5}
-                  className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+                  className={`${ui.btnSecondary} disabled:cursor-not-allowed`}
                 >
-                  + Add Product Line
+                  Add product line
                 </button>
               </div>
 
               {productLines.map((pl, idx) => (
-                <div key={pl.id} className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 space-y-3">
+                <div key={pl.id} className={groupCard}>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-300 text-sm font-medium">Product Line {idx + 1}</span>
+                    <span className="text-[15px] font-semibold text-ink">{pl.name || `Product line ${idx + 1}`}</span>
                     {productLines.length > 1 && (
-                      <button
-                        onClick={() => removeProductLine(pl.id)}
-                        className="text-slate-500 hover:text-red-400 transition-colors text-lg leading-none"
-                        aria-label="Remove product line"
-                      >
-                        ×
+                      <button onClick={() => removeProductLine(pl.id)} className={ui.btnGhost}>
+                        Remove
                       </button>
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     <div>
-                      <label className={labelCls}>Product Line Name *</label>
+                      <label className={labelCls}>Product line name<Required /></label>
                       <input
                         type="text"
                         value={pl.name}
@@ -736,13 +771,11 @@ export default function ProfilePage() {
                     </div>
                     {suppliers.length > 0 && (
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                          Primary Supplier
-                        </label>
+                        <label className={labelCls}>Primary supplier</label>
                         <select
                           value={pl.primarySupplierId ?? ""}
                           onChange={e => updateProductLine(pl.id, "primarySupplierId", e.target.value || undefined)}
-                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                          className={inputCls}
                         >
                           <option value="">Select supplier (or leave as highest-share)</option>
                           {suppliers.map(s => (
@@ -751,20 +784,18 @@ export default function ProfilePage() {
                             </option>
                           ))}
                         </select>
-                        <p className="text-xs text-slate-600 mt-1">
+                        <p className={`${ui.help} mt-1`}>
                           Which supplier provides this product? Used for lead time risk calculations.
                         </p>
                       </div>
                     )}
                     {suppliers.length > 1 && (
                       <div>
-                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                          Backup Supplier (optional)
-                        </label>
+                        <label className={labelCls}>Backup supplier (optional)</label>
                         <select
                           value={pl.backupSupplierId ?? ""}
                           onChange={e => updateProductLine(pl.id, "backupSupplierId", e.target.value || undefined)}
-                          className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                          className={inputCls}
                         >
                           <option value="">No backup assigned</option>
                           {suppliers
@@ -775,23 +806,21 @@ export default function ProfilePage() {
                               </option>
                             ))}
                         </select>
-                        <p className="text-xs text-slate-600 mt-1">
+                        <p className={`${ui.help} mt-1`}>
                           Who would you switch to if your primary supplier were disrupted?
                         </p>
                       </div>
                     )}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                        HS Code (optional)
-                      </label>
+                      <label className={labelCls}>HS code (optional)</label>
                       <input
                         type="text"
                         value={pl.hsCode ?? ""}
                         onChange={(e) => updateProductLine(pl.id, "hsCode", e.target.value || undefined)}
                         placeholder="e.g. 8542.31.00"
-                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500"
+                        className={inputCls}
                       />
-                      <p className="text-xs text-slate-600 mt-1">
+                      <p className={`${ui.help} mt-1`}>
                         Harmonized System code — enables a real US import duty rate lookup for this product.
                       </p>
                     </div>
@@ -805,24 +834,25 @@ export default function ProfilePage() {
                             expandedRawMaterialsId === pl.id ? null : pl.id
                           )
                         }
-                        className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                        aria-expanded={expandedRawMaterialsId === pl.id}
+                        className={disclosureBtn}
                       >
-                        {expandedRawMaterialsId === pl.id ? "▲" : "▼"}{" "}
+                        <Chevron open={expandedRawMaterialsId === pl.id} />
                         Break out raw materials for {pl.name || "this product"}
                         {(pl.rawMaterials?.length ?? 0) > 0 &&
                           ` (${pl.rawMaterials?.length})`}
                       </button>
 
                       {expandedRawMaterialsId === pl.id && (
-                        <div className="mt-2 space-y-3 border-l-2 border-slate-600 pl-3">
-                          <p className="text-xs text-slate-600">
+                        <div className="mt-3 space-y-3 border-t border-line-soft pt-3">
+                          <p className={ui.help}>
                             Optional — if this finished good depends on multiple inputs from
                             different vendors, list them here with their own lead time and
                             safety stock. Vendors are picked from the suppliers you entered
                             in Step 2.
                           </p>
                           {(pl.rawMaterials ?? []).map((m) => (
-                            <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-lg p-3 space-y-2">
+                            <div key={m.id} className="rounded-lg border border-line-soft bg-paper-raised p-3 space-y-2">
                               <div className="flex items-center gap-2">
                                 <input
                                   type="text"
@@ -831,26 +861,26 @@ export default function ProfilePage() {
                                     updateRawMaterial(pl.id, m.id, "name", e.target.value)
                                   }
                                   placeholder="Material name, e.g. Glass-fiber yarn"
-                                  className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                  className={`${smallInput} flex-1`}
                                 />
                                 <button
                                   type="button"
                                   onClick={() => removeRawMaterial(pl.id, m.id)}
-                                  className="text-slate-500 hover:text-red-400 transition-colors text-sm leading-none flex-shrink-0"
+                                  className={`${ui.btnGhost} flex-shrink-0`}
                                   aria-label="Remove raw material"
                                 >
-                                  ×
+                                  Remove
                                 </button>
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid sm:grid-cols-2 gap-2">
                                 <div>
-                                  <label className="block text-[11px] text-slate-500 mb-0.5">Primary Vendor</label>
+                                  <label className={smallLabel}>Primary vendor</label>
                                   <select
                                     value={m.primaryVendorId ?? ""}
                                     onChange={(e) =>
                                       updateRawMaterial(pl.id, m.id, "primaryVendorId", e.target.value || undefined)
                                     }
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                    className={smallInput}
                                   >
                                     <option value="">Select vendor</option>
                                     {suppliers.map((s) => (
@@ -859,13 +889,13 @@ export default function ProfilePage() {
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="block text-[11px] text-slate-500 mb-0.5">Secondary Vendor</label>
+                                  <label className={smallLabel}>Secondary vendor</label>
                                   <select
                                     value={m.secondaryVendorId ?? ""}
                                     onChange={(e) =>
                                       updateRawMaterial(pl.id, m.id, "secondaryVendorId", e.target.value || undefined)
                                     }
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                    className={smallInput}
                                   >
                                     <option value="">No alternate assigned</option>
                                     {suppliers
@@ -876,7 +906,7 @@ export default function ProfilePage() {
                                   </select>
                                 </div>
                                 <div>
-                                  <label className="block text-[11px] text-slate-500 mb-0.5">Lead time (days)</label>
+                                  <label className={smallLabel}>Lead time (days)</label>
                                   <input
                                     type="number"
                                     min={0}
@@ -888,11 +918,11 @@ export default function ProfilePage() {
                                       )
                                     }
                                     placeholder="Uses vendor's lead time if blank"
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                    className={smallInput}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[11px] text-slate-500 mb-0.5">Reorder point / safety stock (days)</label>
+                                  <label className={smallLabel}>Reorder point / safety stock (days)</label>
                                   <input
                                     type="number"
                                     min={0}
@@ -903,7 +933,7 @@ export default function ProfilePage() {
                                         e.target.value === "" ? undefined : Number(e.target.value)
                                       )
                                     }
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                    className={smallInput}
                                   />
                                 </div>
                               </div>
@@ -913,9 +943,9 @@ export default function ProfilePage() {
                             <button
                               type="button"
                               onClick={() => addRawMaterial(pl.id)}
-                              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              className={disclosureBtn}
                             >
-                              + Add raw material
+                              Add raw material
                             </button>
                           )}
                         </div>
@@ -930,7 +960,7 @@ export default function ProfilePage() {
           {/* Step 4 — Pain Points */}
           {step === 4 && (
             <div className="space-y-3">
-              <p className="text-slate-400 text-sm mb-4">
+              <p className={ui.body}>
                 Select your top 3 supply chain challenges
               </p>
               {PAIN_POINTS.map((pp) => {
@@ -939,12 +969,12 @@ export default function ProfilePage() {
                 return (
                   <label
                     key={pp}
-                    className={`flex items-center gap-3 text-sm rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
+                    className={`flex items-center gap-3 text-[15px] rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
                       checked
-                        ? "border-blue-500 bg-blue-500/10 text-white"
+                        ? "border-ink bg-surface font-semibold text-ink"
                         : disabled
-                        ? "border-slate-700 text-slate-600 cursor-not-allowed"
-                        : "border-slate-600 text-slate-300 hover:border-slate-400"
+                        ? "border-line-soft text-ink-3 cursor-not-allowed"
+                        : "border-line bg-surface text-ink hover:border-ink"
                     }`}
                   >
                     <input
@@ -952,13 +982,13 @@ export default function ProfilePage() {
                       checked={checked}
                       disabled={disabled}
                       onChange={() => togglePainPoint(pp)}
-                      className="accent-blue-500"
+                      className="accent-ink"
                     />
                     {pp}
                   </label>
                 )
               })}
-              <p className="text-slate-500 text-xs mt-2">{painPoints.length}/3 selected</p>
+              <p className={ui.help}>{painPoints.length}/3 selected</p>
             </div>
           )}
 
@@ -966,9 +996,9 @@ export default function ProfilePage() {
           {step === 5 && (
             <div className="space-y-6">
               <div>
-                <label className="block text-slate-300 font-medium mb-3">
-                  How do you primarily move goods? *
-                </label>
+                <p className={`${ui.label} mb-3`}>
+                  How do you primarily move goods?<Required />
+                </p>
                 <div className="space-y-2">
                   {TRANSPORT_MODES.map((mode) => (
                     <label key={mode} className={checkboxLabelCls}>
@@ -976,7 +1006,7 @@ export default function ProfilePage() {
                         type="checkbox"
                         checked={transportModes.includes(mode)}
                         onChange={() => toggleTransport(mode)}
-                        className="accent-blue-500"
+                        className="accent-ink"
                       />
                       {mode}
                     </label>
@@ -985,9 +1015,9 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-3">
+                <p className={`${ui.label} mb-3`}>
                   Which shipping lanes are most critical to you?
-                </label>
+                </p>
                 <div className="space-y-2">
                   {TRADE_LANES.map((lane) => (
                     <label key={lane} className={checkboxLabelCls}>
@@ -995,7 +1025,7 @@ export default function ProfilePage() {
                         type="checkbox"
                         checked={tradeLanes.includes(lane)}
                         onChange={() => toggleTradeLane(lane)}
-                        className="accent-blue-500"
+                        className="accent-ink"
                       />
                       {lane}
                     </label>
@@ -1007,37 +1037,28 @@ export default function ProfilePage() {
 
           {/* Error */}
           {error && (
-            <div className="mt-4 text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
+            <p className={ui.errorBox} role="alert">
               {error}
-            </div>
+            </p>
           )}
 
           {/* Navigation */}
-          <div className="flex justify-between mt-8">
+          <div className="flex justify-between pt-3">
             {step > 1 ? (
-              <button
-                onClick={handleBack}
-                className="text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-4 py-2 rounded-lg text-sm transition-colors"
-              >
-                ← Back
+              <button onClick={handleBack} className={ui.btnSecondary}>
+                Back
               </button>
             ) : (
               <div />
             )}
 
             {step < 5 ? (
-              <button
-                onClick={handleContinue}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-              >
-                Continue →
+              <button onClick={handleContinue} className={ui.btnPrimary}>
+                Continue
               </button>
             ) : (
-              <button
-                onClick={handleSave}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
-              >
-                Save Profile ✓
+              <button onClick={handleSave} className={`${ui.btnAccent} px-5 py-2.5`}>
+                Save profile
               </button>
             )}
           </div>

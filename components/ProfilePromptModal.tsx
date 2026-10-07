@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { PROFILE_STORAGE_KEY } from "@/lib/profile"
+import Logo from "@/components/ui/Logo"
+import { ui } from "@/lib/ui"
 
 const SESSION_KEY = "profileModalDismissed"
 
@@ -33,32 +35,31 @@ export default function ProfilePromptModal() {
   if (!visible) return null
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center">
-      <div className="max-w-md w-full mx-4 mt-32 bg-slate-800 rounded-xl border border-slate-700 p-8">
-        <div className="text-4xl mb-4">🏭</div>
-        <h2 className="text-xl font-bold text-white">Get Personalized Intelligence</h2>
-        <p className="text-slate-400 text-sm mt-2">
+    <div className="fixed inset-0 bg-ink/40 z-50 flex items-start justify-center px-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-prompt-title"
+        className="max-w-md w-full mt-32 bg-paper-raised border border-line rounded-xl shadow-xl p-7 space-y-4"
+      >
+        <Logo />
+        <h2 id="profile-prompt-title" className={ui.h2}>Make this dashboard yours</h2>
+        <p className={ui.body}>
           Tell us about your supply chain and we&apos;ll show you disruptions that actually
           affect your business — not just global news that may be irrelevant to you.
         </p>
 
-        <div className="flex gap-3 mt-6">
-          <Link
-            href="/profile"
-            className="flex-1 text-center bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
-          >
-            Set Up My Profile →
+        <div className="flex items-center gap-3 pt-1">
+          <Link href="/profile" className={ui.btnAccent}>
+            Set up your profile
           </Link>
-          <button
-            onClick={dismiss}
-            className="text-slate-400 hover:text-slate-200 text-sm px-4 py-2.5 rounded-lg border border-slate-600 hover:border-slate-400 transition-colors"
-          >
-            Skip for now
+          <button onClick={dismiss} className={ui.btnGhost}>
+            Not now
           </button>
         </div>
 
-        <p className="text-xs text-slate-500 mt-4">
-          ⚡ Takes 5 minutes · Stored locally in your browser · No account required
+        <p className="text-xs text-ink-3">
+          Takes 5 minutes · Stored locally in your browser · No account required
         </p>
       </div>
     </div>
