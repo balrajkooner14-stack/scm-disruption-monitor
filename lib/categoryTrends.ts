@@ -151,8 +151,8 @@ export function getTrendColor(trend: CategoryTrend["trend"]): {
   text: string
 } {
   switch (trend) {
-    case "rising":  return { stroke: "#ef4444", text: "text-red-400" }
-    case "falling": return { stroke: "#22c55e", text: "text-green-400" }
-    case "stable":  return { stroke: "#94a3b8", text: "text-slate-400" }
+    case "rising":  return { stroke: "#B04A22", text: "text-ember" }
+    case "falling": return { stroke: "#4F6B78", text: "text-sea-deep" }
+    case "stable":  return { stroke: "#5A6470", text: "text-ink-3" }
   }
 }

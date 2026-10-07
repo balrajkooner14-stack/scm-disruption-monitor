@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import CategoryChart from "@/components/CategoryChart"
 import CommodityChart from "@/components/CommodityChart"
 import CurrencyExposureCard from "@/components/CurrencyExposureCard"
 import FreightRateCard from "@/components/FreightRateCard"
@@ -14,6 +13,13 @@ import {
 } from "@/lib/categoryTrends"
 import type { MarketData } from "@/app/api/market-data/route"
 import type { ScoredEvent } from "@/lib/scoreEvents"
+import type { DisruptionCategory } from "@/lib/types"
+import { formatSignedPercent } from "@/components/MarketRow"
+import { ui } from "@/lib/ui"
+
+const CATEGORIES: DisruptionCategory[] = ["Port", "Tariff", "Labor", "Geopolitical", "Weather", "General"]
+
+const TREND_WORD = { rising: "Rising", falling: "Falling", stable: "Stable" } as const
 
 interface AnalyticsTabProps {
   events: ScoredEvent[]
@@ -45,98 +51,73 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
       .finally(() => setLoading(false))
   }, [])
 
+  const hasTrendData = historyDays >= 2
+
+  // Same counts the old bar chart showed; sorted highest first for display.
+  const categoryCells = CATEGORIES
+    .map(category => ({
+      category,
+      count: events.filter(e => e.category === category).length,
+      trend: trends[category],
+    }))
+    .sort((a, b) => b.count - a.count)
+
   return (
     <div className="space-y-6">
-      {/* Events by category — always shown */}
-      <CategoryChart events={events} />
-
-      {/* 7-Day Category Trends */}
-      {Object.keys(trends).length > 0 && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">📈</span>
-              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-                7-Day Category Trends
-              </h2>
-            </div>
-            <span className="text-xs text-slate-500">
-              {historyDays < 2
-                ? "Building trend data — check back tomorrow"
-                : `${historyDays} days of data`}
-            </span>
-          </div>
-
-          {historyDays < 2 ? (
-            <div className="text-center py-4">
-              <p className="text-slate-500 text-sm mb-1">
-                Trend data builds automatically with each visit
-              </p>
-              <p className="text-xs text-slate-600">
-                Come back tomorrow to see your first trend lines
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {Object.values(trends).map((trend) => {
-                const colors = getTrendColor(trend.trend)
-                return (
-                  <div
-                    key={trend.category}
-                    className="bg-slate-700/50 border border-slate-700 rounded-lg px-3 py-3"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-slate-300">
-                        {trend.category}
-                      </span>
-                      <span className={`text-xs font-bold ${colors.text}`}>
-                        {trend.changePercent > 0 ? "+" : ""}
-                        {trend.changePercent}%
-                      </span>
-                    </div>
-                    <div className="flex items-end justify-between gap-2">
-                      <div>
-                        <span className="text-xl font-black text-slate-100">
-                          {trend.currentCount}
-                        </span>
-                        <span className="text-xs text-slate-500 ml-1">events</span>
-                      </div>
-                      {trend.history.length >= 2 && (
-                        <CategorySparkline trend={trend} className="mb-0.5" />
-                      )}
-                    </div>
-                    <p className={`text-xs mt-1 ${colors.text}`}>
-                      {trend.trend === "rising" ? "↑ Increasing"
-                       : trend.trend === "falling" ? "↓ Decreasing"
-                       : "→ Stable"}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          <p className="text-xs text-slate-700 mt-3">
-            Trend data saved locally · Updates on each dashboard visit ·
-            Red = more disruptions this week · Green = fewer disruptions
-          </p>
+      {/* Events by category — counts today plus 7-day trend */}
+      <section className={`${ui.card} p-7 flex flex-col gap-5`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className={ui.h1}>Events by category</h1>
+          <p className={ui.meta}>Today · with change over 7 days</p>
         </div>
-      )}
+
+        {events.length === 0 ? (
+          <p className={`${ui.emptyText} border-t border-line-soft pt-5`}>No category data available.</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 border-t border-line-soft">
+            {categoryCells.map(({ category, count, trend }, i) => {
+              const colors = trend ? getTrendColor(trend.trend) : null
+              return (
+                <div
+                  key={category}
+                  className={`p-5 flex flex-col gap-2.5 ${i === 0 ? "" : "border-l border-line-soft"}`}
+                >
+                  <span className="text-sm text-ink-2">{category}</span>
+                  <span className={ui.stat}>{count}</span>
+                  {hasTrendData && trend && (
+                    <>
+                      <CategorySparkline trend={trend} width={120} height={28} />
+                      <span
+                        className={`text-[13px] ${colors?.text ?? "text-ink-3"} ${
+                          trend.trend === "rising" ? "font-semibold" : ""
+                        }`}
+                      >
+                        {TREND_WORD[trend.trend]} · {formatSignedPercent(trend.changePercent).replace(".0%", "%")}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <p className={ui.meta}>
+          {hasTrendData
+            ? `${historyDays} days of trend data, saved locally and updated on each dashboard visit.`
+            : "Building trend data — it builds automatically with each visit. Come back tomorrow to see your first trend lines."}
+        </p>
+      </section>
 
       {/* Market data — loading skeleton */}
       {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" aria-busy="true">
           {[0, 1].map((i) => (
-            <div
-              key={i}
-              className="bg-slate-800 border border-slate-700 rounded-xl p-5 animate-pulse min-h-[220px]"
-            >
-              <div className="h-3 w-32 bg-slate-700 rounded mb-4" />
-              <div className="grid grid-cols-2 gap-3">
-                {[0, 1, 2, 3].map((j) => (
-                  <div key={j} className="bg-slate-700/50 rounded-lg h-24" />
-                ))}
-              </div>
+            <div key={i} className={`${ui.card} space-y-4 min-h-[220px]`}>
+              <div className={`${ui.skeleton} h-6 w-40`} />
+              {[0, 1, 2, 3].map((j) => (
+                <div key={j} className={`${ui.skeleton} h-8`} />
+              ))}
             </div>
           ))}
         </div>
@@ -144,8 +125,8 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
 
       {/* Market data — error state */}
       {error && (
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center">
-          <p className="text-slate-500 text-sm">
+        <div className={ui.card}>
+          <p className={ui.meta}>
             Could not load market data. Yahoo Finance may be temporarily
             unavailable — try refreshing.
           </p>
@@ -154,61 +135,62 @@ export default function AnalyticsTab({ events }: AnalyticsTabProps) {
 
       {/* Market data — loaded */}
       {marketData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <CommodityChart
-            commodities={marketData.commodities}
-            lastUpdated={marketData.lastUpdated}
-          />
-          <FreightRateCard
-            rates={marketData.freight}
-          />
-          <CurrencyExposureCard
-            currencies={marketData.currencies}
-            lastUpdated={marketData.lastUpdated}
-          />
-        </div>
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <CommodityChart
+              commodities={marketData.commodities}
+              lastUpdated={marketData.lastUpdated}
+            />
+            <CurrencyExposureCard
+              currencies={marketData.currencies}
+              lastUpdated={marketData.lastUpdated}
+            />
+          </div>
+          <FreightRateCard rates={marketData.freight} />
+        </>
       )}
 
       {/* Reading these indicators */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-        <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
-          Reading These Indicators
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-500 leading-relaxed">
-          <div>
-            <p className="text-slate-300 font-medium mb-1">Commodity Prices</p>
-            <p>
+      <details className="group">
+        <summary className={`${ui.btnGhost} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="group-open:rotate-180">
+            <path d="M6 9 L12 15 L18 9" />
+          </svg>
+          How to read these indicators
+        </summary>
+        <div className="grid md:grid-cols-4 gap-6 pt-4">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink">Commodity prices</p>
+            <p className="text-[13px] leading-relaxed text-ink-2">
               Rising input costs compress margins and may signal supply
               shortages. Watch for spikes that precede freight rate increases
               by 4–8 weeks.
             </p>
           </div>
-          <div>
-            <p className="text-slate-300 font-medium mb-1">
-              Container Freight Rates
-            </p>
-            <p>
-              Rate surges (▲) indicate port congestion or capacity crunch.
-              Falling rates (▼) suggest excess supply or slowing trade volumes.
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink">Container freight rates</p>
+            <p className="text-[13px] leading-relaxed text-ink-2">
+              Rate surges indicate port congestion or capacity crunch.
+              Falling rates suggest excess supply or slowing trade volumes.
             </p>
           </div>
-          <div>
-            <p className="text-slate-300 font-medium mb-1">Crude Oil</p>
-            <p>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink">Crude oil</p>
+            <p className="text-[13px] leading-relaxed text-ink-2">
               Drives air and ocean freight costs. A 10% oil spike typically
               adds 2–3% to total logistics spend within 6–8 weeks.
             </p>
           </div>
-          <div>
-            <p className="text-slate-300 font-medium mb-1">Data Sources</p>
-            <p>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink">Data sources</p>
+            <p className="text-[13px] leading-relaxed text-ink-2">
               Commodity prices: Yahoo Finance futures (CL=F, NG=F, HG=F, ZW=F). Freight rates:
               static index benchmarks updated periodically. Not financial
               advice.
             </p>
           </div>
         </div>
-      </div>
+      </details>
     </div>
   )
 }

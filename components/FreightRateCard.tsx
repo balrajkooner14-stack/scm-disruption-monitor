@@ -1,6 +1,8 @@
 "use client"
 
 import type { FreightRate } from "@/app/api/market-data/route"
+import { formatSignedPercent } from "@/components/MarketRow"
+import { ui } from "@/lib/ui"
 
 interface FreightRateCardProps {
   rates: FreightRate[]
@@ -18,53 +20,31 @@ export default function FreightRateCard({ rates }: FreightRateCardProps) {
     : "unknown"
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🚢</span>
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-            Container Freight Rates
-          </h2>
-        </div>
-        <span className="text-xs text-amber-500">Reference · not live</span>
+    <section className={`${ui.card} flex flex-col gap-4`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <h2 className={ui.h2}>Container freight rates</h2>
+        <span className={`${ui.chip} ${ui.chipNeutral}`}>Reference · not live · as of {verifiedDate}</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {rates.map((r) => (
-          <div
-            key={r.lane}
-            className="bg-slate-900/60 border border-slate-700 rounded-lg p-3"
-          >
-            <p className="text-xs text-slate-500 mb-2 leading-tight">{r.lane}</p>
-            <div className="flex items-end justify-between">
-              <span className="text-lg font-bold text-white">
-                ${fmt.format(r.rate)}
-                <span className="text-xs text-slate-500 font-normal ml-1">
-                  {r.unit}
-                </span>
-              </span>
-              <span
-                className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                  r.trend === "up"
-                    ? "text-red-400 bg-red-900/30"
-                    : r.trend === "down"
-                      ? "text-green-400 bg-green-900/30"
-                      : "text-slate-400 bg-slate-700/30"
-                }`}
-              >
-                {r.trend === "up" ? "▲" : r.trend === "down" ? "▼" : "—"}{" "}
-                {Math.abs(r.change).toFixed(1)}%
-              </span>
+      {rates.length === 0 ? (
+        <p className={ui.emptyText}>No reference freight rates available.</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+          {rates.map((r) => (
+            <div key={r.lane} className={`${ui.cardInner} flex flex-col gap-1.5`}>
+              <p className="text-[13px] text-ink-2">{r.lane}</p>
+              <p className="font-serif text-3xl text-ink tabular-nums">${fmt.format(r.rate)}</p>
+              <p className="text-xs text-ink-3">{r.unit} · {formatSignedPercent(r.change)}</p>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      <p className="text-xs text-slate-600 mt-3">
+      <p className="text-xs text-ink-3">
         Manually verified reference rates as of {verifiedDate} — not a live feed
-        (no free live ocean freight index exists). Rising rates (▲) signal
+        (no free live ocean freight index exists). Rising rates signal
         congestion or capacity crunch as of that check.
       </p>
-    </div>
+    </section>
   )
 }
