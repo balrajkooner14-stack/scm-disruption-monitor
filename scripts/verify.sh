@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 
 rm -rf .verify
 npx tsc lib/fetchDisruptions.ts lib/tradeFeeds.ts lib/fetchTradeNews.ts \
-  lib/authRouting.ts \
+  lib/authRouting.ts lib/onboardingInsights.ts \
   --outDir .verify \
   --module commonjs \
   --target es2020 \

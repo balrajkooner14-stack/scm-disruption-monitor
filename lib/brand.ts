@@ -31,4 +31,5 @@ export const COLOR = {
   heat2: "#E3A27E",
   heat3: "#C8704A",
   onInk: "#F4EFE6",
+  onInkMuted: "#C9C2B5",
 } as const

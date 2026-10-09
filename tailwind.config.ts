@@ -23,6 +23,8 @@ const config: Config = {
         moss: { DEFAULT: "#3F6B4C", deep: "#2F5A3C", tint: "#DCE5DE" },
         ai: { DEFAULT: "#7A4A1A", tint: "#F7EBDD" },
         heat: { 0: "#E6DFD2", 1: "#F0CFB6", 2: "#E3A27E", 3: "#C8704A" },
+        // Text on bg-ink panels (sign-in live panel, first-light band).
+        "on-ink": { DEFAULT: "#F4EFE6", muted: "#C9C2B5" },
       },
       fontFamily: {
         serif: ["var(--font-newsreader)", "Georgia", "serif"],
