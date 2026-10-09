@@ -8,6 +8,7 @@ import OnboardingHeader from "@/components/onboarding/OnboardingHeader"
 import StepChoosePath from "@/components/onboarding/StepChoosePath"
 import StepCompany from "@/components/onboarding/StepCompany"
 import StepFirstLight from "@/components/onboarding/StepFirstLight"
+import StepImport from "@/components/onboarding/StepImport"
 import StepProducts from "@/components/onboarding/StepProducts"
 import StepPorts from "@/components/onboarding/StepPorts"
 import StepSuppliers from "@/components/onboarding/StepSuppliers"
@@ -290,12 +291,12 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
         />
       )}
 
-      {/* Steps still to be built in later phases of this branch. */}
-      {!["company", "suppliers", "ports", "products"].includes(draft.step) && (
-        <div className="flex flex-1 flex-col items-start gap-4 px-6 py-12 sm:px-16">
-          <p className={ui.body}>This step isn&apos;t built yet on this branch. Your answers so far are saved.</p>
-          <button type="button" onClick={goBack} className={ui.btnSecondary}>← Back</button>
-        </div>
+      {draft.step === "import" && (
+        <StepImport
+          onConfirm={({ suppliers, products }) => update(d => ({ ...d, suppliers, products, step: "ports" }))}
+          onTypeInstead={() => update(d => ({ ...d, path: "manual", step: "suppliers" }))}
+          onBack={goBack}
+        />
       )}
     </div>
   )

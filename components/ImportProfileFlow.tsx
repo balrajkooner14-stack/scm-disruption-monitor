@@ -3,14 +3,28 @@
 import { useState, useCallback } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { parseFile, prepareForAI } from "@/lib/parseImportFile"
-import { computeDaysOnHand, distributeShareEvenly } from "@/lib/importCalculations"
+import { computeDaysOnHand, distributeShareEvenly, matchSupplierByName } from "@/lib/importCalculations"
 import type { ImportResult, ImportedSupplier, ImportedProductLine } from "@/app/api/import-profile/route"
 import type { CompanyProfile, Supplier, ProductLine } from "@/lib/profile"
 import { ui } from "@/lib/ui"
 
+/** What the onboarding import step shows about the read ("3 sheets read in 9 seconds"). */
+export interface ImportMeta {
+  fileName: string
+  sheetNames: string[]
+  seconds: number
+}
+
 interface ImportProfileFlowProps {
   onComplete: () => void
   onCancel: () => void
+  /**
+   * Onboarding mode (v5.1). When set, this component only uploads, parses and
+   * post-processes the file, then hands the result over: it never saves the
+   * profile and skips its own review (the caller shows one). Without it the
+   * /profile behaviour is unchanged.
+   */
+  onResult?: (result: ImportResult, meta: ImportMeta) => void
 }
 
 type ImportStep = "upload" | "processing" | "review" | "success"
@@ -36,6 +50,7 @@ const noteBox = "rounded-lg bg-ochre-tint text-ochre px-4 py-3 text-sm"
 export default function ImportProfileFlow({
   onComplete,
   onCancel,
+  onResult,
 }: ImportProfileFlowProps) {
   const { profile, saveProfile } = useCompanyProfile()
   const [step, setStep] = useState<ImportStep>("upload")
@@ -52,6 +67,7 @@ export default function ImportProfileFlow({
     setFileName(file.name)
     setError(null)
     setStep("processing")
+    const startedAt = Date.now()
 
     try {
       const parsed = await parseFile(file)
@@ -93,6 +109,18 @@ export default function ImportProfileFlow({
         }
         return p
       })
+
+      if (onResult) {
+        onResult(
+          { ...result, suppliers: suppliersWithShares, productLines: productsWithComputedDays },
+          {
+            fileName: file.name,
+            sheetNames: parsed.sheetNames ?? [file.name],
+            seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
+          },
+        )
+        return
+      }
 
       setImportResult(result)
       setEditedSuppliers(suppliersWithShares)
@@ -140,16 +168,8 @@ export default function ImportProfileFlow({
         let primarySupplierId: string | undefined = undefined
 
         if (p.primarySupplierName) {
-          const targetLower = p.primarySupplierName.toLowerCase()
-          const matched = newSuppliers.find(s => {
-            const supplierLower = s.name.toLowerCase()
-            return (
-              supplierLower.includes(targetLower) ||
-              targetLower.includes(supplierLower) ||
-              supplierLower.split(" ")[0] === targetLower.split(" ")[0]
-            )
-          })
-          if (matched) primarySupplierId = matched.id
+          const idx = matchSupplierByName(p.primarySupplierName, newSuppliers.map(s => s.name))
+          if (idx >= 0) primarySupplierId = newSuppliers[idx].id
         }
 
         return {
@@ -404,15 +424,8 @@ export default function ImportProfileFlow({
                     <p className="text-xs text-ink-3">
                       Primary supplier:{" "}
                       {(() => {
-                        const targetLower = product.primarySupplierName.toLowerCase()
-                        const matched = editedSuppliers.find(s => {
-                          const supplierLower = s.name.toLowerCase()
-                          return (
-                            supplierLower.includes(targetLower) ||
-                            targetLower.includes(supplierLower) ||
-                            supplierLower.split(" ")[0] === targetLower.split(" ")[0]
-                          )
-                        })
+                        const idx = matchSupplierByName(product.primarySupplierName, editedSuppliers.map(s => s.name))
+                        const matched = idx >= 0 ? editedSuppliers[idx] : undefined
                         return matched ? (
                           <span className="text-moss font-semibold">✓ matched · {matched.name}</span>
                         ) : (

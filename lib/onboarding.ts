@@ -8,7 +8,7 @@ import type {
   TransportMode,
 } from "./profile"
 import { countryToSupplyRegion, findCountry } from "./countries"
-import { distributeShareEvenly } from "./importCalculations"
+import { distributeShareEvenly, matchSupplierByName } from "./importCalculations"
 
 // v5.1 onboarding data model (spec 4.3–4.5). CompanyProfile (lib/profile.ts)
 // is unchanged; everything new lives in OnboardingExtras, stored in the
@@ -98,6 +98,8 @@ export interface DraftSupplier {
   country: string
   category: string
   leadTimeDays?: number
+  /** Real share from an imported file; typed-in rows leave it unset (even split). */
+  sharePercent?: number
 }
 
 export interface DraftProduct {
@@ -107,6 +109,8 @@ export interface DraftProduct {
   stockDays?: number
   asOf?: string        // YYYY-MM-DD; defaults to today
   stockLater?: boolean // "Add later" toggled on
+  /** Real reorder point from an imported file; otherwise defaulted to the lead time. */
+  reorderPointDays?: number
 }
 
 export interface OnboardingDraft {
@@ -167,6 +171,10 @@ function hasStock(p: DraftProduct): boolean {
   return !p.stockLater && typeof p.stockDays === "number" && Number.isFinite(p.stockDays) && p.stockDays >= 0
 }
 
+function hasReorderPoint(p: DraftProduct): boolean {
+  return typeof p.reorderPointDays === "number" && Number.isFinite(p.reorderPointDays) && p.reorderPointDays > 0
+}
+
 function hasLeadTime(s: DraftSupplier): boolean {
   return typeof s.leadTimeDays === "number" && Number.isFinite(s.leadTimeDays) && s.leadTimeDays > 0
 }
@@ -222,6 +230,9 @@ export function deriveTradeLanes(
  */
 export function onboardingToProfile(draft: OnboardingDraft, now: Date = new Date()): CompanyProfile {
   const draftSuppliers = validDraftSuppliers(draft)
+  // Keep real shares only when every supplier has one (an imported file);
+  // a partial set would no longer add up, so fall back to an even split.
+  const realShares = draftSuppliers.length > 0 && draftSuppliers.every(s => (s.sharePercent ?? 0) > 0)
   const share = distributeShareEvenly(draftSuppliers.length)
 
   const suppliers: Supplier[] = draftSuppliers.map(s => {
@@ -232,7 +243,7 @@ export function onboardingToProfile(draft: OnboardingDraft, now: Date = new Date
       country: country?.name ?? s.country.trim(),
       region: (country?.region ?? "Asia Pacific") as SupplyRegion, // valid rows always have a country
       category: s.category.trim(),
-      sharePercent: share,
+      sharePercent: realShares ? (s.sharePercent as number) : share,
       leadTimeDays: hasLeadTime(s) ? Math.round(s.leadTimeDays as number) : 0,
     }
   })
@@ -246,7 +257,7 @@ export function onboardingToProfile(draft: OnboardingDraft, now: Date = new Date
       id: p.id,
       name: p.name.trim(),
       inventoryDaysOnHand: hasStock(p) ? Math.round(p.stockDays as number) : 0,
-      reorderPointDays: lead > 0 ? lead : 0,
+      reorderPointDays: hasReorderPoint(p) ? Math.round(p.reorderPointDays as number) : lead > 0 ? lead : 0,
       ...(primarySupplierId ? { primarySupplierId } : {}),
     }
   })
@@ -284,7 +295,7 @@ export function draftToExtras(draft: OnboardingDraft, now: Date = new Date()): O
     if (hasStock(p)) inventoryAsOf[p.id] = p.asOf || today
     else inventoryUnknown.push(p.id)
     const supplier = p.supplierId ? supplierById.get(p.supplierId) : undefined
-    if (supplier && hasLeadTime(supplier)) reorderPointDefaulted.push(p.id)
+    if (!hasReorderPoint(p) && supplier && hasLeadTime(supplier)) reorderPointDefaulted.push(p.id)
   }
 
   return {
@@ -386,4 +397,61 @@ export function watchingSentence(counts: { suppliers: number; countries: number;
   if (clauses.length === 0) return "Foreglow is now watching today's news for you."
   const list = clauses.length === 1 ? clauses[0] : `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}`
   return `Foreglow is now watching ${list}. Here's what it sees today.`
+}
+
+// ── Spreadsheet import → draft rows (spec 6.7) ──────────────────────────────
+
+/** Structural subset of the import API's ImportedSupplier / ImportedProductLine. */
+export interface ImportedSupplierLike {
+  name: string
+  country: string
+  category: string
+  sharePercent: number
+  leadTimeDays: number
+}
+export interface ImportedProductLike {
+  name: string
+  inventoryDaysOnHand: number
+  reorderPointDays: number
+  primarySupplierName?: string
+}
+
+/**
+ * Imported rows as onboarding draft rows. Countries are canonicalised when
+ * recognised and left as typed otherwise (the review flags them). Imported
+ * stock has no count date, so it's taken as of `today`; products without a
+ * stock value are marked "add later". Capped at the profile limits.
+ */
+export function importResultToDraft(
+  suppliers: ImportedSupplierLike[],
+  products: ImportedProductLike[],
+  today: string,
+  newId: () => string,
+): { suppliers: DraftSupplier[]; products: DraftProduct[] } {
+  const draftSuppliers: DraftSupplier[] = suppliers.slice(0, MAX_SUPPLIERS).map(s => {
+    const lead = Math.round(Number(s.leadTimeDays))
+    const share = Number(s.sharePercent)
+    return {
+      id: newId(),
+      name: (s.name ?? "").trim(),
+      country: findCountry(s.country ?? "")?.name ?? (s.country ?? "").trim(),
+      category: (s.category ?? "").trim(),
+      ...(lead > 0 ? { leadTimeDays: lead } : {}),
+      ...(share > 0 ? { sharePercent: share } : {}),
+    }
+  })
+  const names = draftSuppliers.map(s => s.name)
+  const draftProducts: DraftProduct[] = products.slice(0, MAX_PRODUCTS).map(p => {
+    const stock = Math.round(Number(p.inventoryDaysOnHand))
+    const reorder = Math.round(Number(p.reorderPointDays))
+    const idx = p.primarySupplierName ? matchSupplierByName(p.primarySupplierName, names) : -1
+    return {
+      id: newId(),
+      name: (p.name ?? "").trim(),
+      ...(idx >= 0 ? { supplierId: draftSuppliers[idx].id } : {}),
+      ...(stock > 0 ? { stockDays: stock, asOf: today } : { stockLater: true }),
+      ...(reorder > 0 ? { reorderPointDays: reorder } : {}),
+    }
+  })
+  return { suppliers: draftSuppliers, products: draftProducts }
 }

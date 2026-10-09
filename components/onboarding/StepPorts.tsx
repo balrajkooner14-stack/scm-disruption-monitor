@@ -5,7 +5,7 @@ import StepLayout, { StepHeading } from "@/components/onboarding/StepLayout"
 import { SeverityChip, eventMeta } from "@/components/onboarding/display"
 import type { DisruptionEvent } from "@/lib/types"
 import type { TransportMode } from "@/lib/profile"
-import { TRANSPORT_CHIPS, type OnboardingPath } from "@/lib/onboarding"
+import { TRANSPORT_CHIPS, shortCompanyName, type OnboardingPath } from "@/lib/onboarding"
 import { portWatchHeadline } from "@/lib/onboardingInsights"
 import { PORTS, customPortId, isCustomPortId, matchEventsToPorts, portName } from "@/lib/ports"
 import { ui } from "@/lib/ui"
@@ -62,7 +62,7 @@ export default function StepPorts({ entryPorts, transport, events, path, company
   const customPorts = entryPorts.filter(isCustomPortId)
 
   const primaryLabel =
-    path === "import" ? `See what's touching ${companyName.trim() || "your company"} →` : "Continue to products →"
+    path === "import" ? `See what's touching ${shortCompanyName(companyName) || "your company"} →` : "Continue to products →"
 
   return (
     <StepLayout

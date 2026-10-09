@@ -4,7 +4,7 @@ require("./verify-alias");
 const { containsTerm } = require("../.verify/textMatch.js");
 const { findCountry, countryToSupplyRegion, searchCountries, textMentionsCountry, countryGeoName } = require("../.verify/countries.js");
 const { matchEventsToPorts, portName, customPortId } = require("../.verify/ports.js");
-const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows, shortCompanyName, watchingSentence } = require("../.verify/onboarding.js");
+const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows, shortCompanyName, watchingSentence, importResultToDraft } = require("../.verify/onboarding.js");
 const { computeChecklist, openItems, setupPercent, checklistProgress } = require("../.verify/setupChecklist.js");
 const {
   pickHeadlineEvents, supplierEventMatch, supplierTeaser, activeEventsForSuppliers,
@@ -243,6 +243,35 @@ check("percent counts sections + items honestly", setupPercent(profile, complete
 const progressed = { ...completedExtras, checklistInitial: open };
 const afterPainPoints = computeChecklist({ ...profile, painPoints: ["Port congestion"] }, progressed, FLAGS_OFF);
 check("progress: done = initial items no longer open", checklistProgress(afterPainPoints, progressed), { done: 1, total: 7 });
+
+console.log("-- importResultToDraft (spec 6.7) --");
+let n = 0;
+const ids = () => `id${++n}`;
+const imp = importResultToDraft(
+  [
+    { name: "TSMC Semiconductor", country: "taiwan", category: "Semiconductors", sharePercent: 60, leadTimeDays: 45 },
+    { name: "Bosch Comp.", country: "", category: "Sensors", sharePercent: 40, leadTimeDays: 0 },
+  ],
+  [
+    { name: "EV Charging Module", inventoryDaysOnHand: 18, reorderPointDays: 25, primarySupplierName: "TSMC" },
+    { name: "Industrial IoT Sensor", inventoryDaysOnHand: 0, reorderPointDays: 0, primarySupplierName: "Unknown Co" },
+  ],
+  "2026-10-08",
+  ids,
+);
+check("country canonicalised when known, kept blank when missing", imp.suppliers.map(s => s.country), ["Taiwan", ""]);
+check("lead time kept only when > 0", imp.suppliers.map(s => s.leadTimeDays ?? null), [45, null]);
+check("product linked by loose name match", imp.products[0].supplierId, imp.suppliers[0].id);
+check("unmatched supplier name leaves product unlinked", imp.products[1].supplierId, undefined);
+check("imported stock dated today", [imp.products[0].stockDays, imp.products[0].asOf], [18, "2026-10-08"]);
+check("no stock -> add later", imp.products[1].stockLater, true);
+const impDraft = { ...emptyDraft(NOW), suppliers: [...imp.suppliers], products: imp.products };
+impDraft.suppliers[1] = { ...impDraft.suppliers[1], country: "Germany" };
+const impProfile = onboardingToProfile(impDraft, NOW);
+const impExtras = draftToExtras(impDraft, NOW);
+check("real imported shares kept", impProfile.suppliers.map(s => s.sharePercent), [60, 40]);
+check("real imported reorder point kept, not defaulted", [impProfile.productLines[0].reorderPointDays, impExtras.reorderPointDefaulted], [25, []]);
+check("partial shares fall back to an even split", onboardingToProfile({ ...impDraft, suppliers: [impDraft.suppliers[0], { ...impDraft.suppliers[1], sharePercent: undefined }] }, NOW).suppliers.map(s => s.sharePercent), [50, 50]);
 
 if (failed) { console.log(`${failed} FAILED`); process.exit(1); }
 console.log("all passed");

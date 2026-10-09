@@ -17,3 +17,17 @@ export function distributeShareEvenly(count: number): number {
   if (count <= 0) return 0
   return Math.round((100 / count) * 100) / 100
 }
+
+/**
+ * Loose name match between a product's "primary supplier" cell and the
+ * imported supplier names: either contains the other, or the first words
+ * agree ("Foxconn" ↔ "Foxconn Assembly"). Returns the matched index or -1.
+ */
+export function matchSupplierByName(target: string, names: string[]): number {
+  const t = target.trim().toLowerCase()
+  if (!t) return -1
+  return names.findIndex(name => {
+    const n = name.trim().toLowerCase()
+    return !!n && (n.includes(t) || t.includes(n) || n.split(" ")[0] === t.split(" ")[0])
+  })
+}
