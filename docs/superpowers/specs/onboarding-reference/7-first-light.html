@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding 8 · First light (reference mockup)</title>
+<!-- REFERENCE MOCKUP ONLY: fixed 1440px canvas, inline styles, sample data (Meridian Electronics).
+     Translate to the First Light tokens and lib/ui.ts recipes; never copy inline styles. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#F4EFE6;color:#1B2330}
+a{color:#B04A22;text-decoration:none}a:hover{color:#8A3A1A}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #F4EFE6; color: #1B2330">
+<section style="height: 360px; flex-shrink: 0; box-sizing: border-box; position: relative; overflow: hidden; padding: 56px 120px; background: #1B2330; color: #F4EFE6; display: flex; flex-direction: column; gap: 14px">
+<div style="font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #E0A077; font-weight: 600">Setup complete · 3 min 40 s</div>
+<h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 64px; line-height: 1.02">First light, <span style="font-style: italic; color: #E0A077">Meridian.</span></h1>
+<p style="margin: 0; font-size: 19px; line-height: 1.5; color: #C9C2B5; max-width: 760px">Foreglow is now watching 4 suppliers in 4 countries, 2 entry points and 3 product lines. Here's what it sees today.</p>
+<svg width="1440" height="120" viewBox="0 0 1440 120" fill="none" aria-hidden="true" style="position: absolute; left: 0; bottom: 0"><path d="M1040 120 A190 190 0 0 1 1420 120" stroke="#E0A077" stroke-width="1.5"></path><path d="M1105 120 A125 125 0 0 1 1355 120 Z" fill="#D8663A"></path><path d="M0 119 H1440" stroke="#F4EFE6" stroke-width="2"></path></svg>
+</section>
+
+<section style="flex-grow: 1; box-sizing: border-box; padding: 40px 120px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<article style="padding: 22px; background: #FFFFFF; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; padding: 2px 9px; background: #B04A22; color: #FFFFFF; border-radius: 999px; font-size: 11px; font-weight: 600">DECIDE THIS WEEK</span>
+<h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 23px; line-height: 1.2">EV Charging Module is your tightest spot</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.55; color: #3E4955">18 days of stock, a 45-day lead time from TSMC, and no backup supplier while Asia Pacific has active disruptions.</p>
+</article>
+<article style="padding: 22px; background: #FFFFFF; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; padding: 2px 9px; background: #F3E6C8; color: #6E4B0C; border-radius: 999px; font-size: 11px; font-weight: 600">WATCH</span>
+<h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 23px; line-height: 1.2">Los Angeles / Long Beach</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.55; color: #3E4955">A looming harbor bridge closure and long container dwell times at your main entry port.</p>
+</article>
+<article style="padding: 22px; background: #FFFFFF; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; padding: 2px 9px; background: #F3E6C8; color: #6E4B0C; border-radius: 999px; font-size: 11px; font-weight: 600">WATCH</span>
+<h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 500; font-size: 23px; line-height: 1.2">Flood near Foxconn Assembly</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.55; color: #3E4955">Southern China flooding, in the region that builds your Smart Home Hub.</p>
+</article>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; align-items: stretch">
+<div style="grid-column: span 7; padding: 22px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 4px"><div style="font-weight: 600">Get this in your inbox every morning</div><div style="font-size: 14px; color: #3E4955">A short brief at 7:00 AM Phoenix time. Only what touches your network.</div></div>
+<button type="button" role="switch" aria-checked="true" aria-label="Morning email brief" style="width: 52px; height: 30px; flex-shrink: 0; border-radius: 15px; border: none; background: #1B2330; position: relative"><span style="position: absolute; top: 4px; left: 26px; width: 22px; height: 22px; border-radius: 11px; background: #F4EFE6"></span></button>
+</div>
+<div style="grid-column: span 5; display: flex; flex-direction: column; justify-content: center; gap: 10px">
+<button type="button" style="height: 52px; background: #B04A22; color: #FFFFFF; border: none; border-radius: 8px; font: inherit; font-size: 16px; font-weight: 600">Open my dashboard</button>
+<div style="font-size: 13px; color: #5A6470; text-align: center">Setup is 60% complete. Your dashboard shows what to add next.</div>
+</div>
+</div>
+</section>
+</div>
+</body>
+</html>

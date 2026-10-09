@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding 7 · Spreadsheet import review (reference mockup)</title>
+<!-- REFERENCE MOCKUP ONLY: fixed 1440px canvas, inline styles, sample data (Meridian Electronics).
+     Translate to the First Light tokens and lib/ui.ts recipes; never copy inline styles. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#F4EFE6;color:#1B2330}
+a{color:#B04A22;text-decoration:none}a:hover{color:#8A3A1A}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #F4EFE6; color: #1B2330">
+<header style="height: 72px; flex-shrink: 0; box-sizing: border-box; padding: 0 48px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #DDD5C6; background: #FBF8F2">
+<div style="display: flex; align-items: center; gap: 8px"><svg width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 30 A18 18 0 0 1 42 30" stroke="#E0A077" stroke-width="2"></path><path d="M12 30 A12 12 0 0 1 36 30 Z" fill="#B04A22"></path><path d="M3 30 H45" stroke="#1B2330" stroke-width="2.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 22px">Foreglow</div></div>
+<div style="font-size: 13px; color: #5A6470">Import path · after this, you go straight to ports</div>
+</header>
+
+<div style="flex-grow: 1; box-sizing: border-box; padding: 44px 80px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 32px">
+<section style="grid-column: span 8; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 10px; align-items: center; font-size: 13px; color: #3E4955"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F6B4C" stroke-width="2.5" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>Q3-supplier-master.xlsx · 3 sheets read in 9 seconds</div>
+<h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 38px; line-height: 1.12">We found 5 suppliers and 4 products. Check them before we save.</h1>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #DDD5C6; border-radius: 12px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr 120px; gap: 12px; padding: 12px 16px; background: #FBF8F2; border-bottom: 1px solid #DDD5C6; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5A6470"><span>Supplier</span><span>Country</span><span>Supplies</span><span>Lead time</span><span>Confidence</span></div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr 120px; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E6DFD2; font-size: 15px"><span style="font-weight: 600">TSMC Semiconductor</span><span>Taiwan</span><span>Semiconductors</span><span>45 d</span><span><span style="padding: 2px 9px; background: #DCE5DE; color: #2F5A3C; border-radius: 999px; font-size: 11px; font-weight: 600">HIGH</span></span></div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr 120px; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E6DFD2; font-size: 15px"><span style="font-weight: 600">Samsung SDI</span><span>South Korea</span><span>Batteries</span><span>30 d</span><span><span style="padding: 2px 9px; background: #DCE5DE; color: #2F5A3C; border-radius: 999px; font-size: 11px; font-weight: 600">HIGH</span></span></div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr 120px; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E6DFD2; font-size: 15px"><span style="font-weight: 600">Foxconn Assembly</span><span>China</span><span>Contract assembly</span><span>21 d</span><span><span style="padding: 2px 9px; background: #DCE5DE; color: #2F5A3C; border-radius: 999px; font-size: 11px; font-weight: 600">HIGH</span></span></div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr 120px; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E6DFD2; font-size: 15px; background: #FDF8EC"><span style="font-weight: 600">Bosch Comp.</span><span><input type="text" placeholder="Which country?" aria-label="Country for Bosch Comp." style="width: 100%; height: 34px; box-sizing: border-box; padding: 0 8px; border: 1px solid #8A8272; border-radius: 6px; font: inherit; font-size: 14px; background: #FFFFFF"></span><span>Sensors</span><span>25 d</span><span><span style="padding: 2px 9px; background: #F3E6C8; color: #6E4B0C; border-radius: 999px; font-size: 11px; font-weight: 600">NEEDS A LOOK</span></span></div>
+<div style="display: grid; grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr 120px; gap: 12px; align-items: center; padding: 12px 16px; font-size: 15px"><span style="font-weight: 600">Flex Ltd</span><span>Mexico</span><span>PCB assembly</span><span style="color: #5A6470">—</span><span><span style="padding: 2px 9px; background: #DCE5DE; color: #2F5A3C; border-radius: 999px; font-size: 11px; font-weight: 600">HIGH</span></span></div>
+</div>
+<div style="font-size: 14px; color: #3E4955">Products found: Smart Home Hub, EV Charging Module, Industrial IoT Sensor, Portable Power Bank. <a href="#">Review products</a></div>
+
+<div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center">
+<a href="#" style="font-size: 14px; color: #3E4955">← Use a different file</a>
+<div style="display: flex; gap: 16px; align-items: center"><span style="font-size: 13px; color: #6E4B0C">1 row needs a country</span><button type="button" style="padding: 14px 26px; background: #1B2330; color: #F4EFE6; border: none; border-radius: 8px; font: inherit; font-size: 15px; font-weight: 600">Looks right, continue →</button></div>
+</div>
+</section>
+
+<aside style="grid-column: span 4; display: flex; flex-direction: column; gap: 16px">
+<div style="padding: 22px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #5A6470; font-weight: 600">What we read</div>
+<div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+<div style="display: flex; justify-content: space-between"><span>Sheet "Vendors"</span><span style="color: #2F5A3C">5 suppliers</span></div>
+<div style="display: flex; justify-content: space-between"><span>Sheet "SKU inventory"</span><span style="color: #2F5A3C">4 products</span></div>
+<div style="display: flex; justify-content: space-between"><span>Sheet "Customer rollup"</span><span style="color: #5A6470">not used</span></div>
+</div>
+<div style="font-size: 13px; line-height: 1.55; color: #3E4955">"Customer rollup" is sales by customer, not suppliers or products, so we left it out rather than guess.</div>
+</div>
+<div style="padding: 22px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #5A6470; font-weight: 600">Your file</div>
+<div style="font-size: 14px; line-height: 1.55; color: #3E4955">Read in your browser. Only the rows above are saved, and only after you continue.</div>
+</div>
+</aside>
+</div>
+</div>
+</body>
+</html>

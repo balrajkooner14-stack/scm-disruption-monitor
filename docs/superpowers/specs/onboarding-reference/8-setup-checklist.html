@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding 9 · Dashboard setup checklist (reference mockup)</title>
+<!-- REFERENCE MOCKUP ONLY: fixed 1440px canvas, inline styles, sample data (Meridian Electronics).
+     Translate to the First Light tokens and lib/ui.ts recipes; never copy inline styles. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#F4EFE6;color:#1B2330}
+a{color:#B04A22;text-decoration:none}a:hover{color:#8A3A1A}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 760px; box-sizing: border-box; padding: 40px 80px; display: flex; flex-direction: column; gap: 20px; background: #F4EFE6; color: #1B2330">
+<div style="font-size: 13px; color: #5A6470">Sits at the top of the Overview tab until it's done or dismissed. Reorders itself so the most valuable item is first.</div>
+<section style="padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 14px; display: grid; grid-template-columns: 320px 1fr; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #5A6470; font-weight: 600">Sharpen your alerts</div>
+<h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 32px; line-height: 1.12">3 of 7 done. Each step makes Foreglow more specific to you.</h2>
+<svg width="300" height="40" viewBox="0 0 300 40" fill="none" role="img" aria-label="Setup progress: 3 of 7 steps done"><path d="M4 26 H296" stroke="#DDD5C6" stroke-width="2"></path><path d="M4 26 H129" stroke="#1B2330" stroke-width="2"></path><path d="M115 26 A14 14 0 0 1 143 26" stroke="#E0A077" stroke-width="1.5"></path><path d="M121 26 A8 8 0 0 1 137 26 Z" fill="#B04A22"></path></svg>
+<a href="#" style="font-size: 14px; color: #3E4955">Hide for now</a>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="display: grid; grid-template-columns: 28px 1fr 120px 150px; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #E6DFD2">
+<span style="width: 22px; height: 22px; border-radius: 11px; border: 1.5px solid #8A8272"></span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Name a backup for EV Charging Module</span><span style="font-size: 13px; color: #3E4955">It has one source. A backup lets us tell you when you can switch.</span></div>
+<span style="font-size: 13px; color: #5A6470">1 min</span>
+<button type="button" style="padding: 9px 14px; background: #1B2330; color: #F4EFE6; border: none; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600">Add backup</button>
+</div>
+<div style="display: grid; grid-template-columns: 28px 1fr 120px 150px; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #E6DFD2">
+<span style="width: 22px; height: 22px; border-radius: 11px; border: 1.5px solid #8A8272"></span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Add stock levels for Portable Power Bank</span><span style="font-size: 13px; color: #3E4955">Unlocks reorder warnings for this product.</span></div>
+<span style="font-size: 13px; color: #5A6470">30 sec</span>
+<button type="button" style="padding: 9px 14px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">Add stock</button>
+</div>
+<div style="display: grid; grid-template-columns: 28px 1fr 120px 150px; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #E6DFD2">
+<span style="width: 22px; height: 22px; border-radius: 11px; border: 1.5px solid #8A8272"></span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Who supplies TSMC?</span><span style="font-size: 13px; color: #3E4955">Most shocks start one tier down. Add a sub-supplier to see them.</span></div>
+<span style="font-size: 13px; color: #5A6470">2 min</span>
+<button type="button" style="padding: 9px 14px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">Add sub-supplier</button>
+</div>
+<div style="display: grid; grid-template-columns: 28px 1fr 120px 150px; gap: 14px; align-items: center; padding: 16px 0; border-bottom: 1px solid #E6DFD2">
+<span style="width: 22px; height: 22px; border-radius: 11px; border: 1.5px solid #8A8272"></span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Invite a teammate</span><span style="font-size: 13px; color: #3E4955">Share alerts with whoever places the orders.</span></div>
+<span style="font-size: 13px; color: #5A6470">30 sec</span>
+<button type="button" style="padding: 9px 14px; background: transparent; border: 1px solid #C9C0AF; border-radius: 8px; font: inherit; font-size: 14px; color: #1B2330">Invite</button>
+</div>
+<div style="display: grid; grid-template-columns: 28px 1fr 120px 150px; gap: 14px; align-items: center; padding: 16px 0; color: #5A6470">
+<span style="width: 22px; height: 22px; border-radius: 11px; background: #DCE5DE; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2F5A3C" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>
+<span style="text-decoration: line-through">Suppliers, ports and morning email</span>
+<span style="font-size: 13px">Done</span><span></span>
+</div>
+</div>
+</section>
+</div>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding 2 · Choose a starting point (reference mockup)</title>
+<!-- REFERENCE MOCKUP ONLY: fixed 1440px canvas, inline styles, sample data (Meridian Electronics).
+     Translate to the First Light tokens and lib/ui.ts recipes; never copy inline styles. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Public Sans',system-ui,sans-serif;background:#F4EFE6;color:#1B2330}
+a{color:#B04A22;text-decoration:none}a:hover{color:#8A3A1A}
+</style>
+</head>
+<body>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #F4EFE6; color: #1B2330">
+<header style="height: 64px; flex-shrink: 0; box-sizing: border-box; padding: 0 48px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #DDD5C6; background: #FBF8F2">
+<div style="display: flex; align-items: center; gap: 8px"><svg width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 30 A18 18 0 0 1 42 30" stroke="#E0A077" stroke-width="2"></path><path d="M12 30 A12 12 0 0 1 36 30 Z" fill="#B04A22"></path><path d="M3 30 H45" stroke="#1B2330" stroke-width="2.5"></path></svg><div style="font-family: 'Newsreader', Georgia, serif; font-size: 22px">Foreglow</div></div>
+<div style="font-size: 13px; color: #5A6470">Signed in as dana@meridian-electronics.com</div>
+</header>
+
+<div style="flex-grow: 1; box-sizing: border-box; padding: 64px 120px; display: flex; flex-direction: column; gap: 40px">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 760px">
+<div style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #5A6470; font-weight: 600">Welcome, Dana</div>
+<h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 44px; line-height: 1.1">Foreglow needs one thing to start watching: who you buy from.</h1>
+<p style="margin: 0; font-size: 17px; line-height: 1.55; color: #3E4955">Pick the fastest way in. You can add detail later.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<button type="button" style="text-align: left; padding: 28px; background: #FFFFFF; border: 2px solid #1B2330; border-radius: 14px; display: flex; flex-direction: column; gap: 14px; font: inherit; color: #1B2330">
+<div style="display: flex; justify-content: space-between; align-items: center; width: 100%"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1B2330" stroke-width="1.5" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path><path d="M8 13h8M8 17h8M8 9h3"></path></svg><span style="padding: 3px 10px; background: #1B2330; color: #F4EFE6; border-radius: 999px; font-size: 11px; font-weight: 600">FASTEST · ABOUT 2 MIN</span></div>
+<div style="font-family: 'Newsreader', Georgia, serif; font-size: 26px">Upload the spreadsheet you already have</div>
+<div style="font-size: 15px; line-height: 1.55; color: #3E4955">A supplier list, a purchase-order export or an inventory report. Messy column names are fine. You check what we found before anything is saved.</div>
+<div style="font-size: 13px; color: #5A6470">Excel or CSV · stays in your browser until you confirm</div>
+</button>
+<button type="button" style="text-align: left; padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 14px; display: flex; flex-direction: column; gap: 14px; font: inherit; color: #1B2330">
+<div style="display: flex; justify-content: space-between; align-items: center; width: 100%"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1B2330" stroke-width="1.5" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13.5 6.5l4 4"></path></svg><span style="padding: 3px 10px; background: #E6DFD2; color: #3E4955; border-radius: 999px; font-size: 11px; font-weight: 600">ABOUT 4 MIN</span></div>
+<div style="font-family: 'Newsreader', Georgia, serif; font-size: 26px">Type in your key suppliers</div>
+<div style="font-size: 15px; line-height: 1.55; color: #3E4955">Start with your top 3 to 5. Name, country and what they supply is enough to begin.</div>
+<div style="font-size: 13px; color: #5A6470">Best if you don't have a file handy</div>
+</button>
+<button type="button" style="text-align: left; padding: 28px; background: #FBF8F2; border: 1px solid #DDD5C6; border-radius: 14px; display: flex; flex-direction: column; gap: 14px; font: inherit; color: #1B2330">
+<div style="display: flex; justify-content: space-between; align-items: center; width: 100%"><svg width="36" height="36" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 30 A18 18 0 0 1 42 30" stroke="#E0A077" stroke-width="2"></path><path d="M12 30 A12 12 0 0 1 36 30 Z" fill="#B04A22"></path><path d="M3 30 H45" stroke="#1B2330" stroke-width="2.5"></path></svg><span style="padding: 3px 10px; background: #E6DFD2; color: #3E4955; border-radius: 999px; font-size: 11px; font-weight: 600">NO DATA NEEDED</span></div>
+<div style="font-family: 'Newsreader', Georgia, serif; font-size: 26px">Look around a sample company first</div>
+<div style="font-size: 15px; line-height: 1.55; color: #3E4955">See Foreglow running for a mid-sized electronics importer with suppliers in Taiwan, Korea, China, Germany and Mexico.</div>
+<div style="font-size: 13px; color: #5A6470">Switch to your own data any time</div>
+</button>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border: 1px solid #DDD5C6; border-radius: 12px; background: #FBF8F2">
+<div style="display: flex; flex-direction: column; gap: 2px"><div style="font-weight: 600">Rather have us do it?</div><div style="font-size: 14px; color: #3E4955">Send your file and book 15 minutes. We set up your account with you on the call.</div></div>
+<a href="#" style="padding: 11px 16px; border: 1px solid #C9C0AF; border-radius: 8px; font-size: 14px; color: #1B2330">Book a setup call</a>
+</div>
+</div>
+</div>
+</body>
+</html>
