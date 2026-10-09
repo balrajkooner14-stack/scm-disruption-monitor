@@ -258,7 +258,7 @@ export function firstLightCards(
   events: DisruptionEvent[],
   now: Date = new Date(),
 ): FirstLightCard[] {
-  const scored: ScoredEvent[] = scoreEventsForProfile(events, profile)
+  const scored: ScoredEvent[] = scoreEventsForProfile(events, profile, extras?.entryPorts)
   const used = new Set<string>()
   const cards: FirstLightCard[] = []
 

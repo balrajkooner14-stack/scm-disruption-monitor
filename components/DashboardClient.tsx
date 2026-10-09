@@ -28,6 +28,7 @@ import DailyBriefButton from "@/components/DailyBriefButton"
 import InventoryRiskPanel from "@/components/InventoryRiskPanel"
 import { DisruptionEvent } from "@/lib/types"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { useOnboardingExtras } from "@/hooks/useOnboardingExtras"
 import { useDisruptionHistory } from "@/hooks/useDisruptionHistory"
 import { scoreEventsForProfile, ScoredEvent } from "@/lib/scoreEvents"
 import { calculateInventoryRisk, getDaysSinceDate, calculateOrderRecommendation } from "@/lib/inventoryRisk"
@@ -59,6 +60,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
   const [kpiFilter, setKpiFilter] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
   const { profile, isLoaded } = useCompanyProfile()
+  const { extras } = useOnboardingExtras()
   const { entries: historyEntries, saveEvents: saveEventsToHistory } = useDisruptionHistory()
 
   function handleAiStatusChange(status: "live" | "cached" | "error") {
@@ -147,8 +149,8 @@ export default function DashboardClient({ events }: DashboardClientProps) {
         relevanceReason: "Set up your profile for personalized scoring",
         isProfileMatch: false,
       }))
-    return scoreEventsForProfile(events, profile)
-  }, [events, profile, isLoaded])
+    return scoreEventsForProfile(events, profile, extras?.entryPorts)
+  }, [events, profile, isLoaded, extras])
 
   const criticalCount = scoredEvents.filter((e) => e.severity === 3).length
   const profileMatchCount = scoredEvents.filter((e) => e.isProfileMatch).length

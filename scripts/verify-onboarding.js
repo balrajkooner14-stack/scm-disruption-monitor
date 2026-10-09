@@ -300,5 +300,19 @@ check("copy that is another account's cache -> none", decideCarryOver({ ...base,
 check("unreadable guest data -> none", decideCarryOver({ ...base, guestProfileRaw: "{not json" }).kind, "none");
 check("profile without extras still offered", decideCarryOver({ ...base, guestExtrasRaw: null }).extras, null);
 
+console.log("-- Phase 9: entry-port scoring (lib/scoreEvents.ts) --");
+const { scoreEventsForProfile } = require("../.verify/scoreEvents.js");
+const laEvent = ev("Los Angeles port strike looms", "Port", 2, "2026-10-08T00:00:00Z", { region: "North America" });
+const noPorts = scoreEventsForProfile([laEvent], profile)[0];
+const undefPorts = scoreEventsForProfile([laEvent], profile, undefined)[0];
+const withPorts = scoreEventsForProfile([laEvent], profile, ["la-lb"])[0];
+check("no ports: existing two-argument call unchanged", [undefPorts.relevanceScore, undefPorts.relevanceReason], [noPorts.relevanceScore, noPorts.relevanceReason]);
+check("port match adds exactly 15", withPorts.relevanceScore - noPorts.relevanceScore, 15);
+check("port reason goes first", withPorts.relevanceReason, "Affects your Los Angeles / Long Beach entry point");
+check("non-matching port changes nothing", scoreEventsForProfile([laEvent], profile, ["savannah"])[0].relevanceScore, noPorts.relevanceScore);
+check("custom port name matches", scoreEventsForProfile([ev("Baltimore terminal closed", "Port", 3, "2026-10-08T00:00:00Z")], profile, ["custom:Baltimore"])[0].relevanceReason, "Affects your Baltimore entry point");
+const maxed = scoreEventsForProfile([ev("Los Angeles port strike shuts Taiwan China Germany lanes", "Port", 3, "2026-10-08T00:00:00Z", { region: "Asia Pacific" })], { ...profile, painPoints: ["Port congestion", "Lead time variability"] }, ["la-lb"])[0];
+check("still capped at 100", maxed.relevanceScore <= 100, true);
+
 if (failed) { console.log(`${failed} FAILED`); process.exit(1); }
 console.log("all passed");

@@ -1,5 +1,6 @@
 import { DisruptionEvent } from "@/lib/types"
 import { CompanyProfile } from "@/lib/profile"
+import { matchEventsToPorts, portName } from "@/lib/ports"
 
 export interface ScoredEvent extends DisruptionEvent {
   relevanceScore: number      // 0–100
@@ -9,16 +10,22 @@ export interface ScoredEvent extends DisruptionEvent {
 
 export function scoreEventsForProfile(
   events: DisruptionEvent[],
-  profile: CompanyProfile
+  profile: CompanyProfile,
+  entryPorts?: string[]       // OnboardingExtras.entryPorts (v5.1); optional
 ): ScoredEvent[] {
   return events
-    .map(event => scoreEvent(event, profile))
+    .map(event => scoreEvent(event, profile, entryPorts ?? []))
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
 }
 
+// v5.1: an event naming one of the user's entry ports (lib/ports.ts keyword
+// match on the title) is worth this many points.
+const ENTRY_PORT_POINTS = 15
+
 function scoreEvent(
   event: DisruptionEvent,
-  profile: CompanyProfile
+  profile: CompanyProfile,
+  entryPorts: string[]
 ): ScoredEvent {
   let score = 0
   const reasons: string[] = []
@@ -141,6 +148,18 @@ function scoreEvent(
       `Low inventory alert: ${lowInventoryProducts[0].name} has ` +
       `only ${lowInventoryProducts[0].inventoryDaysOnHand} days on hand`
     )
+  }
+
+  // ── Entry port match (15 points, v5.1) ──────────────────
+  // Applied last but its reason goes first: a named port is the most
+  // specific link to this user's supply chain.
+  if (entryPorts.length > 0) {
+    const matches = matchEventsToPorts([event], entryPorts)
+    const port = entryPorts.find(id => matches[id]?.length > 0)
+    if (port) {
+      score += ENTRY_PORT_POINTS
+      reasons.unshift(`Affects your ${portName(port)} entry point`)
+    }
   }
 
   // Cap score at 100
