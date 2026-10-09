@@ -12,7 +12,9 @@ systematic trading and financial markets background.
 ## Live project
 - GitHub: https://github.com/balrajkooner14-stack/scm-disruption-monitor
 - Live URL: https://scm-disruption-monitor.vercel.app
-- Status: v5.0 live (First Light redesign + Foreglow rebrand), deployed Oct 6, 2026
+- Status: v5.0 live (First Light redesign + Foreglow rebrand), deployed Oct 6, 2026.
+  v5.1 (onboarding + sign-in) is built on branch feat/onboarding-and-sign-in, NOT yet
+  merged, pushed or deployed (Oct 9, 2026). See "Onboarding and auth (v5.1)".
 
 ## Tech stack
 - Framework: Next.js 14, App Router, TypeScript
@@ -35,7 +37,9 @@ systematic trading and financial markets background.
 ## Supabase project
 - Project URL: https://zekhnneilcploogfudsp.supabase.co
 - Tables (all with Row Level Security — users only see their own data):
-  - profiles — company profile (JSONB columns for arrays; headquarters_country text column added v3.8)
+  - profiles — company profile (JSONB columns for arrays; headquarters_country text column added v3.8;
+    onboarding jsonb not null default '{}' added v5.1 = OnboardingExtras, applied to live Oct 8, 2026,
+    recorded in supabase/migrations/20261008_profiles_onboarding.sql)
   - supplier_health — supplier performance entries per user
   - lead_time_history — lead time snapshots per supplier per user
   - disruption_history — 90-day event log per user
@@ -45,9 +49,17 @@ systematic trading and financial markets background.
 /app
   page.tsx                        → Home: fetches events, renders Navbar + DashboardClient
   /about/page.tsx                 → Static about page
-  /login/page.tsx                 → Supabase email+password sign in (force-dynamic)
-  /signup/page.tsx                → Supabase sign up with confirm password (force-dynamic)
-  /profile/page.tsx               → 5-step company profile form (force-dynamic)
+  /login/page.tsx                 → Server page (ISR 1800) → AuthScreen mode="login": email code, password
+                                    fallback with reset, provider buttons when flagged (v5.1)
+  /signup/page.tsx                → Server page (ISR 1800) → AuthScreen mode="signup": Google/Microsoft
+                                    (flagged) or 6-digit email code. No password sign-up since v5.1
+  /onboarding/page.tsx            → Server page (ISR 1800) fetching events → OnboardingFlow (v5.1)
+  /auth/callback/route.ts         → OAuth / recovery PKCE code exchange, then next= or profile-based routing (v5.1)
+  /auth/error/page.tsx            → "That sign-in link didn't work" card (v5.1)
+  /reset-password/page.tsx        → Set a new password after a recovery email (v5.1)
+  /profile/page.tsx               → 5-step company profile form (force-dynamic). v5.1: ?step=N, "Counted on"
+                                    date per product, Ports and role block on step 5, Save changes on
+                                    steps 1-4 for existing profiles, saves OnboardingExtras after the profile
   /scenarios/page.tsx             → Standalone scenario planner page
   icon.svg                        → Favicon/app icon: small Foreglow mark (paper square, half sun, horizon) (v5.0)
   layout.tsx                      → Root layout: Newsreader + Public Sans fonts, BRAND metadata, light-only
@@ -110,7 +122,31 @@ systematic trading and financial markets background.
                                     forecast). Rendered on the Scenarios tab above ScenarioPlanner. Returns two
                                     cards (network, simulated risk); simulation rows sorted by exposure (v5.0).
   ScenarioPageClient.tsx          → Client wrapper for /scenarios page
-  ProfilePromptModal.tsx          → First-visit modal prompting profile setup
+  ProfilePromptModal.tsx          → First-visit modal: "Set up in 4 minutes" → /onboarding, "Look around a
+                                    sample company" → demo mode. Reads the profile from useCompanyProfile
+                                    (v5.1; it used to read the guest localStorage key and showed for signed-in users)
+  SetupChecklist.tsx              → "Sharpen your alerts" checklist at the top of Overview (v5.1)
+  DemoBanner.tsx                  → Sample-company banner (Set up my company / Exit sample) (v5.1)
+  GuestCarryOverPrompt.tsx        → One-time "Bring over the setup you started for X?" on /onboarding and / (v5.1)
+  auth/AuthScreen.tsx             → Two-column sign-in layout shared by /signup and /login (v5.1)
+  auth/AuthPanel.tsx              → Provider buttons, 6-digit email code, login-only password fallback (v5.1)
+  auth/LiveEventsPanel.tsx        → Dark live-events panel: count, heat map, 3 distinct-category tiles (v5.1)
+  onboarding/OnboardingFlow.tsx   → Owns the draft (400ms autosave, resume), step routing, save-and-finish-later,
+                                    "already set up" notice decided once at load (v5.1)
+  onboarding/OnboardingHeader.tsx → Logo · HorizonProgress · time left · Save and finish later (v5.1)
+  onboarding/HorizonProgress.tsx  → Sun-on-horizon progress SVG; labels mode or fractional sunX (checklist) (v5.1)
+  onboarding/StepLayout.tsx       → Form column + live right panel; keeps the primary action above 1280×800 (v5.1)
+  onboarding/StepChoosePath.tsx   → Upload / type in / sample company cards (v5.1)
+  onboarding/StepCompany.tsx      → Company basics + morning brief preview (v5.1)
+  onboarding/StepSuppliers.tsx    → Editable supplier table (edit in place, Enter commits, paste rows) + Now watching (v5.1)
+  onboarding/StepPorts.tsx        → Port tiles, custom ports, transport chips + Port watch (v5.1)
+  onboarding/StepProducts.tsx     → Product table (made by, days of stock, as-of / Add later) + MiniNetwork + insight (v5.1)
+  onboarding/StepImport.tsx       → Spreadsheet import review (ImportProfileFlow in onResult mode) (v5.1)
+  onboarding/StepFirstLight.tsx   → Saves profile → extras → deletes draft; "First light, {company}." cards (v5.1)
+  onboarding/OnboardingMap.tsx    → Read-only map: "heat" (regions by event count) or "suppliers" mode (v5.1)
+  onboarding/MiniNetwork.tsx      → SVG supplier → product diagram (v5.1)
+  onboarding/CountryCombobox.tsx  → ARIA combobox over lib/countries.ts (v5.1)
+  onboarding/display.tsx          → SeverityChip, formatEventDate, eventMeta, FadeNumber (150ms crossfade) (v5.1)
   AnalyticsTab.tsx                → Analytics tab: "Events by category" strip (today's counts + 7-day trend
                                     sparklines, merged from the old bar chart + trend cards; CategoryChart.tsx
                                     deleted in v5.0), CommodityChart + CurrencyExposureCard side by side,
@@ -219,9 +255,30 @@ systematic trading and financial markets background.
                                     reorderPointDays — manual entry, visibility only, same trust level as
                                     tier2Suppliers (v4.1).
   currencyMapping.ts              → COUNTRY_TO_CURRENCY record + currencyCodesForCountries() (v4.0)
+  onboarding.ts                   → OnboardingExtras type, draft shape, chip options, onboardingToProfile() (the ONLY
+                                    place onboarding answers become a profile), draftToExtras(), deriveTradeLanes(),
+                                    importResultToDraft(), extrasAfterProfileSave(), shortCompanyName(), helpers (v5.1)
+  countries.ts                    → Country list + aliases (lookupAliases = typing only, never headline matching),
+                                    countryToSupplyRegion() (never guesses), searchCountries(), textMentionsCountry() (v5.1)
+  ports.ts                        → PORTS (8 US entry points), custom:<name> ports, matchEventsToPorts() (v5.1)
+  onboardingInsights.ts           → Pure functions for every onboarding panel: pickHeadlineEvents, supplierEventMatch,
+                                    supplierTeaser, portWatchHeadline, stockDaysRemaining, productInsight rules 1-3,
+                                    firstLightCards (v5.1)
+  setupChecklist.ts               → computeChecklist(), setupPercent(), checklistProgress() (v5.1)
+  sampleProfile.ts                → Meridian Electronics sample; dates built at runtime so stock never decays (v5.1)
+  demoMode.ts                     → sessionStorage["foreglow_demo"] flag: isDemoMode/enterDemoMode/exitDemoMode (v5.1)
+  guestCarryOver.ts               → decideCarryOver(): when to offer a guest setup to a new account (v5.1)
+  authProviders.ts                → AUTH flags (NEXT_PUBLIC_AUTH_GOOGLE / _MICROSOFT) + SETUP_CALL_URL (v5.1)
+  authRouting.ts                  → safeNextPath() (open-redirect guard) + postAuthPath() (profile row → /, else /onboarding) (v5.1)
+  textMatch.ts                    → containsTerm(): whole-term match; ≤3-letter all-caps terms are case-sensitive (v5.1)
+  eventOrder.ts                   → bySeverityThenDate(), compareDateDesc() (v5.1)
+  asOfDates.ts                    → YYYY-MM-DD stock dates parsed as LOCAL dates; daysSinceLocalDate() (v5.1)
+  mapGeo.ts                       → world-atlas name → region table + GEO_URL, moved out of WorldMap.tsx (v5.1;
+                                    "Czechia" and "Dominican Rep." fixed to the atlas names — never shaded before)
   featureFlags.ts                 → Build-time feature toggles (v4.7). ENABLE_SANCTIONS_SCREENING = false —
                                     sanctions screening is name-only matching with no alias/country cross-check,
                                     so it must not read as a compliance clearance. Code kept, not deleted.
+                                    v5.1: ENABLE_EMAIL_BRIEF = false (morning-email UI), ENABLE_TEAMS = false (invites).
   sanctionsScreening.ts           → Pure token-overlap name matching: screenSupplierNames(). "high"/"medium"
                                     match strength only — never a definitive sanctions claim (v4.0)
   laborCalendar.ts                → Static LABOR_CONTRACTS[] (ILWU/PMA, ILA/USMX), each entry sourced +
@@ -254,6 +311,10 @@ systematic trading and financial markets background.
                                     Uses product.primarySupplierId for lead time; falls back to highest-share supplier.
                                     ProductRisk now includes supplierAssigned boolean, backupSupplier (v4.0,
                                     resolved via backupSupplierId, no fallback), hsCode (v4.0, echoed from product).
+                                    v5.1: optional 4th arg { inventoryAsOf, inventoryUnknown, now } — per-product
+                                    countdown from its stock date; unknown stock → riskLevel "unknown", excluded from
+                                    counts/recommendations/banner. stockKnown, leadTimeKnown, inventoryAsOf on
+                                    ProductRisk. Without the arg, numbers are identical to v5.0.
   supplierHealth.ts               → Pure types + calc: calculateCompositeScore(), getGrade().
                                     Storage I/O lives in /hooks/useSupplierHealth.ts
   concentrationRisk.ts            → HHI engine: calculateConcentrationRisk(), buildBreakdown().
@@ -286,9 +347,14 @@ systematic trading and financial markets background.
 
 /hooks
   useCompanyProfile.ts            → Supabase-first with localStorage fallback for guests.
-                                    Loads from Supabase when logged in, auto-migrates localStorage on first login.
-                                    saveProfile() and clearProfile() are now async.
+                                    saveProfile() and clearProfile() are async. Demo mode (v5.1): returns
+                                    SAMPLE_PROFILE, saveProfile → false, clearProfile no-op. v5.1: a signed-in
+                                    account with no row no longer DELETES the guest scm_company_profile (it still
+                                    never loads it) — GuestCarryOverPrompt offers it on an explicit yes.
   useAuth.ts                      → useAuth() hook: user, session, isLoading, signOut. Uses onAuthStateChange listener.
+                                    v5.1: sign-out also clears scm_onboarding + scm_onboarding_draft and exits demo mode.
+  useOnboardingExtras.ts          → OnboardingExtras: profiles.onboarding when signed in (row must exist first),
+                                    scm_onboarding for guests; one-time guarded migration; demo → SAMPLE_EXTRAS (v5.1)
   useSupplierHealth.ts            → Supabase-first + localStorage fallback for guests. useSupplierHealth(suppliers) →
                                     { scores, entries, saveEntry(), isLoaded }. One-time migration of existing guest
                                     localStorage data into Supabase on first login (per-hook, guarded, idempotent).
@@ -300,8 +366,21 @@ systematic trading and financial markets background.
                                     window event to stay in sync across component instances (e.g. SupplierHealthScorecard
                                     creating an alert → PerformanceAlertBanner picking it up). checkAndCreate() mirrors
                                     the original threshold-crossing logic; persistAlerts() for one-off alerts.
+  (v5.1) useSupplierHealth / useLeadTimeHistory / useDisruptionHistory / usePerformanceAlerts: in demo mode
+                                    state is memory-only, starts empty, and every Supabase/localStorage write is
+                                    skipped (alerts share a module-level list so the event-based sync still works).
 
 /middleware.ts                    → Session refresh on every request (getSession). Does NOT block unauthenticated routes.
+
+/supabase/migrations
+  20261008_profiles_onboarding.sql → profiles.onboarding column (applied to live Oct 8, 2026) (v5.1)
+
+/scripts (test suite, `npm run verify`)
+  tsconfig.verify.json            → compiles the pure lib/ modules to .verify/ with the "@/" alias (v5.1)
+  verify-alias.js                 → maps emitted "@/lib/x" requires to .verify/x at run time (v5.1)
+  verify-auth-routing.js          → safeNextPath open-redirect cases (v5.1)
+  verify-onboarding.js            → 157 checks across onboarding, countries, ports, insights, checklist, sample,
+                                    carry-over, port scoring, inventory as-of, /profile save bookkeeping (v5.1)
 
 /data
   fallback.json                   → Fallback events if GDELT is down
@@ -332,6 +411,52 @@ systematic trading and financial markets background.
                         presence of $-value metrics — decides supplier vs. product vs. unmappedData, so a
                         "Factory"/"Customer"-labeled sheet with dollar inventory metrics doesn't get force-fit
                         into product lines just because it has On Hand $/Usage $ columns.
+
+## Onboarding and auth (v5.1)
+Spec: docs/superpowers/specs/2026-10-08-onboarding-and-sign-in.md (mockups in onboarding-reference/).
+- Routes: /signup and /login (AuthScreen: Google + Microsoft behind env flags, 6-digit email code via
+  signInWithOtp/verifyOtp type "email"; login adds the password fallback + reset), /auth/callback (PKCE code
+  exchange; next= only if it starts with "/" and not "//" or "/\"), /auth/error, /reset-password, /onboarding.
+- Post-auth routing (callback AND client code verify, lib/authRouting.ts): next= wins; else a profiles row →
+  /, no row → /onboarding. A row only exists once a profile has been saved (no sign-up trigger; verified).
+- Onboarding paths: manual (Company → Suppliers → Ports → Products → First light), import (Company → Import →
+  Ports → First light), sample (demo mode → /). Guests can onboard ("Try it without an account").
+- OnboardingExtras (lib/onboarding.ts) lives in profiles.onboarding (signed in) or scm_onboarding (guest):
+  role, entryPorts, inventoryAsOf (YYYY-MM-DD per product), inventoryUnknown, reorderPointDefaulted,
+  leadTimeUnknown, primaryMarketsDerived, path, startedAt, completedAt, checklistInitial,
+  checklistDismissedAt, morningEmail. CompanyProfile is unchanged; unknown numbers are stored as 0 in the
+  profile and recorded in extras so nothing mistakes a skipped answer for a real zero.
+- Draft: scm_onboarding_draft, 400ms debounced autosave, resume on the saved step; "Save and finish later" saves
+  profile + extras (no completedAt) when ≥1 valid supplier exists and leaves the checklist's "Finish setting up".
+- Every right-hand panel is computed from the user's answers + today's real events (lib/onboardingInsights.ts).
+  Nothing is fabricated; empty states say ALL QUIET / CLEAR / "Nothing urgent for your network today".
+- Mexico is North America (matches GDELT/GDACS); deriveTradeLanes counts a Mexico supplier toward the
+  Latin America → US lane (Laredo/Houston). "America" is not a US alias; "Korea" is a lookup-only alias.
+- Import path: ImportProfileFlow's optional onResult prop = parse + post-process only, never save, skip its own
+  review. Imported share % and reorder points are kept; less-sure rows keep lead time editable (Gemini misread
+  25 → 21 in testing).
+- Demo mode: sessionStorage flag; useCompanyProfile/useOnboardingExtras return the Meridian sample and never
+  write; data hooks are memory-only; no scm_* writes at all. Verified: zero localStorage and zero Supabase
+  changes across a demo session (signed in and guest).
+- Guest carry-over: when a signed-in account has NO profile and this browser holds a guest profile (not a copy
+  matching any scm_profile_<id> cache), GuestCarryOverPrompt asks once. Bring it over = save profile + extras to
+  the account, clear the guest copies. Start fresh = remember per account, guest data untouched. Never automatic,
+  never onto an account that has a profile (lib/guestCarryOver.ts, verify-onboarding.js covers the cases).
+- Entry-port scoring (Phase 9): scoreEventsForProfile(events, profile, entryPorts?) adds +15 before the 100 cap
+  when the title names one of the user's ports, and puts "Affects your {port} entry point" first. Nothing else in
+  the scorer changed. Callers: DashboardClient, ScenarioPageClient, firstLightCards. AI API routes still score
+  without ports (known limitation).
+- Env flags (Vercel, Production + Preview; unset = hidden): NEXT_PUBLIC_AUTH_GOOGLE=1, NEXT_PUBLIC_AUTH_MICROSOFT=1,
+  NEXT_PUBLIC_SETUP_CALL_URL (Calendly/Cal.com link).
+- Manual setup (spec 3.2-3.7), status as of Oct 9, 2026:
+  [ ] 3.1 Product domain (until then https://scm-disruption-monitor.vercel.app)
+  [~] 3.2 Supabase URL configuration — owner added http://localhost:3000/**; Site URL, production, Vercel
+          preview pattern and the new domain still to add
+  [ ] 3.3 Custom SMTP via Resend (built-in sender allows 2 emails/hour — required before real users)
+  [ ] 3.4 Email templates with {{ .Token }} (Magic Link + Confirm signup) and OTP expiry 3600s
+  [ ] 3.5 Google (Google Auth Platform) and Microsoft (Entra, Supabase "Azure" provider) apps
+  [x] 3.6 profiles.onboarding column — applied to the live project Oct 8, 2026
+  [ ] 3.7 Vercel env vars above
 
 ## Severity scoring rules (DO NOT CHANGE without asking)
 Score 3 CRITICAL: strike, closure, sanctions, blocked, halt, shutdown, ban
@@ -381,6 +506,13 @@ Retries and backoff do not fix this; the per-query cache and ISR do.
   localStorage is guest-only fallback (Phase B, v3.7). One-time migration to Supabase on first login if present.
 - scm_last_visit — ISO timestamp of last dashboard visit (for disruption-triggered prompts)
 - scm_prompt_dismissed — once-per-day dismissal key (scm_prompt_dismissed-YYYY-MM-DD)
+- scm_onboarding — OnboardingExtras for guests (signed in: profiles.onboarding) (v5.1). Cleared on sign-out.
+- scm_onboarding_draft — in-progress onboarding draft, everyone; written only once a path is chosen, deleted
+  at the finish (v5.1). Cleared on sign-out.
+- scm_carryover_dismissed_<userId> — "Start fresh" chosen for that account (v5.1). Deliberately NOT cleared on sign-out.
+- sessionStorage foreglow_demo — "1" while exploring the sample company (v5.1). Ends with the tab; cleared on sign-out.
+- Demo mode writes NO scm_* key at all: the 4 data hooks plus scm_inventory_log, scm_active_tab, scm_last_visit,
+  scm_prompt_dismissed-* and scm_category_trends are all guarded (v5.1).
 
 ## Key type notes
 - ScoredEvent extends DisruptionEvent — structural subtyping, passes wherever DisruptionEvent[] expected
@@ -411,6 +543,7 @@ Retries and backoff do not fix this; the per-query cache and ISR do.
 - Always run: npm run build before declaring any change done
 - Commit format: git commit -m "feat: [description]"
 - Do NOT modify /lib/profile.ts, /lib/scoreEvents.ts, /lib/gemini.ts, or any API routes without explicit instruction
+  (v5.1: lib/scoreEvents.ts was edited once, under explicit authorization, for entry-port scoring — see below)
 
 ## Design system (First Light)
 Light-only, warm paper ground, dark ink text, editorial serif headings, one signal colour.
@@ -423,7 +556,8 @@ Full spec: docs/superpowers/specs/2026-10-06-first-light-redesign.md (reference 
 | ink / ink-2 / ink-3 | #1B2330 / #3E4955 / #5A6470 | Primary text / body / captions (never lighter than ink-3 for text) |
 | line / line-soft / line-strong / line-control | #DDD5C6 / #E6DFD2 / #C9C0AF / #8A8272 | Card borders / dividers / button borders / form-field borders |
 | ember / ember-deep / ember-tint / ember-line | #B04A22 / #8A3A1A / #F6E1D6 / #E8B9A2 | The signal colour: critical chips, key numbers, primary CTA, active tab |
-| dawn | #E0A077 | Decorative only (logo arc, thin rules). Never text |
+| dawn | #E0A077 | Decorative only (logo arc, thin rules). Never text on paper. Exception (v5.1, per the onboarding spec): eyebrows/category labels on bg-ink panels (sign-in tiles, first-light band) |
+| on-ink / on-ink-muted | #F4EFE6 / #C9C2B5 | Text on bg-ink panels (v5.1; COLOR.onInk / onInkMuted) |
 | ochre / ochre-tint | #6E4B0C / #F3E6C8 | Warning |
 | sea / sea-deep / sea-tint | #4F6B78 / #33505C / #E3EAEC | Monitor, "falling" trends |
 | moss / moss-deep / moss-tint | #3F6B4C / #2F5A3C / #DCE5DE | Positive |
@@ -1653,7 +1787,71 @@ v5.0 — First Light redesign + Foreglow rebrand (Oct 6, 2026). Presentation onl
           / 1 empty / 0 failed), GDELT timed out from Vercel (the known v4.8
           limitation, unrelated to this release).
 
+v5.1 — Onboarding + sign-in (Oct 8-9, 2026). Branch feat/onboarding-and-sign-in, one commit per phase,
+        NOT pushed. Spec: docs/superpowers/specs/2026-10-08-onboarding-and-sign-in.md.
+        Phase 1: auth callback / error / reset-password, authProviders + authRouting, sign-out keys,
+          lib/supabase-server.ts moved to getAll/setAll (get/set/remove are deprecated in @supabase/ssr 0.10),
+          migration applied to live.
+        Phase 2: /signup and /login rebuilt (server pages + AuthPanel + LiveEventsPanel), OnboardingMap heat mode,
+          lib/mapGeo.ts, on-ink token. Password sign-up removed from /signup by owner decision.
+        Phase 3: data layer (onboarding, countries, ports, textMatch, eventOrder, onboardingInsights,
+          useOnboardingExtras, flags); verify harness gained a tsconfig with the "@/" alias.
+        Phase 4: /onboarding shell, header + HorizonProgress, draft autosave/resume, choose path, Company step.
+          Owner reviewed sign-up + first screens in the browser before Phases 5-10.
+        Phase 5: Suppliers (table, combobox, paste) + Now watching; Ports + Port watch.
+        Phase 6: Products + MiniNetwork + insight; First light finish + lib/setupChecklist.ts.
+        Phase 7: import path (onResult prop, StepImport review).
+        Phase 8: sample-company mode + guest carry-over (owner-requested addition).
+        Phase 9: entry-port scoring in lib/scoreEvents.ts (+15), explicitly authorized.
+        Phase 10: SetupChecklist, inventory as-of dates, /profile additions, docs.
+        Deviations from the spec (all deliberate, reasons in commit messages):
+          - Extra files: authRouting, mapGeo, textMatch, eventOrder, asOfDates, AuthScreen, StepLayout,
+            CountryCombobox, display.tsx, GuestCarryOverPrompt.
+          - ImportProfileFlow onResult fires after parsing, not after its own review (StepImport is the review).
+          - "Already set up" notice also shows for guests with a profile (else Try it without an account would
+            overwrite their local profile); it's decided once at load.
+          - Draft autosave starts only once a path is chosen.
+          - /profile: added a "Counted on" date (spec check 10 needs one), Save changes on steps 1-4 for existing
+            profiles (otherwise every checklist link forces a walk through the pain-points step), unchanged
+            products keep their stock date on save, a failed save shows an error instead of a success toast.
+          - Product rows require a supplier; "I'll add products later" only shows while no product exists.
+          - Order recommendation hidden when the lead time isn't set (it would claim "covers a 0-day lead time").
+          - Import review rows below high confidence keep lead time editable.
+          - ScenarioPageClient also passes entry ports to the scorer so it agrees with the dashboard.
+        Bugs found and fixed during browser testing: "Inc.." in the notice; clipped progress labels; Company
+          step primary action below the fold at 1280×800; a visit alone creating a draft; the finish save
+          flipping to the "already set up" notice; the checklist dismissing itself before the profile loaded;
+          ProfilePromptModal showing for signed-in users with a Supabase profile (pre-existing).
+        Verified: npm run lint (3 pre-existing warnings only), build and verify after every phase; ISR 1800 on
+          /, /signup, /login, /onboarding via prerender-manifest; First Light greps clean (README line expected).
+          Browser (Chrome extension worked this time), with localStorage backed up/restored byte-identical and the
+          signed-in session cookie set aside for guest runs and restored: /signup + /login live panel, password
+          fallback, choose path, Company validation/combobox/preview, suppliers (keyboard entry, edit, remove,
+          paste, resume), ports (tiles, custom, CLEAR), products + insight, First light (real cards), import path
+          with a real Gemini call (flagged row, continue disabled until fixed), sample mode from both entry points
+          with zero scm_* and zero Supabase writes, exit / set up my company, checklist (0 of 7 → 1 of 7), the
+          muted unknown-stock card, /profile?step=3 30 days counted 10 days ago → 20 days left. Console: only the
+          Grammarly extension's hydration attribute warning.
+        NOT verified: email-code sign-up end to end (needs 3.3/3.4), Google/Microsoft (flags off), a signed-in
+          account with NO profile (so the carry-over prompt itself and signed-in onboarding saves to
+          profiles.onboarding were not exercised in a browser — agent cannot create accounts), the 1280×800 fit
+          by eye (the window would not resize; measured 791px instead), a full keyboard-only pass, narrow widths.
+
 ## Known issues / next session notes
+- v5.1: the AI routes (/api/advisor etc.) still read raw inventoryDaysOnHand with no as-of decay, so their
+  numbers can differ from the Inventory panel (protected files; separate decision).
+- v5.1: spec 7's region rule treats any Port/Labor/Weather event (severity ≥2) anywhere in a supplier's region as
+  "active". In testing a Japan vessel-sanctions story produced "TSMC Semiconductor is in the affected region".
+  One-line tightening available in supplierEventMatch (region-only for Weather; Port/Labor need the country
+  named) — awaiting the owner's call.
+- v5.1: the scorer's reason prints "66.66% of your supply comes from this region" for an even 3-way split
+  (distributeShareEvenly → 33.33 each). Integer shares (34/33/33) would read better; scorer is protected.
+- v5.1: Gemini import misread a lead time (25 → 21) in testing; mitigated by editable lead time on less-sure rows.
+- v5.1: the "failed to pipe response" dev error (v5.0 note below) is now traced: a GDELT ConnectTimeoutError
+  (undici's 10s connect timeout) escapes a cold dev render of a page calling fetchDisruptions(). Fix belongs in
+  lib/fetchDisruptions.ts (out of scope for v5.1).
+- v5.1: the brief headline can read "4 events touch X today. 9 are critical." (critical count is global, not
+  relevant-only) — pre-existing v5.0 wording, not changed.
 - v5.0 browser checks: the Chrome extension again refused to drive the page
   (navigation reported success, tab stayed blank), so the agent could not run
   the spec's section-12 browser checklist itself. The owner reviewed the app
@@ -1842,9 +2040,17 @@ v5.0 — First Light redesign + Foreglow rebrand (Oct 6, 2026). Presentation onl
 - [ ] Watchlist with notification badges
 - [ ] Custom domain setup
 - [ ] Mobile responsiveness (deferred — desktop only for now)
-- [ ] Inventory numbers disagree between panels: Inventory cards decay days-of-cover by
-      time since the profile was updated (0 days after 76 days), while the Advisor prompt
-      uses the raw profile figure. Aligning them touches app/api/advisor/route.ts (protected).
+- [x] Onboarding + sign-in: /onboarding flow, Google/Microsoft/email-code sign-in, sample company,
+      setup checklist, inventory as-of dates, entry-port scoring (v5.1, branch — not yet merged)
+- [ ] Inventory numbers disagree between panels: since v5.1 the Inventory cards count down from each
+      product's own stock date, but the Advisor and other AI routes still use the raw profile figure.
+      Aligning them touches app/api/** (protected).
+- [ ] Morning email sending (then flip ENABLE_EMAIL_BRIEF) (v5.1 follow-up)
+- [ ] Team accounts and invites (then flip ENABLE_TEAMS) (v5.1 follow-up)
+- [ ] Supabase custom auth domain so Google's consent screen shows the Foreglow domain (v5.1 follow-up)
+- [ ] AI routes reading inventoryAsOf (protected; separate decision) (v5.1 follow-up)
+- [ ] Onboarding analytics (step completion / drop-off) once a privacy-friendly tool is chosen (v5.1 follow-up)
+- [ ] Monthly "update your stock levels" reminder email (v5.1 follow-up)
 - [ ] Header "Ask the analyst" button (mockup) instead of the floating launcher — needs a
       small event bridge between Navbar and AIChatPanel.
 - [ ] "Export daily brief" in the header (mockup) instead of the tab-bar row.

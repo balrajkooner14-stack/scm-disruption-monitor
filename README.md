@@ -21,6 +21,16 @@ On top of the feed it runs inventory reorder calculations, supplier health scori
 HHI concentration risk, a multi-tier dependency graph with single-point-of-failure
 detection, and AI-generated recommendations grounded in your own data.
 
+## Getting started in the app
+
+Sign up with Google, Microsoft or a 6-digit email code (provider buttons appear once
+they're configured), or try it without an account. A guided setup at `/onboarding`
+takes about four minutes — company basics, suppliers (typed in or uploaded from a
+spreadsheet), entry ports and products — and every step shows what today's real events
+mean for what you just entered. A sample company is available for a look around
+before sharing any data. The dashboard's setup checklist then collects the rest of the
+profile over time.
+
 ## Data sources
 
 Every source is free and requires no paid account.
@@ -83,6 +93,11 @@ npm run dev
 
 The app runs fully in guest mode without Supabase — profile and history are kept in
 `localStorage`. Supabase only adds sign-in and cross-device sync.
+
+Optional environment flags: `NEXT_PUBLIC_AUTH_GOOGLE=1` and `NEXT_PUBLIC_AUTH_MICROSOFT=1`
+show those sign-in buttons once the providers are configured in Supabase;
+`NEXT_PUBLIC_SETUP_CALL_URL` shows "Book a setup call" links. The database change for
+v5.1 is in `supabase/migrations/`.
 
 ## Scripts
 
