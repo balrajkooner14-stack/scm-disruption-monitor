@@ -7,6 +7,8 @@ import Logo from "@/components/ui/Logo"
 import OnboardingHeader from "@/components/onboarding/OnboardingHeader"
 import StepChoosePath from "@/components/onboarding/StepChoosePath"
 import StepCompany from "@/components/onboarding/StepCompany"
+import StepFirstLight from "@/components/onboarding/StepFirstLight"
+import StepProducts from "@/components/onboarding/StepProducts"
 import StepPorts from "@/components/onboarding/StepPorts"
 import StepSuppliers from "@/components/onboarding/StepSuppliers"
 import { useAuth } from "@/hooks/useAuth"
@@ -72,6 +74,12 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
 
   const [draft, setDraft] = useState<OnboardingDraft | null>(null)
   const [hadStoredDraft, setHadStoredDraft] = useState(false)
+  // Decided once, when everything has loaded: a profile that exists before
+  // this visit (and no draft to resume) shows the "already set up" notice.
+  // Not re-evaluated afterwards, or saving at the finish step would swap the
+  // first-light screen for the notice.
+  const [alreadySetUp, setAlreadySetUp] = useState<string | null | undefined>(undefined)
+  const finished = useRef(false)
   const [savingLater, setSavingLater] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const prefilled = useRef(false)
@@ -83,11 +91,17 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
     setDraft(stored ?? emptyDraft())
   }, [])
 
+  useEffect(() => {
+    if (alreadySetUp !== undefined || !draft || authLoading || !profileLoaded) return
+    setAlreadySetUp(profile && !hadStoredDraft ? profile.companyName : null)
+  }, [alreadySetUp, draft, authLoading, profileLoaded, profile, hadStoredDraft])
+
   // Autosave, debounced. Only once a path is chosen: before that there is
   // nothing to resume, and saving would turn a mere visit into a "draft" that
-  // hides the already-set-up notice on the next visit.
+  // hides the already-set-up notice on the next visit. Never on the finish
+  // step, which deletes the draft once the setup is saved.
   useEffect(() => {
-    if (!draft?.path) return
+    if (!draft?.path || draft.step === "finish" || finished.current) return
     const t = setTimeout(() => writeDraft(draft), AUTOSAVE_MS)
     return () => clearTimeout(t)
   }, [draft])
@@ -151,7 +165,7 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
   }
 
   // ── Loading ──
-  if (!draft || authLoading || !profileLoaded) {
+  if (!draft || authLoading || !profileLoaded || alreadySetUp === undefined) {
     return (
       <div className="flex min-h-screen flex-col bg-paper">
         <div className="flex h-16 items-center border-b border-line bg-paper-raised px-6 sm:px-12">
@@ -171,14 +185,14 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
   }
 
   // ── Already set up (and not resuming a saved-for-later draft) ──
-  if (profile && !hadStoredDraft) {
+  if (alreadySetUp) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper px-4 py-10">
         <div className="w-full max-w-[440px] space-y-6 rounded-xl border border-line bg-paper-raised p-8">
           <Logo />
           <h1 className={ui.h2}>
             {/* "Inc." already ends the sentence; don't print "Inc.." */}
-            You&apos;ve already set up {profile.companyName.replace(/\.+$/, "")}. Edit your profile instead?
+            You&apos;ve already set up {alreadySetUp.replace(/\.+$/, "")}. Edit your profile instead?
           </h1>
           <div className="flex flex-wrap gap-3">
             <Link href="/profile" className={`${ui.btnPrimary} py-2.5`}>Edit my profile</Link>
@@ -197,6 +211,20 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
         <OnboardingHeader variant="path" email={user?.email} />
         <StepChoosePath firstName={firstName} onChoose={choosePath} sampleAvailable={false} />
       </div>
+    )
+  }
+
+  if (draft.step === "finish") {
+    return (
+      <StepFirstLight
+        draft={draft}
+        events={events}
+        saveProfile={saveProfile}
+        saveExtras={saveExtras}
+        onSaved={() => {
+          finished.current = true
+        }}
+      />
     )
   }
 
@@ -252,8 +280,18 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
         />
       )}
 
+      {draft.step === "products" && (
+        <StepProducts
+          draft={draft}
+          events={events}
+          onChange={products => update(d => ({ ...d, products }))}
+          onBack={goBack}
+          onFinish={goNext}
+        />
+      )}
+
       {/* Steps still to be built in later phases of this branch. */}
-      {!["company", "suppliers", "ports"].includes(draft.step) && (
+      {!["company", "suppliers", "ports", "products"].includes(draft.step) && (
         <div className="flex flex-1 flex-col items-start gap-4 px-6 py-12 sm:px-16">
           <p className={ui.body}>This step isn&apos;t built yet on this branch. Your answers so far are saved.</p>
           <button type="button" onClick={goBack} className={ui.btnSecondary}>← Back</button>

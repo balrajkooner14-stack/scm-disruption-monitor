@@ -356,3 +356,34 @@ export function parsePastedSupplierRows(text: string): { name: string; country: 
   if (rows.length && /^(supplier|name|vendor)s?$/i.test(rows[0].name)) rows.shift()
   return rows
 }
+
+const LEGAL_SUFFIX = /^(co|company|inc|incorporated|llc|l\.l\.c|ltd|limited|corp|corporation|gmbh|plc|s\.a|sa|ag|bv|b\.v|pty|pte)\.?$/i
+
+/**
+ * Company name without legal suffixes, for "First light, {name}." —
+ * "Meridian Electronics Co." → "Meridian Electronics" (descriptive words like
+ * "Electronics" stay). Falls back to the full name if nothing would be left.
+ */
+export function shortCompanyName(name: string): string {
+  const words = name.trim().replace(/,/g, " ").split(/\s+/).filter(Boolean)
+  while (words.length > 1 && LEGAL_SUFFIX.test(words[words.length - 1])) words.pop()
+  return words.join(" ") || name.trim()
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/** Finish-screen sub-line (spec 6.8), omitting clauses that are zero. */
+export function watchingSentence(counts: { suppliers: number; countries: number; ports: number; products: number }): string {
+  const clauses: string[] = []
+  if (counts.suppliers > 0) {
+    clauses.push(
+      `${plural(counts.suppliers, "supplier", "suppliers")}` +
+        (counts.countries > 0 ? ` in ${plural(counts.countries, "country", "countries")}` : ""),
+    )
+  }
+  if (counts.ports > 0) clauses.push(plural(counts.ports, "entry point", "entry points"))
+  if (counts.products > 0) clauses.push(plural(counts.products, "product line", "product lines"))
+  if (clauses.length === 0) return "Foreglow is now watching today's news for you."
+  const list = clauses.length === 1 ? clauses[0] : `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}`
+  return `Foreglow is now watching ${list}. Here's what it sees today.`
+}

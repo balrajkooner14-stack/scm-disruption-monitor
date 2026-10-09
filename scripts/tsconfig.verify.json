@@ -20,6 +20,7 @@
     "../lib/tradeFeeds.ts",
     "../lib/fetchTradeNews.ts",
     "../lib/authRouting.ts",
-    "../lib/onboardingInsights.ts"
+    "../lib/onboardingInsights.ts",
+    "../lib/setupChecklist.ts"
   ]
 }

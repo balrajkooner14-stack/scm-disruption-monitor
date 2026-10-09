@@ -4,7 +4,8 @@ require("./verify-alias");
 const { containsTerm } = require("../.verify/textMatch.js");
 const { findCountry, countryToSupplyRegion, searchCountries, textMentionsCountry, countryGeoName } = require("../.verify/countries.js");
 const { matchEventsToPorts, portName, customPortId } = require("../.verify/ports.js");
-const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows } = require("../.verify/onboarding.js");
+const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows, shortCompanyName, watchingSentence } = require("../.verify/onboarding.js");
+const { computeChecklist, openItems, setupPercent, checklistProgress } = require("../.verify/setupChecklist.js");
 const {
   pickHeadlineEvents, supplierEventMatch, supplierTeaser, activeEventsForSuppliers,
   productInsight, stockDaysRemaining, firstLightCards, QUIET_CARD, portWatchHeadline,
@@ -210,6 +211,38 @@ check("one of one", portWatchHeadline(1, 1), "Your entry point has something goi
 check("both", portWatchHeadline(2, 2), "Both of your entry points have something going on this week.");
 check("all", portWatchHeadline(4, 4), "All of your entry points have something going on this week.");
 check("some", portWatchHeadline(3, 1), "1 of your 3 entry points have something going on this week.");
+
+console.log("-- shortCompanyName / watchingSentence (spec 6.8) --");
+check("Co. dropped, Electronics kept", shortCompanyName("Meridian Electronics Co."), "Meridian Electronics");
+check("stacked suffixes", shortCompanyName("Acme Holdings, Inc."), "Acme Holdings");
+check("LLC", shortCompanyName("Brightline LLC"), "Brightline");
+check("never empty", shortCompanyName("Inc."), "Inc.");
+check("all clauses", watchingSentence({ suppliers: 4, countries: 4, ports: 2, products: 3 }),
+  "Foreglow is now watching 4 suppliers in 4 countries, 2 entry points and 3 product lines. Here's what it sees today.");
+check("zero clauses omitted, singulars", watchingSentence({ suppliers: 1, countries: 1, ports: 0, products: 1 }),
+  "Foreglow is now watching 1 supplier in 1 country and 1 product line. Here's what it sees today.");
+
+console.log("-- computeChecklist (spec 8.1) --");
+const FLAGS_OFF = { emailBrief: false, teams: false };
+const completedExtras = { ...extras, completedAt: NOW.toISOString() };
+const items = computeChecklist(profile, completedExtras, FLAGS_OFF);
+const open = openItems(items).map(i => i.id);
+check("finish-onboarding done after completion", items.find(i => i.id === "finish-onboarding").done, true);
+check("open items in value order", open, ["backup:p1", "stock:p2", "leadtimes", "tier2", "reorder", "markets", "painpoints"]);
+check("backup names the product", items.find(i => i.id === "backup:p1").title, "Name a backup for EV Charging Module");
+check("lead times count", items.find(i => i.id === "leadtimes").title, "Add lead times for 1 supplier");
+check("markets names the region", items.find(i => i.id === "markets").why, "We assumed North America from your headquarters.");
+check("email and invite hidden while flags are off", items.some(i => i.id === "email" || i.id === "invite"), false);
+check("email shown when its flag is on", computeChecklist(profile, completedExtras, { emailBrief: true, teams: false }).some(i => i.id === "email"), true);
+const partial = computeChecklist(profile, { ...extras }, FLAGS_OFF);
+check("unfinished onboarding -> Finish setting up first", openItems(partial)[0].id, "finish-onboarding");
+check("pre-v5.1 profile (no extras): no finish, stock, reorder or markets items",
+  computeChecklist(profile, null, FLAGS_OFF).filter(i => ["finish-onboarding", "reorder", "markets"].includes(i.id) && !i.done).length
+    + computeChecklist(profile, null, FLAGS_OFF).filter(i => i.id.startsWith("stock:")).length, 0);
+check("percent counts sections + items honestly", setupPercent(profile, completedExtras, items), Math.round(100 * (4 + 1) / (4 + items.length)));
+const progressed = { ...completedExtras, checklistInitial: open };
+const afterPainPoints = computeChecklist({ ...profile, painPoints: ["Port congestion"] }, progressed, FLAGS_OFF);
+check("progress: done = initial items no longer open", checklistProgress(afterPainPoints, progressed), { done: 1, total: 7 });
 
 if (failed) { console.log(`${failed} FAILED`); process.exit(1); }
 console.log("all passed");

@@ -19,6 +19,12 @@
   to { opacity: 1; }
 }
 
+/* First light: the sun rises onto the horizon once, on arrival (spec 6.8). */
+@keyframes sunRise {
+  from { transform: translateY(40px); }
+  to { transform: translateY(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
