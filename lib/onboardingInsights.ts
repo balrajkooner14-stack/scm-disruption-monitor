@@ -5,6 +5,7 @@ import { draftToExtras, onboardingToProfile } from "./onboarding"
 import { textMentionsCountry } from "./countries"
 import { matchEventsToPorts, portName } from "./ports"
 import { bySeverityThenDate, compareDateDesc } from "./eventOrder"
+import { daysSinceLocalDate } from "./asOfDates"
 import { scoreEventsForProfile, type ScoredEvent } from "./scoreEvents"
 import { findSinglePointsOfFailure } from "./supplyChainGraph"
 
@@ -12,7 +13,7 @@ import { findSinglePointsOfFailure } from "./supplyChainGraph"
 // (spec section 7). They only select and arrange real events and the user's
 // own answers. Event text is used verbatim; nothing here invents a claim.
 
-export { bySeverityThenDate }
+export { bySeverityThenDate, daysSinceLocalDate }
 
 type SupplierLike = Pick<Supplier, "id" | "name" | "country" | "region">
 
@@ -114,20 +115,6 @@ export function portWatchHeadline(selected: number, withNews: number): string {
 }
 
 // ── Stock with as-of dates ──────────────────────────────────────────────────
-
-function parseLocalDate(ymd: string): Date | null {
-  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!m) return null
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-}
-
-/** Whole calendar days from a YYYY-MM-DD date to `now` (local), never negative. */
-export function daysSinceLocalDate(ymd: string, now: Date = new Date()): number | null {
-  const d = parseLocalDate(ymd)
-  if (!d) return null
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  return Math.max(0, Math.round((today.getTime() - d.getTime()) / 86_400_000))
-}
 
 /**
  * Days of stock left for a product, counted down from its as-of date when

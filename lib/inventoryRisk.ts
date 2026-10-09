@@ -1,4 +1,5 @@
 import { CompanyProfile, Supplier } from "@/lib/profile"
+import { daysSinceLocalDate } from "@/lib/asOfDates"
 
 export type RiskLevel = "critical" | "warning" | "safe" | "unknown"
 
@@ -18,6 +19,19 @@ export interface ProductRisk {
   hasActiveDisruption: boolean
   progressPercent: number
   supplierAssigned: boolean
+  /** false when the stock level was skipped (OnboardingExtras.inventoryUnknown). */
+  stockKnown: boolean
+  /** false when the primary supplier's lead time is 0, i.e. not entered. */
+  leadTimeKnown: boolean
+  /** YYYY-MM-DD the stock was counted, when recorded. */
+  inventoryAsOf: string | null
+}
+
+/** v5.1 per-product stock dates. Omit it and the result is exactly as before. */
+export interface InventoryRiskOptions {
+  inventoryAsOf?: Record<string, string>
+  inventoryUnknown?: string[]
+  now?: Date
 }
 
 export interface InventorySnapshot {
@@ -31,13 +45,16 @@ export interface InventorySnapshot {
 export function calculateInventoryRisk(
   profile: CompanyProfile,
   hasDisruptionByRegion: Record<string, boolean>,
-  daysSinceProfileUpdate: number = 0
+  daysSinceProfileUpdate: number = 0,
+  opts?: InventoryRiskOptions
 ): InventorySnapshot {
   const products: ProductRisk[] = profile.productLines.map(product => {
-    const daysRemaining = Math.max(
-      0,
-      product.inventoryDaysOnHand - daysSinceProfileUpdate
-    )
+    // Count down from this product's own stock date when one is recorded;
+    // otherwise from the profile's last update (the pre-v5.1 behaviour).
+    const asOf = opts?.inventoryAsOf?.[product.id] ?? null
+    const elapsed = asOf ? daysSinceLocalDate(asOf, opts?.now) ?? daysSinceProfileUpdate : daysSinceProfileUpdate
+    const stockKnown = !(opts?.inventoryUnknown ?? []).includes(product.id)
+    const daysRemaining = stockKnown ? Math.max(0, product.inventoryDaysOnHand - elapsed) : 0
 
     const primarySupplier = (() => {
       if (product.primarySupplierId) {
@@ -71,7 +88,11 @@ export function calculateInventoryRisk(
     let riskLevel: RiskLevel = "safe"
     let riskReason = ""
 
-    if (daysRemaining <= product.reorderPointDays) {
+    if (!stockKnown) {
+      // No stock level: no risk level, no reorder recommendation, no banner.
+      riskLevel = "unknown"
+      riskReason = "Stock level not set"
+    } else if (daysRemaining <= product.reorderPointDays) {
       riskLevel = "critical"
       riskReason = hasActiveDisruption
         ? `Reorder point reached — active disruption in ${primarySupplier?.region} extends lead time risk`
@@ -113,6 +134,9 @@ export function calculateInventoryRisk(
       hasActiveDisruption,
       progressPercent,
       supplierAssigned: !!product.primarySupplierId,
+      stockKnown,
+      leadTimeKnown: !!primarySupplier && primarySupplier.leadTimeDays > 0,
+      inventoryAsOf: asOf,
     }
   })
 

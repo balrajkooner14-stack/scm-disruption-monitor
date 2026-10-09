@@ -455,3 +455,65 @@ export function importResultToDraft(
   })
   return { suppliers: draftSuppliers, products: draftProducts }
 }
+
+// ── /profile save → extras (spec 8.2, 8.3) ──────────────────────────────────
+
+/**
+ * The extras to store after /profile saves a profile.
+ * - Stock dates: a product whose stock changed is dated today unless the user
+ *   picked a "counted on" date; an unchanged product keeps its date, and if it
+ *   never had one it keeps the date of the previous save — otherwise saving
+ *   any field would silently reset every product's countdown.
+ * - "Unknown"/"defaulted" lists drop entries the user has now filled in.
+ * - Entry ports and role are replaced when the form passes them.
+ */
+export function extrasAfterProfileSave(args: {
+  extras: OnboardingExtras | null
+  before: CompanyProfile | null
+  after: CompanyProfile
+  asOfEdits: Record<string, string>
+  entryPorts?: string[]
+  role?: OnboardingRole | null
+  now?: Date
+}): OnboardingExtras {
+  const { extras, before, after, asOfEdits } = args
+  const now = args.now ?? new Date()
+  const today = localISODate(now)
+  const prevSaveDate = before?.updatedAt ? localISODate(new Date(before.updatedAt)) : today
+  const beforeById = new Map((before?.productLines ?? []).map(p => [p.id, p]))
+  const productIds = new Set(after.productLines.map(p => p.id))
+  const supplierIds = new Set(after.suppliers.map(s => s.id))
+
+  const inventoryAsOf: Record<string, string> = {}
+  const stockTouched = new Set<string>()
+  const reorderTouched = new Set<string>()
+  for (const p of after.productLines) {
+    const old = beforeById.get(p.id)
+    const stockChanged = !old || old.inventoryDaysOnHand !== p.inventoryDaysOnHand
+    if (stockChanged || asOfEdits[p.id]) stockTouched.add(p.id)
+    if (!old || old.reorderPointDays !== p.reorderPointDays) reorderTouched.add(p.id)
+    inventoryAsOf[p.id] =
+      asOfEdits[p.id] ?? (stockChanged ? today : extras?.inventoryAsOf?.[p.id] ?? prevSaveDate)
+  }
+
+  const marketsChanged =
+    !!before && JSON.stringify([...before.primaryMarkets].sort()) !== JSON.stringify([...after.primaryMarkets].sort())
+
+  const next: OnboardingExtras = {
+    ...(extras ?? EMPTY_EXTRAS),
+    version: 1,
+    inventoryAsOf,
+    inventoryUnknown: (extras?.inventoryUnknown ?? []).filter(id => productIds.has(id) && !stockTouched.has(id)),
+    reorderPointDefaulted: (extras?.reorderPointDefaulted ?? []).filter(id => productIds.has(id) && !reorderTouched.has(id)),
+    leadTimeUnknown: (extras?.leadTimeUnknown ?? []).filter(
+      id => supplierIds.has(id) && !(after.suppliers.find(s => s.id === id)!.leadTimeDays > 0),
+    ),
+  }
+  if (extras?.primaryMarketsDerived !== undefined) next.primaryMarketsDerived = extras.primaryMarketsDerived && !marketsChanged
+  if (args.entryPorts) next.entryPorts = [...args.entryPorts]
+  if (args.role !== undefined) {
+    if (args.role) next.role = args.role
+    else delete next.role
+  }
+  return next
+}

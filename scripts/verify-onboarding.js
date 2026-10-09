@@ -4,7 +4,7 @@ require("./verify-alias");
 const { containsTerm } = require("../.verify/textMatch.js");
 const { findCountry, countryToSupplyRegion, searchCountries, textMentionsCountry, countryGeoName } = require("../.verify/countries.js");
 const { matchEventsToPorts, portName, customPortId } = require("../.verify/ports.js");
-const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows, shortCompanyName, watchingSentence, importResultToDraft } = require("../.verify/onboarding.js");
+const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows, shortCompanyName, watchingSentence, importResultToDraft, extrasAfterProfileSave } = require("../.verify/onboarding.js");
 const { computeChecklist, openItems, setupPercent, checklistProgress } = require("../.verify/setupChecklist.js");
 const {
   pickHeadlineEvents, supplierEventMatch, supplierTeaser, activeEventsForSuppliers,
@@ -313,6 +313,40 @@ check("non-matching port changes nothing", scoreEventsForProfile([laEvent], prof
 check("custom port name matches", scoreEventsForProfile([ev("Baltimore terminal closed", "Port", 3, "2026-10-08T00:00:00Z")], profile, ["custom:Baltimore"])[0].relevanceReason, "Affects your Baltimore entry point");
 const maxed = scoreEventsForProfile([ev("Los Angeles port strike shuts Taiwan China Germany lanes", "Port", 3, "2026-10-08T00:00:00Z", { region: "Asia Pacific" })], { ...profile, painPoints: ["Port congestion", "Lead time variability"] }, ["la-lb"])[0];
 check("still capped at 100", maxed.relevanceScore <= 100, true);
+
+console.log("-- Phase 10: inventory as-of dates (lib/inventoryRisk.ts, spec 8.2) --");
+const { calculateInventoryRisk } = require("../.verify/inventoryRisk.js");
+const invProfile = { ...profile, productLines: [{ id: "pA", name: "A", inventoryDaysOnHand: 30, reorderPointDays: 10, primarySupplierId: "s1" }, { id: "pB", name: "B", inventoryDaysOnHand: 0, reorderPointDays: 0, primarySupplierId: "s2" }] };
+const tenDaysAgo = new Date(2026, 9, 8); const asOfNow = new Date(2026, 9, 18, 15);
+const legacy = calculateInventoryRisk(invProfile, {}, 3);
+const legacyUndef = calculateInventoryRisk(invProfile, {}, 3, undefined);
+check("no opts: identical to before (decay by profile age)", [legacy.products[0].daysRemaining, legacy.products[0].riskLevel], [27, "warning"]);
+check("no opts vs undefined opts identical", JSON.stringify(legacy.products.map(p => [p.daysRemaining, p.riskLevel, p.riskReason])), JSON.stringify(legacyUndef.products.map(p => [p.daysRemaining, p.riskLevel, p.riskReason])));
+const dated = calculateInventoryRisk(invProfile, {}, 3, { inventoryAsOf: { pA: "2026-10-08" }, inventoryUnknown: ["pB"], now: asOfNow });
+check("spec check 10: 30 days as of 10 days ago -> 20 left", dated.products[0].daysRemaining, 20);
+check("unknown stock -> unknown level, 'Stock level not set'", [dated.products[1].riskLevel, dated.products[1].riskReason, dated.products[1].stockKnown], ["unknown", "Stock level not set", false]);
+check("unknown stock excluded from critical/warning counts", [dated.criticalCount, dated.warningCount], [0, dated.products.filter(p => p.riskLevel === "warning").length]);
+check("lead time 0 flagged as not set", dated.products[1].leadTimeKnown, false);
+check("as-of echoed for display", dated.products[0].inventoryAsOf, "2026-10-08");
+
+console.log("-- Phase 10: /profile save bookkeeping (extrasAfterProfileSave) --");
+const beforeP = { ...invProfile, updatedAt: new Date(2026, 9, 1, 12).toISOString(), primaryMarkets: ["North America"] };
+const baseX = { version: 1, inventoryAsOf: { pA: "2026-10-05" }, inventoryUnknown: ["pB"], reorderPointDefaulted: ["pA", "pB"], leadTimeUnknown: ["s2"], primaryMarketsDerived: true };
+const nowSave = new Date(2026, 9, 9, 10);
+const unchanged = extrasAfterProfileSave({ extras: baseX, before: beforeP, after: beforeP, asOfEdits: {}, now: nowSave });
+check("unchanged product keeps its stock date", unchanged.inventoryAsOf.pA, "2026-10-05");
+check("product never dated keeps the previous save's date (no silent reset)", unchanged.inventoryAsOf.pB, "2026-10-01");
+check("unchanged unknown stays unknown", unchanged.inventoryUnknown, ["pB"]);
+const afterP = { ...beforeP, productLines: [{ ...beforeP.productLines[0], reorderPointDays: 12 }, { ...beforeP.productLines[1], inventoryDaysOnHand: 14 }], suppliers: beforeP.suppliers.map(s => s.id === "s2" ? { ...s, leadTimeDays: 21 } : s), primaryMarkets: ["North America", "Europe"] };
+const changed = extrasAfterProfileSave({ extras: baseX, before: beforeP, after: afterP, asOfEdits: { pA: "2026-10-03" }, entryPorts: ["ny-nj"], role: "planning", now: nowSave });
+check("changed stock dated today", changed.inventoryAsOf.pB, "2026-10-09");
+check("picked 'counted on' date wins", changed.inventoryAsOf.pA, "2026-10-03");
+check("filled-in stock leaves inventoryUnknown", changed.inventoryUnknown, []);
+check("edited reorder point leaves reorderPointDefaulted", changed.reorderPointDefaulted, ["pB"]);
+check("entered lead time leaves leadTimeUnknown", changed.leadTimeUnknown, []);
+check("changed markets are no longer 'derived'", changed.primaryMarketsDerived, false);
+check("ports and role saved", [changed.entryPorts, changed.role], [["ny-nj"], "planning"]);
+check("pre-v5.1 profile (no extras) gets dates without other flags", Object.keys(extrasAfterProfileSave({ extras: null, before: beforeP, after: beforeP, asOfEdits: {}, now: nowSave })).sort(), ["inventoryAsOf", "inventoryUnknown", "leadTimeUnknown", "reorderPointDefaulted", "version"]);
 
 if (failed) { console.log(`${failed} FAILED`); process.exit(1); }
 console.log("all passed");

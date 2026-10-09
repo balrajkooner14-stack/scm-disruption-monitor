@@ -16,6 +16,16 @@ import {
   RawMaterial,
 } from "@/lib/profile"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { useOnboardingExtras } from "@/hooks/useOnboardingExtras"
+import { PORTS, customPortId, isCustomPortId, portName } from "@/lib/ports"
+import { isDemoMode } from "@/lib/demoMode"
+import {
+  ROLE_CHIPS,
+  deriveTradeLanes,
+  extrasAfterProfileSave,
+  localISODate,
+  type OnboardingRole,
+} from "@/lib/onboarding"
 import ImportProfileFlow from "@/components/ImportProfileFlow"
 import Link from "next/link"
 import Logo from "@/components/ui/Logo"
@@ -108,6 +118,7 @@ function newProductLine(): ProductLine {
 export default function ProfilePage() {
   const router = useRouter()
   const { profile, saveProfile, isLoaded } = useCompanyProfile()
+  const { extras, saveExtras, isLoaded: extrasLoaded } = useOnboardingExtras()
 
   const [step, setStep] = useState(1)
   const [error, setError] = useState("")
@@ -134,6 +145,25 @@ export default function ProfilePage() {
   // Step 5
   const [transportModes, setTransportModes] = useState<TransportMode[]>([])
   const [tradeLanes, setTradeLanes] = useState<TradeLane[]>([])
+
+  // v5.1 extras edited here: stock "counted on" dates (step 3), entry ports
+  // and role (step 5). Saved to OnboardingExtras after the profile itself.
+  const [asOfEdits, setAsOfEdits] = useState<Record<string, string>>({})
+  const [entryPorts, setEntryPorts] = useState<string[]>([])
+  const [role, setRole] = useState<OnboardingRole | null>(null)
+  const [customPort, setCustomPort] = useState("")
+
+  // ?step=N (1–5) opens that step, e.g. links from the setup checklist.
+  useEffect(() => {
+    const n = Number(new URLSearchParams(window.location.search).get("step"))
+    if (Number.isInteger(n) && n >= 1 && n <= 5) setStep(n)
+  }, [])
+
+  useEffect(() => {
+    if (!extrasLoaded) return
+    setEntryPorts(extras?.entryPorts ?? [])
+    setRole(extras?.role ?? null)
+  }, [extrasLoaded, extras])
 
   // Pre-fill from saved profile
   useEffect(() => {
@@ -211,8 +241,45 @@ export default function ProfilePage() {
       createdAt: profile?.createdAt ?? now,
       updatedAt: now,
     }
-    await saveProfile(newProfile)
+    const saved = await saveProfile(newProfile)
+    if (!saved) {
+      // Previously this redirected with a "Profile saved" toast regardless.
+      setError(
+        isDemoMode()
+          ? "This is the sample company, so changes here aren't saved."
+          : "We couldn't save your profile. Check your connection and try again.",
+      )
+      return
+    }
+    await saveExtras(
+      extrasAfterProfileSave({
+        extras,
+        before: profile,
+        after: newProfile,
+        asOfEdits,
+        entryPorts,
+        role,
+      }),
+    )
     router.push("/?profileSaved=true")
+  }
+
+  // The stock date shown for a product: an edit made here, else its recorded
+  // date, else the date of the last save (when its number was last set).
+  function asOfFor(pl: ProductLine): string {
+    return (
+      asOfEdits[pl.id] ??
+      extras?.inventoryAsOf?.[pl.id] ??
+      (profile?.productLines.some(p => p.id === pl.id) ? localISODate(new Date(profile.updatedAt)) : localISODate())
+    )
+  }
+
+  function togglePort(id: string) {
+    const next = entryPorts.includes(id) ? entryPorts.filter(p => p !== id) : [...entryPorts, id]
+    setEntryPorts(next)
+    // Merge in the lanes these ports imply; never remove lanes picked by hand.
+    const derived = deriveTradeLanes(next, suppliers)
+    setTradeLanes(prev => Array.from(new Set([...prev, ...derived])))
   }
 
   // Supplier helpers
@@ -754,9 +821,23 @@ export default function ProfilePage() {
                           type="number"
                           min={0}
                           value={pl.inventoryDaysOnHand}
-                          onChange={(e) => updateProductLine(pl.id, "inventoryDaysOnHand", Number(e.target.value))}
+                          onChange={(e) => {
+                            updateProductLine(pl.id, "inventoryDaysOnHand", Number(e.target.value))
+                            // A new number is a new count: date it today unless a date was picked.
+                            setAsOfEdits(prev => ({ ...prev, [pl.id]: prev[pl.id] ?? localISODate() }))
+                          }}
                           className={inputCls}
                         />
+                        <label className={`${ui.help} mt-1.5 flex items-center gap-2`}>
+                          Counted on
+                          <input
+                            type="date"
+                            value={asOfFor(pl)}
+                            max={localISODate()}
+                            onChange={(e) => setAsOfEdits(prev => ({ ...prev, [pl.id]: e.target.value || localISODate() }))}
+                            className="rounded-md border border-line-control bg-surface px-1.5 py-0.5 text-xs text-ink focus:border-ink focus:outline-none"
+                          />
+                        </label>
                       </div>
                       <div>
                         <label className={labelCls}>Reorder point (days)</label>
@@ -1014,6 +1095,88 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              <div className="space-y-4">
+                <div>
+                  <p className={`${ui.label} mb-1`}>Ports and role</p>
+                  <p className={ui.help}>Entry ports sharpen which events count as yours. Lanes they imply are added below.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {PORTS.map(p => {
+                    const on = entryPorts.includes(p.id)
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => togglePort(p.id)}
+                        className={`flex items-center justify-between gap-3 rounded-[10px] border px-3.5 py-2.5 text-left text-sm transition-colors ${
+                          on ? "border-ink bg-ink text-paper" : "border-line-strong bg-surface text-ink hover:border-ink"
+                        }`}
+                      >
+                        <span>{p.name}</span>
+                        <span className={`text-xs ${on ? "text-on-ink-muted" : "text-ink-3"}`}>{p.coast}</span>
+                      </button>
+                    )
+                  })}
+                  {entryPorts.filter(isCustomPortId).map(id => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed
+                      onClick={() => togglePort(id)}
+                      className="flex items-center justify-between gap-3 rounded-[10px] border border-ink bg-ink px-3.5 py-2.5 text-left text-sm text-paper"
+                    >
+                      <span>{portName(id)}</span>
+                      <span className="text-xs text-on-ink-muted">Your port</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    aria-label="Another port or crossing"
+                    placeholder="Another port, e.g. Baltimore"
+                    value={customPort}
+                    onChange={e => setCustomPort(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && customPort.trim()) {
+                        e.preventDefault()
+                        togglePort(customPortId(customPort))
+                        setCustomPort("")
+                      }
+                    }}
+                    className={inputCls}
+                  />
+                  <button
+                    type="button"
+                    disabled={!customPort.trim()}
+                    onClick={() => {
+                      togglePort(customPortId(customPort))
+                      setCustomPort("")
+                    }}
+                    className={`${ui.btnSecondary} shrink-0`}
+                  >
+                    Add
+                  </button>
+                </div>
+                <div>
+                  <p className={`${ui.label} mb-2`}>Your role</p>
+                  <div className="flex flex-wrap gap-2">
+                    {ROLE_CHIPS.map(r => (
+                      <button
+                        key={r.value}
+                        type="button"
+                        aria-pressed={role === r.value}
+                        onClick={() => setRole(role === r.value ? null : r.value)}
+                        className={role === r.value ? ui.choiceChipOn : ui.choiceChip}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <p className={`${ui.label} mb-3`}>
                   Which shipping lanes are most critical to you?
@@ -1053,9 +1216,18 @@ export default function ProfilePage() {
             )}
 
             {step < 5 ? (
-              <button onClick={handleContinue} className={ui.btnPrimary}>
-                Continue
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Editing an existing profile (e.g. from a setup-checklist link):
+                    save from any step instead of walking to step 5. */}
+                {profile && (
+                  <button onClick={handleSave} className={ui.btnSecondary}>
+                    Save changes
+                  </button>
+                )}
+                <button onClick={handleContinue} className={ui.btnPrimary}>
+                  Continue
+                </button>
+              </div>
             ) : (
               <button onClick={handleSave} className={`${ui.btnAccent} px-5 py-2.5`}>
                 Save profile

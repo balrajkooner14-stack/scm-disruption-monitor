@@ -3,6 +3,7 @@
 import { isDemoMode } from "@/lib/demoMode"
 import { useMemo, useEffect } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
+import { useOnboardingExtras } from "@/hooks/useOnboardingExtras"
 import { ScoredEvent } from "@/lib/scoreEvents"
 import {
   calculateInventoryRisk,
@@ -16,6 +17,7 @@ import Link from "next/link"
 import TariffRateBadge from "@/components/TariffRateBadge"
 import { RawMaterial, Supplier } from "@/lib/profile"
 import { findSinglePointsOfFailure } from "@/lib/supplyChainGraph"
+import { parseLocalDate } from "@/lib/asOfDates"
 import { ui } from "@/lib/ui"
 
 interface InventoryRiskPanelProps {
@@ -35,6 +37,14 @@ function statusChip(product: ProductRisk): { label: string; className: string } 
   return { label: "THIS WEEK", className: ui.chipWarning }
 }
 
+function formatAsOf(ymd: string): string {
+  const d = parseLocalDate(ymd)
+  if (!d) return ymd
+  return d.toDateString() === new Date().toDateString()
+    ? "today"
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
 const DAYS_CLASS: Record<RiskLevel, string> = {
   critical: "text-ember",
   warning: "text-ochre",
@@ -44,6 +54,7 @@ const DAYS_CLASS: Record<RiskLevel, string> = {
 
 export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) {
   const { profile, isLoaded } = useCompanyProfile()
+  const { extras } = useOnboardingExtras()
 
   const hasDisruptionByRegion = useMemo(() => {
     const map: Record<string, boolean> = {}
@@ -62,8 +73,11 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
 
   const snapshot = useMemo(() => {
     if (!profile) return null
-    return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSinceUpdate)
-  }, [profile, hasDisruptionByRegion, daysSinceUpdate])
+    return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSinceUpdate, {
+      inventoryAsOf: extras?.inventoryAsOf,
+      inventoryUnknown: extras?.inventoryUnknown,
+    })
+  }, [profile, hasDisruptionByRegion, daysSinceUpdate, extras])
 
   const spofResults = useMemo(() => (profile ? findSinglePointsOfFailure(profile) : []), [profile])
 
@@ -138,7 +152,7 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
           Profile inventory last updated{" "}
           {daysSinceUpdate === 0 ? "today" : `${daysSinceUpdate} day${daysSinceUpdate === 1 ? "" : "s"} ago`}
           {" · "}
-          <Link href="/profile" className="text-ember hover:text-ember-deep">
+          <Link href="/profile?step=3" className="text-ember hover:text-ember-deep">
             update levels
           </Link>
         </p>
@@ -155,7 +169,7 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
               {compoundingDisruption && " · active disruption in a supplier region compounds the risk"}
             </p>
           </div>
-          <Link href="/profile" className={`${ui.btnAccent} flex-shrink-0 self-start md:self-center`}>
+          <Link href="/profile?step=3" className={`${ui.btnAccent} flex-shrink-0 self-start md:self-center`}>
             Update inventory
           </Link>
         </div>
@@ -168,7 +182,9 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
             const order: Record<RiskLevel, number> = { critical: 0, warning: 1, safe: 2, unknown: 3 }
             return order[a.riskLevel] - order[b.riskLevel]
           })
-          .map(product => (
+          .map(product => !product.stockKnown ? (
+            <UnknownStockCard key={product.productId} name={product.productName} />
+          ) : (
             <ProductRiskCard
               key={product.productId}
               product={product}
@@ -181,11 +197,25 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
 
       <p className={ui.meta}>
         Based on inventory levels in your profile ·{" "}
-        <Link href="/profile" className="text-ember hover:text-ember-deep">
+        <Link href="/profile?step=3" className="text-ember hover:text-ember-deep">
           Update inventory levels
         </Link>
       </p>
     </section>
+  )
+}
+
+// A product whose stock was skipped during setup (spec 8.2): no risk level,
+// no reorder maths, just a way to add the number.
+function UnknownStockCard({ name }: { name: string }) {
+  return (
+    <article className="bg-paper border border-line-soft rounded-xl p-5 flex flex-col gap-3">
+      <h3 className="text-base font-semibold text-ink-2 leading-snug">{name}</h3>
+      <p className="text-sm text-ink-3">Stock level not set</p>
+      <Link href="/profile?step=3" className={`${ui.btnSecondary} self-start`}>
+        Add stock
+      </Link>
+    </article>
   )
 }
 
@@ -202,7 +232,9 @@ function ProductRiskCard({
 }) {
   const chip = statusChip(product)
   const barColor = getInventoryBarColor(product.riskLevel)
-  const recommendation = calculateOrderRecommendation(product)
+  // The recommendation is built on the lead time; without one it would claim
+  // to "cover a 0-day lead time", so it's left out until a lead time is set.
+  const recommendation = product.leadTimeKnown ? calculateOrderRecommendation(product) : null
 
   // Single-point-of-failure reasons become plain lines (the boxed badge is gone).
   const spofLines = spof?.isSinglePointOfFailure
@@ -226,6 +258,7 @@ function ProductRiskCard({
         </span>
         <span className="text-sm text-ink-2">days of cover left</span>
       </div>
+      {product.inventoryAsOf && <p className="-mt-2 text-xs text-ink-3">Stock counted {formatAsOf(product.inventoryAsOf)}</p>}
 
       <div className="h-1.5 rounded-full bg-paper-sunk overflow-hidden">
         <div
@@ -236,7 +269,7 @@ function ProductRiskCard({
 
       <div className={`flex items-center justify-between ${ui.meta}`}>
         <span>Reorder at {product.reorderPointDays} d</span>
-        <span>Lead time {product.primaryLeadTimeDays} d</span>
+        <span>{product.leadTimeKnown ? `Lead time ${product.primaryLeadTimeDays} d` : "Lead time not set"}</span>
       </div>
 
       {recommendation && (

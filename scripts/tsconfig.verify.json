@@ -24,6 +24,7 @@
     "../lib/setupChecklist.ts",
     "../lib/sampleProfile.ts",
     "../lib/demoMode.ts",
-    "../lib/guestCarryOver.ts"
+    "../lib/guestCarryOver.ts",
+    "../lib/inventoryRisk.ts"
   ]
 }

@@ -17,6 +17,7 @@ import SanctionsScreeningCard from "@/components/SanctionsScreeningCard"
 import DisruptionHistoryTab from "@/components/DisruptionHistoryTab"
 import PerformanceAlertBanner from "@/components/PerformanceAlertBanner"
 import DisruptionUpdatePrompt from "@/components/DisruptionUpdatePrompt"
+import SetupChecklist from "@/components/SetupChecklist"
 import LaborCalendarCard from "@/components/LaborCalendarCard"
 import StructuralRiskCard from "@/components/StructuralRiskCard"
 import AIRiskRadarCard from "@/components/AIRiskRadarCard"
@@ -162,8 +163,11 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       .filter(e => e.severity >= 2)
       .forEach(e => { if (e.region) hasDisruptionByRegion[e.region] = true })
     const daysSince = getDaysSinceDate(profile.updatedAt ?? new Date().toISOString())
-    return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSince)
-  }, [profile, scoredEvents])
+    return calculateInventoryRisk(profile, hasDisruptionByRegion, daysSince, {
+      inventoryAsOf: extras?.inventoryAsOf,
+      inventoryUnknown: extras?.inventoryUnknown,
+    })
+  }, [profile, scoredEvents, extras])
 
   useEffect(() => {
     if (!inventorySnapshot) return
@@ -333,6 +337,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
         {activeTab === "overview" && (
           <div className="space-y-7">
+            <SetupChecklist profile={isLoaded ? profile : null} />
             <DisruptionUpdatePrompt events={scoredEvents} />
             <PerformanceAlertBanner />
             <InventoryRiskPanel events={scoredEvents} />
