@@ -300,3 +300,39 @@ export function draftToExtras(draft: OnboardingDraft, now: Date = new Date()): O
     startedAt: draft.startedAt,
   }
 }
+
+// ── Prefill and display helpers ─────────────────────────────────────────────
+
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "msn.com",
+  "yahoo.com", "ymail.com", "icloud.com", "me.com", "mac.com", "aol.com",
+  "proton.me", "protonmail.com", "gmx.com", "gmx.net", "yandex.com", "zoho.com",
+  "mail.com", "fastmail.com", "hey.com", "comcast.net", "att.net", "verizon.net",
+])
+
+/**
+ * A company-name guess from a work email's domain ("dana@meridian-electronics.com"
+ * → "Meridian Electronics"). Null for public mail providers.
+ */
+export function companyFromEmail(email: string | null | undefined): string | null {
+  const domain = email?.split("@")[1]?.trim().toLowerCase()
+  if (!domain || PUBLIC_EMAIL_DOMAINS.has(domain)) return null
+  const label = domain.split(".")[0]
+  if (!label) return null
+  return label
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+}
+
+/** First name from OAuth metadata (full_name or name), else null. */
+export function firstNameFromMetadata(meta: Record<string, unknown> | null | undefined): string | null {
+  const raw = (typeof meta?.full_name === "string" && meta.full_name) || (typeof meta?.name === "string" && meta.name) || ""
+  const first = raw.trim().split(/\s+/)[0]
+  return first || null
+}
+
+export function roleLabel(role: OnboardingRole | undefined): string | null {
+  return ROLE_CHIPS.find(r => r.value === role)?.label ?? null
+}

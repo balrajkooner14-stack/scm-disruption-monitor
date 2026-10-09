@@ -45,6 +45,11 @@ export const ui = {
   pill: "rounded-full border border-line px-3 py-1 text-[13px] text-ink transition-colors hover:border-ink",
   pillActive: "rounded-full border border-ink bg-ink px-3 py-1 text-[13px] text-paper",
 
+  // single/multi-select chips (<button aria-pressed>) used in onboarding and /profile
+  choiceChip:
+    "rounded-full border px-3.5 py-2 text-sm transition-colors border-line-strong text-ink hover:border-ink",
+  choiceChipOn: "rounded-full border px-3.5 py-2 text-sm border-ink bg-ink text-paper",
+
   // feedback
   skeleton: "animate-pulse rounded bg-paper-sunk",
   errorBox: "rounded-lg border border-ember-line bg-ember-tint p-3 text-[13px] text-ember-deep",
