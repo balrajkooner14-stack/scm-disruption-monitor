@@ -39,6 +39,8 @@ export function useAuth() {
       "scm_lead_time_history",
       "scm_last_visit",
       "scm_prompt_dismissed",
+      "scm_onboarding",
+      "scm_onboarding_draft",
     ]
     SCM_STORAGE_KEYS.forEach(key => {
       try { localStorage.removeItem(key) } catch {}
