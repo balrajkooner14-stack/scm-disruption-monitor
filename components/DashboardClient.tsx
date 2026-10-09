@@ -1,5 +1,6 @@
 "use client"
 
+import { isDemoMode } from "@/lib/demoMode"
 import { useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import WorldMap from "@/components/WorldMap"
@@ -7,6 +8,8 @@ import DisruptionFeed from "@/components/DisruptionFeed"
 import KPIBar from "@/components/KPIBar"
 import AnalyticsTab from "@/components/AnalyticsTab"
 import ProfilePromptModal from "@/components/ProfilePromptModal"
+import DemoBanner from "@/components/DemoBanner"
+import GuestCarryOverPrompt from "@/components/GuestCarryOverPrompt"
 import AIAdvisor from "@/components/AIAdvisor"
 import SupplierHealthScorecard from "@/components/SupplierHealthScorecard"
 import ConcentrationRiskCard from "@/components/ConcentrationRiskCard"
@@ -204,7 +207,7 @@ export default function DashboardClient({ events }: DashboardClientProps) {
       const tab = (e as CustomEvent<string>).detail
       if (VALID_TABS.includes(tab as TabId)) {
         setActiveTab(tab as TabId)
-        localStorage.setItem("scm_active_tab", tab)
+        if (!isDemoMode()) localStorage.setItem("scm_active_tab", tab)
       }
     }
     window.addEventListener("switchTab", handleSwitchTab)
@@ -228,12 +231,14 @@ export default function DashboardClient({ events }: DashboardClientProps) {
 
   function handleTabChange(tab: TabId) {
     setActiveTab(tab)
-    localStorage.setItem("scm_active_tab", tab)
+    if (!isDemoMode()) localStorage.setItem("scm_active_tab", tab)
   }
 
   return (
     <>
       <ProfilePromptModal />
+      <DemoBanner />
+      <GuestCarryOverPrompt />
 
       {showToast && (
         <div className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink">

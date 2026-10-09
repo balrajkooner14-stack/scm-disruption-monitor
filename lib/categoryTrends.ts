@@ -1,3 +1,4 @@
+import { isDemoMode } from "@/lib/demoMode"
 import { DisruptionCategory } from "@/lib/types"
 import { ScoredEvent } from "@/lib/scoreEvents"
 
@@ -55,7 +56,7 @@ export function saveCategorySnapshot(events: ScoredEvent[]): void {
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-MAX_DAYS)
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+    if (!isDemoMode()) localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
   } catch {
     // Silently fail — non-critical feature
   }

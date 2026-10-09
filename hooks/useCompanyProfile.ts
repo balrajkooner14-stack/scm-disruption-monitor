@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo } from "react"
 import { CompanyProfile, PROFILE_STORAGE_KEY } from "@/lib/profile"
 import { createClient } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
+import { isDemoMode } from "@/lib/demoMode"
+import { SAMPLE_PROFILE } from "@/lib/sampleProfile"
 
 export function useCompanyProfile() {
   const { user, isLoading: authLoading } = useAuth()
@@ -12,6 +14,8 @@ export function useCompanyProfile() {
 
   // saveProfile defined before loadProfile — loadProfile calls it for auto-migration
   const saveProfile = async (newProfile: CompanyProfile): Promise<boolean> => {
+    // Sample-company mode never writes (spec 4.7).
+    if (isDemoMode()) return false
     const updated = { ...newProfile, updatedAt: new Date().toISOString() }
 
     if (user) {
@@ -53,6 +57,11 @@ export function useCompanyProfile() {
   }
 
   const loadProfile = async () => {
+    if (isDemoMode()) {
+      setProfile(SAMPLE_PROFILE)
+      setIsLoaded(true)
+      return
+    }
     if (user) {
       try {
         const { data, error } = await supabase
@@ -82,9 +91,10 @@ export function useCompanyProfile() {
         } else {
           // No Supabase profile for this user — start fresh.
           // Never inherit whatever a previous guest or different account
-          // left in the generic localStorage key.
+          // left in the generic localStorage key. Since v5.1 that guest copy
+          // is left in place (not deleted) so GuestCarryOverPrompt can offer
+          // to bring it over; it is only ever copied on an explicit yes.
           setProfile(null)
-          try { localStorage.removeItem(PROFILE_STORAGE_KEY) } catch {}
         }
       } catch {
         setProfile(null)
@@ -107,6 +117,7 @@ export function useCompanyProfile() {
   }, [user, authLoading])
 
   const clearProfile = async () => {
+    if (isDemoMode()) return
     if (user) {
       await supabase.from("profiles").delete().eq("id", user.id)
     }

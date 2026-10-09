@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Logo from "@/components/ui/Logo"
 import OnboardingHeader from "@/components/onboarding/OnboardingHeader"
 import StepChoosePath from "@/components/onboarding/StepChoosePath"
+import GuestCarryOverPrompt from "@/components/GuestCarryOverPrompt"
 import StepCompany from "@/components/onboarding/StepCompany"
 import StepFirstLight from "@/components/onboarding/StepFirstLight"
 import StepImport from "@/components/onboarding/StepImport"
@@ -28,6 +29,7 @@ import {
   type OnboardingPath,
   type OnboardingStep,
 } from "@/lib/onboarding"
+import { enterDemoMode } from "@/lib/demoMode"
 import { ui } from "@/lib/ui"
 
 // The /onboarding flow (spec 6): owns the draft, autosaves it, and routes
@@ -144,7 +146,11 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
   }
 
   const choosePath = (path: OnboardingPath) => {
-    if (path === "sample") return // wired in the sample-company phase
+    if (path === "sample") {
+      enterDemoMode()
+      window.location.assign("/")
+      return
+    }
     update(d => ({ ...d, path, step: "company" }))
   }
 
@@ -210,7 +216,10 @@ export default function OnboardingFlow({ events }: OnboardingFlowProps) {
     return (
       <div className="flex min-h-screen flex-col bg-paper">
         <OnboardingHeader variant="path" email={user?.email} />
-        <StepChoosePath firstName={firstName} onChoose={choosePath} sampleAvailable={false} />
+        <div className="px-6 pt-8 sm:px-12 xl:px-[120px] empty:hidden">
+          <GuestCarryOverPrompt />
+        </div>
+        <StepChoosePath firstName={firstName} onChoose={choosePath} sampleAvailable />
       </div>
     )
   }

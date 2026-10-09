@@ -57,7 +57,7 @@ export default function Navbar() {
                 <span className="truncate">{profile.companyName}</span>
               </Link>
             ) : (
-              <Link href="/profile" className={ui.btnSecondary.replace("text-ink", "text-ember")}>
+              <Link href="/onboarding" className={ui.btnSecondary.replace("text-ink", "text-ember")}>
                 Set up your profile
               </Link>
             )

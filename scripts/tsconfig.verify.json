@@ -21,6 +21,9 @@
     "../lib/fetchTradeNews.ts",
     "../lib/authRouting.ts",
     "../lib/onboardingInsights.ts",
-    "../lib/setupChecklist.ts"
+    "../lib/setupChecklist.ts",
+    "../lib/sampleProfile.ts",
+    "../lib/demoMode.ts",
+    "../lib/guestCarryOver.ts"
   ]
 }

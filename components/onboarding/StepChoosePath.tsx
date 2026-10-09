@@ -10,7 +10,6 @@ import { ui } from "@/lib/ui"
 interface StepChoosePathProps {
   firstName: string | null
   onChoose: (path: OnboardingPath) => void
-  /** Sample-company mode arrives in a later phase; until then the card is disabled. */
   sampleAvailable: boolean
 }
 

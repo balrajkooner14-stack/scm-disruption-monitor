@@ -273,5 +273,32 @@ check("real imported shares kept", impProfile.suppliers.map(s => s.sharePercent)
 check("real imported reorder point kept, not defaulted", [impProfile.productLines[0].reorderPointDays, impExtras.reorderPointDefaulted], [25, []]);
 check("partial shares fall back to an even split", onboardingToProfile({ ...impDraft, suppliers: [impDraft.suppliers[0], { ...impDraft.suppliers[1], sharePercent: undefined }] }, NOW).suppliers.map(s => s.sharePercent), [50, 50]);
 
+console.log("-- sample company (spec 4.7) --");
+const { buildSampleProfile, buildSampleExtras } = require("../.verify/sampleProfile.js");
+const { isDemoMode } = require("../.verify/demoMode.js");
+const later = new Date(2026, 11, 25, 9);
+const sp = buildSampleProfile(later);
+const sx = buildSampleExtras(later);
+check("dates are generated at build time, not fixed", sp.updatedAt, later.toISOString());
+check("stock never decayed on the day it is built", sp.productLines.map(p => stockDaysRemaining(p, sx, later)), [25, 18, 40, 30]);
+check("every product's supplier exists", sp.productLines.every(p => sp.suppliers.some(s => s.id === p.primarySupplierId)), true);
+check("shares add up to 100", sp.suppliers.reduce((t, s) => t + s.sharePercent, 0), 100);
+check("trade lanes derived from its ports", sp.tradeLanes, ["Asia-Pacific to US West Coast", "Latin America to US"]);
+check("isDemoMode is false without a browser", isDemoMode(), false);
+
+console.log("-- guest carry-over (v5.1) --");
+const { decideCarryOver } = require("../.verify/guestCarryOver.js");
+const guestRaw = JSON.stringify(profile);
+const base = { signedIn: true, accountHasProfile: false, guestProfileRaw: guestRaw, guestExtrasRaw: JSON.stringify(completedExtras), accountCachesRaw: [], dismissed: false };
+const d1 = decideCarryOver(base);
+check("case 1: no account profile + guest profile -> prompt", [d1.kind, d1.companyName, !!d1.extras], ["prompt", "Meridian Electronics Co.", true]);
+check("case 2: account already has a profile -> never", decideCarryOver({ ...base, accountHasProfile: true }).kind, "none");
+check("case 3: no guest data -> nothing to offer", decideCarryOver({ ...base, guestProfileRaw: null, guestExtrasRaw: null }).kind, "none");
+check("signed out -> none", decideCarryOver({ ...base, signedIn: false }).kind, "none");
+check("Start fresh remembered -> none", decideCarryOver({ ...base, dismissed: true }).kind, "none");
+check("copy that is another account's cache -> none", decideCarryOver({ ...base, accountCachesRaw: [guestRaw] }).kind, "none");
+check("unreadable guest data -> none", decideCarryOver({ ...base, guestProfileRaw: "{not json" }).kind, "none");
+check("profile without extras still offered", decideCarryOver({ ...base, guestExtrasRaw: null }).extras, null);
+
 if (failed) { console.log(`${failed} FAILED`); process.exit(1); }
 console.log("all passed");

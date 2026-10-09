@@ -1,5 +1,6 @@
 "use client"
 
+import { isDemoMode } from "@/lib/demoMode"
 import { useMemo, useEffect } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { ScoredEvent } from "@/lib/scoreEvents"
@@ -95,7 +96,8 @@ export default function InventoryRiskPanel({ events }: InventoryRiskPanelProps) 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (e: any) => new Date(e.timestamp).getTime() > ninetyDaysAgo
         )
-        localStorage.setItem("scm_inventory_log", JSON.stringify(trimmed))
+        // Sample-company mode writes nothing (spec 4.7).
+        if (!isDemoMode()) localStorage.setItem("scm_inventory_log", JSON.stringify(trimmed))
       }
     } catch {
       // Silently fail — logging is non-critical

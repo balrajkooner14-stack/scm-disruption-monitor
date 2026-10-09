@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { createClient } from "@/lib/supabase"
+import { isDemoMode } from "@/lib/demoMode"
 import { useAuth } from "@/hooks/useAuth"
 import { HistoryEntry } from "@/lib/disruptionHistory"
 import type { ScoredEvent } from "@/lib/scoreEvents"
@@ -91,6 +92,14 @@ export function useDisruptionHistory() {
     let cancelled = false
 
     async function load() {
+      // Sample-company mode: memory only, starting empty (spec 4.6).
+      if (isDemoMode()) {
+        if (!cancelled) {
+          setEntries([])
+          setIsLoaded(true)
+        }
+        return
+      }
       if (user) {
         try {
           const cutoffIso = new Date(
@@ -172,6 +181,10 @@ export function useDisruptionHistory() {
 
       if (newEntries.length === 0) return
 
+      if (isDemoMode()) {
+        setEntries(prev => [...newEntries, ...prev].slice(0, MAX_ENTRIES))
+        return
+      }
       if (user) {
         try {
           const rows = newEntries.map(e => entryToRow(e, user.id))
@@ -195,6 +208,10 @@ export function useDisruptionHistory() {
   )
 
   const clear = useCallback(async (): Promise<void> => {
+    if (isDemoMode()) {
+      setEntries([])
+      return
+    }
     if (user) {
       try {
         await supabase.from("disruption_history").delete().eq("user_id", user.id)

@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { createClient } from "@/lib/supabase"
+import { isDemoMode } from "@/lib/demoMode"
 import { useAuth } from "@/hooks/useAuth"
 import { LeadTimeEntry, LeadTimeHistory } from "@/lib/leadTimeHistory"
 
@@ -66,6 +67,14 @@ export function useLeadTimeHistory() {
     let cancelled = false
 
     async function load() {
+      // Sample-company mode: memory only, starting empty (spec 4.6).
+      if (isDemoMode()) {
+        if (!cancelled) {
+          setHistory({})
+          setIsLoaded(true)
+        }
+        return
+      }
       if (user) {
         try {
           const { data, error } = await supabase
@@ -139,7 +148,8 @@ export function useLeadTimeHistory() {
         recordedAt: new Date().toISOString(),
       }
 
-      if (user) {
+      const demo = isDemoMode()
+      if (user && !demo) {
         try {
           const { error } = await supabase
             .from("lead_time_history")
@@ -153,7 +163,7 @@ export function useLeadTimeHistory() {
       const updatedSupplierHistory = [...existing, newEntry].slice(-MAX_ENTRIES_PER_SUPPLIER)
       setHistory(prev => {
         const updated = { ...prev, [supplierId]: updatedSupplierHistory }
-        if (!user) saveLocalHistory(updated)
+        if (!user && !demo) saveLocalHistory(updated)
         return updated
       })
       return updatedSupplierHistory

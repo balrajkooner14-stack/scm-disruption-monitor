@@ -1,5 +1,6 @@
 "use client"
 
+import { isDemoMode } from "@/lib/demoMode"
 import { useState, useEffect } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { ScoredEvent } from "@/lib/scoreEvents"
@@ -67,7 +68,7 @@ export default function DisruptionUpdatePrompt({
         setShowPrompt(true)
       }
 
-      localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString())
+      if (!isDemoMode()) localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString())
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, events.length])
@@ -75,7 +76,7 @@ export default function DisruptionUpdatePrompt({
   const handleDismiss = () => {
     try {
       const today = new Date().toISOString().split("T")[0]
-      localStorage.setItem(`${PROMPT_DISMISSED_KEY}-${today}`, "true")
+      if (!isDemoMode()) localStorage.setItem(`${PROMPT_DISMISSED_KEY}-${today}`, "true")
     } catch {}
     setShowPrompt(false)
   }

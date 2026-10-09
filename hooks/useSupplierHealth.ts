@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Supplier } from "@/lib/profile"
 import { createClient } from "@/lib/supabase"
+import { isDemoMode } from "@/lib/demoMode"
 import { useAuth } from "@/hooks/useAuth"
 import {
   SupplierHealthEntry,
@@ -115,6 +116,14 @@ export function useSupplierHealth(suppliers: Supplier[]) {
     let cancelled = false
 
     async function load() {
+      // Sample-company mode: memory only, starting empty (spec 4.6).
+      if (isDemoMode()) {
+        if (!cancelled) {
+          setEntries({})
+          setIsLoaded(true)
+        }
+        return
+      }
       if (user) {
         try {
           const { data, error } = await supabase
@@ -165,6 +174,10 @@ export function useSupplierHealth(suppliers: Supplier[]) {
 
   const saveEntry = useCallback(
     async (entry: SupplierHealthEntry): Promise<boolean> => {
+      if (isDemoMode()) {
+        setEntries(prev => ({ ...prev, [entry.supplierId]: entry }))
+        return true
+      }
       if (user) {
         try {
           const { error } = await supabase

@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { User, Session } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase"
+import { exitDemoMode } from "@/lib/demoMode"
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -45,6 +46,7 @@ export function useAuth() {
     SCM_STORAGE_KEYS.forEach(key => {
       try { localStorage.removeItem(key) } catch {}
     })
+    exitDemoMode()
   }
 
   return { user, session, isLoading, signOut }

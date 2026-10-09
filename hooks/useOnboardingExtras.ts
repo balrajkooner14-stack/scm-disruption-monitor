@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { EMPTY_EXTRAS, EXTRAS_STORAGE_KEY, type OnboardingExtras } from "@/lib/onboarding"
+import { isDemoMode } from "@/lib/demoMode"
+import { SAMPLE_EXTRAS } from "@/lib/sampleProfile"
 
 // OnboardingExtras storage, same pattern as useCompanyProfile: Supabase
 // (profiles.onboarding) when signed in, localStorage (scm_onboarding) for
@@ -42,6 +44,13 @@ export function useOnboardingExtras() {
     if (authLoading) return
     let cancelled = false
     const load = async () => {
+      if (isDemoMode()) {
+        if (!cancelled) {
+          setExtras(SAMPLE_EXTRAS)
+          setIsLoaded(true)
+        }
+        return
+      }
       if (!user) {
         const local = loadLocal()
         if (!cancelled) setExtras(local)
@@ -89,6 +98,7 @@ export function useOnboardingExtras() {
   /** Merge `partial` into the stored extras and persist. */
   const saveExtras = useCallback(
     async (partial: Partial<OnboardingExtras>): Promise<boolean> => {
+      if (isDemoMode()) return false
       const next: OnboardingExtras = { ...EMPTY_EXTRAS, ...(extrasRef.current ?? {}), ...partial, version: 1 }
       if (!user) {
         const ok = saveLocal(next)

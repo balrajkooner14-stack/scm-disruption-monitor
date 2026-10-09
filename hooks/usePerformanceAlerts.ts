@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { createClient } from "@/lib/supabase"
+import { isDemoMode } from "@/lib/demoMode"
 import { useAuth } from "@/hooks/useAuth"
 import { PerformanceAlert } from "@/lib/performanceAlerts"
 
@@ -74,6 +75,11 @@ function alertToRow(alert: PerformanceAlert, userId: string) {
   }
 }
 
+// Sample-company mode keeps alerts here instead of storage. Module-level, not
+// per hook instance, because instances sync through the
+// "performanceAlertCreated" event (scorecard creates, banner shows).
+let demoAlerts: PerformanceAlert[] = []
+
 export function usePerformanceAlerts() {
   const { user, isLoading: authLoading } = useAuth()
   const [alerts, setAlerts] = useState<PerformanceAlert[]>([])
@@ -81,6 +87,11 @@ export function usePerformanceAlerts() {
   const supabase = useMemo(() => createClient(), [])
 
   const load = useCallback(async () => {
+    if (isDemoMode()) {
+      setAlerts(() => [...demoAlerts])
+      setIsLoaded(true)
+      return
+    }
     if (user) {
       try {
         const { data, error } = await supabase
@@ -134,6 +145,12 @@ export function usePerformanceAlerts() {
   const persistAlerts = useCallback(
     async (newAlerts: PerformanceAlert[]): Promise<void> => {
       if (newAlerts.length === 0) return
+      if (isDemoMode()) {
+        demoAlerts = [...newAlerts, ...demoAlerts]
+        setAlerts([...demoAlerts])
+        window.dispatchEvent(new Event("performanceAlertCreated"))
+        return
+      }
       if (user) {
         try {
           const rows = newAlerts.map(a => alertToRow(a, user.id))
@@ -160,6 +177,11 @@ export function usePerformanceAlerts() {
   const dismiss = useCallback(
     async (alertId: string): Promise<void> => {
       const dismissedAt = new Date().toISOString()
+      if (isDemoMode()) {
+        demoAlerts = demoAlerts.map(a => (a.id === alertId ? { ...a, dismissed: true, dismissedAt } : a))
+        setAlerts([...demoAlerts])
+        return
+      }
       if (user) {
         try {
           const { error } = await supabase
