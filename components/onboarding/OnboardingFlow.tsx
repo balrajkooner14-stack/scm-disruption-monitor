@@ -7,6 +7,8 @@ import Logo from "@/components/ui/Logo"
 import OnboardingHeader from "@/components/onboarding/OnboardingHeader"
 import StepChoosePath from "@/components/onboarding/StepChoosePath"
 import StepCompany from "@/components/onboarding/StepCompany"
+import StepPorts from "@/components/onboarding/StepPorts"
+import StepSuppliers from "@/components/onboarding/StepSuppliers"
 import { useAuth } from "@/hooks/useAuth"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { useOnboardingExtras } from "@/hooks/useOnboardingExtras"
@@ -62,8 +64,7 @@ interface OnboardingFlowProps {
   events: DisruptionEvent[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- read by the suppliers step (next phase)
-export default function OnboardingFlow(props: OnboardingFlowProps) {
+export default function OnboardingFlow({ events }: OnboardingFlowProps) {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
   const { profile, isLoaded: profileLoaded, saveProfile } = useCompanyProfile()
@@ -228,8 +229,31 @@ export default function OnboardingFlow(props: OnboardingFlowProps) {
         />
       )}
 
+      {draft.step === "suppliers" && (
+        <StepSuppliers
+          suppliers={draft.suppliers}
+          events={events}
+          onChange={suppliers => update(d => ({ ...d, suppliers }))}
+          onBack={goBack}
+          onContinue={goNext}
+        />
+      )}
+
+      {draft.step === "ports" && (
+        <StepPorts
+          entryPorts={draft.entryPorts}
+          transport={draft.transport}
+          events={events}
+          path={draft.path}
+          companyName={draft.company.name}
+          onChange={patch => update(d => ({ ...d, ...patch }))}
+          onBack={goBack}
+          onContinue={goNext}
+        />
+      )}
+
       {/* Steps still to be built in later phases of this branch. */}
-      {draft.step !== "company" && (
+      {!["company", "suppliers", "ports"].includes(draft.step) && (
         <div className="flex flex-1 flex-col items-start gap-4 px-6 py-12 sm:px-16">
           <p className={ui.body}>This step isn&apos;t built yet on this branch. Your answers so far are saved.</p>
           <button type="button" onClick={goBack} className={ui.btnSecondary}>← Back</button>

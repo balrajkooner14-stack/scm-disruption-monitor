@@ -336,3 +336,23 @@ export function firstNameFromMetadata(meta: Record<string, unknown> | null | und
 export function roleLabel(role: OnboardingRole | undefined): string | null {
   return ROLE_CHIPS.find(r => r.value === role)?.label ?? null
 }
+
+/**
+ * Tab-separated rows pasted from a spreadsheet → supplier cells in table
+ * order (name, country, what they supply, lead time). Rows without a name
+ * are dropped, and a header row ("Supplier", "Name", "Vendor") is skipped.
+ */
+export function parsePastedSupplierRows(text: string): { name: string; country: string; category: string; lead: string }[] {
+  const rows = text
+    .split(/\r?\n/)
+    .map(line => line.split("\t"))
+    .map(([name = "", country = "", category = "", lead = ""]) => ({
+      name: name.trim(),
+      country: country.trim(),
+      category: category.trim(),
+      lead: lead.replace(/[^\d]/g, ""),
+    }))
+    .filter(r => r.name)
+  if (rows.length && /^(supplier|name|vendor)s?$/i.test(rows[0].name)) rows.shift()
+  return rows
+}

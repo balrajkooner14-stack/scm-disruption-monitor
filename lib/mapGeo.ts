@@ -21,7 +21,7 @@ export const COUNTRY_NAME_TO_REGION: Record<string, Region> = {
   "Panama": "North America",
   "Jamaica": "North America",
   "Haiti": "North America",
-  "Dominican Republic": "North America",
+  "Dominican Rep.": "North America", // atlas name; "Dominican Republic" never matched
   // Europe
   "United Kingdom": "Europe",
   "France": "Europe",
@@ -38,7 +38,7 @@ export const COUNTRY_NAME_TO_REGION: Record<string, Region> = {
   "Portugal": "Europe",
   "Greece": "Europe",
   "Hungary": "Europe",
-  "Czech Republic": "Europe",
+  "Czechia": "Europe", // atlas name; "Czech Republic" never matched
   "Romania": "Europe",
   "Bulgaria": "Europe",
   "Croatia": "Europe",

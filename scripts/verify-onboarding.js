@@ -4,10 +4,10 @@ require("./verify-alias");
 const { containsTerm } = require("../.verify/textMatch.js");
 const { findCountry, countryToSupplyRegion, searchCountries, textMentionsCountry, countryGeoName } = require("../.verify/countries.js");
 const { matchEventsToPorts, portName, customPortId } = require("../.verify/ports.js");
-const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft } = require("../.verify/onboarding.js");
+const { deriveTradeLanes, onboardingToProfile, draftToExtras, emptyDraft, parsePastedSupplierRows } = require("../.verify/onboarding.js");
 const {
   pickHeadlineEvents, supplierEventMatch, supplierTeaser, activeEventsForSuppliers,
-  productInsight, stockDaysRemaining, firstLightCards, QUIET_CARD,
+  productInsight, stockDaysRemaining, firstLightCards, QUIET_CARD, portWatchHeadline,
 } = require("../.verify/onboardingInsights.js");
 
 let failed = 0;
@@ -196,6 +196,20 @@ check("entry-port event preferred, port name as title", [cards[1].label, cards[1
 check("monitor-severity port news is not a watch card", cards.some(c => c.body === "Long Beach berth reopens"), false);
 check("never more than one quiet card", cards.filter(c => c.key === "quiet").length <= 1, true);
 check("at most three cards", cards.length <= 3, true);
+
+console.log("-- parsePastedSupplierRows (spec 6.4 paste) --");
+const pasted = parsePastedSupplierRows("Supplier\tCountry\tSupplies\tLead\r\nTSMC\tTaiwan\tChips\t45 days\nFoxconn\tChina\n\t\t\t\nBosch\tGermany\tSensors\t25\n");
+check("header row skipped, blank rows dropped", pasted.map(r => r.name), ["TSMC", "Foxconn", "Bosch"]);
+check("cells in table order, lead digits only", pasted[0], { name: "TSMC", country: "Taiwan", category: "Chips", lead: "45" });
+check("missing trailing cells are empty", pasted[1], { name: "Foxconn", country: "China", category: "", lead: "" });
+
+console.log("-- portWatchHeadline (spec 6.5) --");
+check("no ports", portWatchHeadline(0, 0), "Pick your ports to see what's happening there.");
+check("none with news", portWatchHeadline(3, 0), "Nothing reported at your ports today.");
+check("one of one", portWatchHeadline(1, 1), "Your entry point has something going on this week.");
+check("both", portWatchHeadline(2, 2), "Both of your entry points have something going on this week.");
+check("all", portWatchHeadline(4, 4), "All of your entry points have something going on this week.");
+check("some", portWatchHeadline(3, 1), "1 of your 3 entry points have something going on this week.");
 
 if (failed) { console.log(`${failed} FAILED`); process.exit(1); }
 console.log("all passed");

@@ -13,6 +13,12 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Onboarding panels: a changed number crossfades in (spec 6.9). */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }

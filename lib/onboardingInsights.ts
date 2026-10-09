@@ -100,6 +100,19 @@ export function supplierTeaser(suppliers: SupplierLike[], events: DisruptionEven
   return best
 }
 
+// ── Port watch ──────────────────────────────────────────────────────────────
+
+/** Port watch headline (spec 6.5) from selected ports and how many have news. */
+export function portWatchHeadline(selected: number, withNews: number): string {
+  if (selected === 0) return "Pick your ports to see what's happening there."
+  if (withNews === 0) return "Nothing reported at your ports today."
+  if (withNews === selected) {
+    if (selected === 1) return "Your entry point has something going on this week."
+    return `${selected === 2 ? "Both" : "All"} of your entry points have something going on this week.`
+  }
+  return `${withNews} of your ${selected} entry points have something going on this week.`
+}
+
 // ── Stock with as-of dates ──────────────────────────────────────────────────
 
 function parseLocalDate(ymd: string): Date | null {
