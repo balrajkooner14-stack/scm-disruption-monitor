@@ -1,0 +1,302 @@
+import type {
+  CompanyProfile,
+  IndustrySector,
+  ProductLine,
+  Supplier,
+  SupplyRegion,
+  TradeLane,
+  TransportMode,
+} from "./profile"
+import { countryToSupplyRegion, findCountry } from "./countries"
+import { distributeShareEvenly } from "./importCalculations"
+
+// v5.1 onboarding data model (spec 4.3–4.5). CompanyProfile (lib/profile.ts)
+// is unchanged; everything new lives in OnboardingExtras, stored in the
+// profiles.onboarding column (signed in) or localStorage (guests).
+// onboardingToProfile() is the only place onboarding answers become a profile.
+
+// ── Extras ──────────────────────────────────────────────────────────────────
+
+export type OnboardingRole = "procurement" | "operations" | "planning" | "executive"
+export type OnboardingPath = "import" | "manual" | "sample"
+
+export interface OnboardingExtras {
+  version: 1
+  role?: OnboardingRole
+  entryPorts?: string[]                    // PORTS ids, or "custom:<name>"
+  inventoryAsOf?: Record<string, string>   // productLine.id → YYYY-MM-DD of the stock count
+  inventoryUnknown?: string[]              // productLine ids where stock was skipped
+  reorderPointDefaulted?: string[]         // productLine ids whose reorder point was set = lead time
+  leadTimeUnknown?: string[]               // supplier ids with no lead time entered
+  primaryMarketsDerived?: boolean          // true when primaryMarkets came from HQ, not the user
+  path?: OnboardingPath
+  startedAt?: string
+  completedAt?: string
+  checklistInitial?: string[]              // checklist item ids open at completion (for "N of M done")
+  checklistDismissedAt?: string
+  morningEmail?: boolean                   // stored only; no sending yet
+}
+
+export const EMPTY_EXTRAS: OnboardingExtras = { version: 1 }
+
+export const EXTRAS_STORAGE_KEY = "scm_onboarding"
+export const DRAFT_STORAGE_KEY = "scm_onboarding_draft"
+
+export const MAX_SUPPLIERS = 10
+export const MAX_PRODUCTS = 5
+
+// ── Chip options ────────────────────────────────────────────────────────────
+
+export type RevenueRange = CompanyProfile["revenueRange"]
+
+export const SECTOR_CHIPS: { label: string; value: IndustrySector }[] = [
+  { label: "Electronics & components", value: "Electronics" },
+  { label: "Automotive", value: "Automotive" },
+  { label: "Industrial parts", value: "Industrial" },
+  { label: "Apparel & footwear", value: "Apparel" },
+  { label: "Consumer & retail goods", value: "Retail" },
+  { label: "Food & beverage", value: "Food & Beverage" },
+  { label: "Pharma & medical", value: "Pharmaceuticals" },
+  { label: "Aerospace", value: "Aerospace" },
+  { label: "Something else", value: "Other" },
+]
+
+export const REVENUE_CHIPS: { label: string; value: RevenueRange }[] = [
+  { label: "Under $10M", value: "$0–$10M" },
+  { label: "$10M–$100M", value: "$10M–$100M" },
+  { label: "$100M–$1B", value: "$100M–$1B" },
+  { label: "$1B+", value: "$1B+" },
+]
+
+export const ROLE_CHIPS: { label: string; value: OnboardingRole }[] = [
+  { label: "Procurement / sourcing", value: "procurement" },
+  { label: "Supply chain / operations", value: "operations" },
+  { label: "Planning / inventory", value: "planning" },
+  { label: "Owner / executive", value: "executive" },
+]
+
+export const TRANSPORT_CHIPS: { label: string; value: TransportMode }[] = [
+  { label: "Ocean", value: "Ocean Freight" },
+  { label: "Truck", value: "Truck" },
+  { label: "Air", value: "Air Freight" },
+  { label: "Rail", value: "Rail" },
+]
+
+export const SUPPLY_SUGGESTIONS = [
+  "Semiconductors", "Batteries", "Contract assembly", "Sensors", "PCB assembly",
+  "Plastics & resins", "Steel & metals", "Textiles", "Packaging", "Chemicals",
+]
+
+// ── Draft (in-progress flow state, autosaved to scm_onboarding_draft) ───────
+
+export type OnboardingStep =
+  | "path" | "company" | "suppliers" | "ports" | "products" | "import" | "finish"
+
+export interface DraftSupplier {
+  id: string
+  name: string
+  country: string
+  category: string
+  leadTimeDays?: number
+}
+
+export interface DraftProduct {
+  id: string
+  name: string
+  supplierId?: string
+  stockDays?: number
+  asOf?: string        // YYYY-MM-DD; defaults to today
+  stockLater?: boolean // "Add later" toggled on
+}
+
+export interface OnboardingDraft {
+  version: 1
+  path?: OnboardingPath
+  step: OnboardingStep
+  startedAt: string
+  company: {
+    name: string
+    hqCountry: string
+    sector?: IndustrySector
+    revenueRange?: RevenueRange
+    role?: OnboardingRole
+  }
+  suppliers: DraftSupplier[]
+  entryPorts: string[]
+  transport: TransportMode[]
+  products: DraftProduct[]
+}
+
+export function emptyDraft(now: Date = new Date()): OnboardingDraft {
+  return {
+    version: 1,
+    step: "path",
+    startedAt: now.toISOString(),
+    company: { name: "", hqCountry: "" },
+    suppliers: [],
+    entryPorts: [],
+    transport: [],
+    products: [],
+  }
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Local calendar date as YYYY-MM-DD (what a date input holds). */
+export function localISODate(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+/** A supplier row counts once it has a name and a country we recognise. */
+export function isValidDraftSupplier(s: DraftSupplier): boolean {
+  return s.name.trim().length > 0 && countryToSupplyRegion(s.country) !== null
+}
+
+export function validDraftSuppliers(draft: OnboardingDraft): DraftSupplier[] {
+  return draft.suppliers.filter(isValidDraftSupplier).slice(0, MAX_SUPPLIERS)
+}
+
+export function validDraftProducts(draft: OnboardingDraft): DraftProduct[] {
+  return draft.products.filter(p => p.name.trim().length > 0).slice(0, MAX_PRODUCTS)
+}
+
+function hasStock(p: DraftProduct): boolean {
+  return !p.stockLater && typeof p.stockDays === "number" && Number.isFinite(p.stockDays) && p.stockDays >= 0
+}
+
+function hasLeadTime(s: DraftSupplier): boolean {
+  return typeof s.leadTimeDays === "number" && Number.isFinite(s.leadTimeDays) && s.leadTimeDays > 0
+}
+
+// ── Trade lanes from entry ports (spec 4.4.1) ───────────────────────────────
+
+const WEST_COAST = ["la-lb", "oakland", "seattle-tacoma"]
+const EAST_COAST = ["ny-nj", "savannah", "charleston"]
+const EUROPE_TO_US = ["ny-nj", "savannah", "charleston", "houston"]
+const LATAM_TO_US = ["houston", "laredo"]
+
+/**
+ * Trade lanes implied by the entry ports and supplier regions. The scorer
+ * already matches lane keywords ("long beach", "savannah"...), so this gives
+ * port answers relevance today without touching lib/scoreEvents.ts.
+ *
+ * Deviation from the spec table: a supplier in Mexico counts toward the Latin
+ * America lane. lib/countries.ts files Mexico under North America (matching
+ * the event feeds), but goods from Mexico cross at Laredo/Houston all the same.
+ */
+export function deriveTradeLanes(
+  entryPorts: string[],
+  suppliers: Pick<Supplier, "region" | "country">[],
+): TradeLane[] {
+  const regions = new Set<string>(suppliers.map(s => s.region))
+  const fromMexico = suppliers.some(s => findCountry(s.country)?.name === "Mexico")
+  const asia = regions.has("Asia Pacific")
+  const europe = regions.has("Europe")
+  const latam = regions.has("Latin America") || fromMexico
+  const has = (ids: string[]) => entryPorts.some(p => ids.includes(p))
+
+  const lanes = new Set<TradeLane>()
+  if (entryPorts.length > 0) {
+    if (asia && has(WEST_COAST)) lanes.add("Asia-Pacific to US West Coast")
+    if (asia && has(EAST_COAST)) lanes.add("Asia-Pacific to US East Coast")
+    if (europe && has(EUROPE_TO_US)) lanes.add("Europe to US")
+    if (latam && has(LATAM_TO_US)) lanes.add("Latin America to US")
+  } else {
+    if (asia) lanes.add("Asia-Pacific to US West Coast")
+    if (europe) lanes.add("Europe to US")
+    if (latam) lanes.add("Latin America to US")
+  }
+  if (regions.has("Middle East") && europe) lanes.add("Middle East to Europe")
+  return Array.from(lanes)
+}
+
+// ── Draft → CompanyProfile + extras (spec 4.4) ──────────────────────────────
+
+/**
+ * The CompanyProfile for a draft. Unknown values become 0 (the profile type
+ * requires numbers) and are recorded in the extras from draftToExtras(), so
+ * nothing downstream mistakes a skipped answer for a real zero.
+ */
+export function onboardingToProfile(draft: OnboardingDraft, now: Date = new Date()): CompanyProfile {
+  const draftSuppliers = validDraftSuppliers(draft)
+  const share = distributeShareEvenly(draftSuppliers.length)
+
+  const suppliers: Supplier[] = draftSuppliers.map(s => {
+    const country = findCountry(s.country)
+    return {
+      id: s.id,
+      name: s.name.trim(),
+      country: country?.name ?? s.country.trim(),
+      region: (country?.region ?? "Asia Pacific") as SupplyRegion, // valid rows always have a country
+      category: s.category.trim(),
+      sharePercent: share,
+      leadTimeDays: hasLeadTime(s) ? Math.round(s.leadTimeDays as number) : 0,
+    }
+  })
+  const supplierIds = new Set(suppliers.map(s => s.id))
+  const leadById = new Map(suppliers.map(s => [s.id, s.leadTimeDays]))
+
+  const productLines: ProductLine[] = validDraftProducts(draft).map(p => {
+    const primarySupplierId = p.supplierId && supplierIds.has(p.supplierId) ? p.supplierId : undefined
+    const lead = primarySupplierId ? leadById.get(primarySupplierId) ?? 0 : 0
+    return {
+      id: p.id,
+      name: p.name.trim(),
+      inventoryDaysOnHand: hasStock(p) ? Math.round(p.stockDays as number) : 0,
+      reorderPointDays: lead > 0 ? lead : 0,
+      ...(primarySupplierId ? { primarySupplierId } : {}),
+    }
+  })
+
+  const hqRegion = countryToSupplyRegion(draft.company.hqCountry)
+  const nowIso = now.toISOString()
+
+  return {
+    companyName: draft.company.name.trim(),
+    headquartersCountry: findCountry(draft.company.hqCountry)?.name ?? draft.company.hqCountry.trim(),
+    sector: draft.company.sector ?? "Other",
+    revenueRange: draft.company.revenueRange ?? "$0–$10M",
+    primaryMarkets: hqRegion ? [hqRegion] : [],
+    suppliers,
+    productLines,
+    painPoints: [],
+    transportModes: Array.from(new Set(draft.transport)),
+    tradeLanes: deriveTradeLanes(draft.entryPorts, suppliers),
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  }
+}
+
+/** The extras that go with onboardingToProfile(draft). Caller adds completedAt/checklist fields. */
+export function draftToExtras(draft: OnboardingDraft, now: Date = new Date()): OnboardingExtras {
+  const suppliers = validDraftSuppliers(draft)
+  const supplierById = new Map(suppliers.map(s => [s.id, s]))
+  const products = validDraftProducts(draft)
+  const today = localISODate(now)
+
+  const inventoryAsOf: Record<string, string> = {}
+  const inventoryUnknown: string[] = []
+  const reorderPointDefaulted: string[] = []
+  for (const p of products) {
+    if (hasStock(p)) inventoryAsOf[p.id] = p.asOf || today
+    else inventoryUnknown.push(p.id)
+    const supplier = p.supplierId ? supplierById.get(p.supplierId) : undefined
+    if (supplier && hasLeadTime(supplier)) reorderPointDefaulted.push(p.id)
+  }
+
+  return {
+    version: 1,
+    ...(draft.company.role ? { role: draft.company.role } : {}),
+    entryPorts: [...draft.entryPorts],
+    inventoryAsOf,
+    inventoryUnknown,
+    reorderPointDefaulted,
+    leadTimeUnknown: suppliers.filter(s => !hasLeadTime(s)).map(s => s.id),
+    primaryMarketsDerived: true,
+    ...(draft.path ? { path: draft.path } : {}),
+    startedAt: draft.startedAt,
+  }
+}

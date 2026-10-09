@@ -5,18 +5,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 rm -rf .verify
-npx tsc lib/fetchDisruptions.ts lib/tradeFeeds.ts lib/fetchTradeNews.ts \
-  lib/authRouting.ts lib/onboardingInsights.ts \
-  --outDir .verify \
-  --module commonjs \
-  --target es2020 \
-  --moduleResolution node \
-  --esModuleInterop \
-  --skipLibCheck \
-  --resolveJsonModule
+npx tsc -p scripts/tsconfig.verify.json
 
 failed=0
 for f in scripts/verify-*.js; do
+  [ "$f" = "scripts/verify-alias.js" ] && continue
   echo ""
   echo "=== $f ==="
   if ! node "$f"; then failed=1; fi
