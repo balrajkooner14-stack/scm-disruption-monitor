@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { useCompanyProfile } from "@/hooks/useCompanyProfile"
 import { parseFile, prepareForAI } from "@/lib/parseImportFile"
-import { computeDaysOnHand, distributeShareEvenly, matchSupplierByName } from "@/lib/importCalculations"
+import { computeDaysOnHand, matchSupplierByName, wholeNumberShares } from "@/lib/importCalculations"
 import type { ImportResult, ImportedSupplier, ImportedProductLine } from "@/app/api/import-profile/route"
 import type { CompanyProfile, Supplier, ProductLine } from "@/lib/profile"
 import { ui } from "@/lib/ui"
@@ -86,9 +86,9 @@ export default function ImportProfileFlow({
       const allShareMissing =
         result.suppliers.length > 0 &&
         result.suppliers.every(s => !s.sharePercent || s.sharePercent === 0)
-      const evenShare = allShareMissing ? distributeShareEvenly(result.suppliers.length) : 0
+      const evenShares = allShareMissing ? wholeNumberShares(result.suppliers.length) : []
       const suppliersWithShares = allShareMissing
-        ? result.suppliers.map(s => ({ ...s, sharePercent: evenShare }))
+        ? result.suppliers.map((s, i) => ({ ...s, sharePercent: evenShares[i] }))
         : result.suppliers
 
       const productsWithComputedDays = result.productLines.map(p => {

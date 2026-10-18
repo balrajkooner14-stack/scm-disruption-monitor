@@ -8,7 +8,7 @@ import type {
   TransportMode,
 } from "./profile"
 import { countryToSupplyRegion, findCountry } from "./countries"
-import { distributeShareEvenly, matchSupplierByName } from "./importCalculations"
+import { matchSupplierByName, wholeNumberShares } from "./importCalculations"
 
 // v5.1 onboarding data model (spec 4.3–4.5). CompanyProfile (lib/profile.ts)
 // is unchanged; everything new lives in OnboardingExtras, stored in the
@@ -233,9 +233,9 @@ export function onboardingToProfile(draft: OnboardingDraft, now: Date = new Date
   // Keep real shares only when every supplier has one (an imported file);
   // a partial set would no longer add up, so fall back to an even split.
   const realShares = draftSuppliers.length > 0 && draftSuppliers.every(s => (s.sharePercent ?? 0) > 0)
-  const share = distributeShareEvenly(draftSuppliers.length)
+  const evenShares = wholeNumberShares(draftSuppliers.length)
 
-  const suppliers: Supplier[] = draftSuppliers.map(s => {
+  const suppliers: Supplier[] = draftSuppliers.map((s, i) => {
     const country = findCountry(s.country)
     return {
       id: s.id,
@@ -243,7 +243,7 @@ export function onboardingToProfile(draft: OnboardingDraft, now: Date = new Date
       country: country?.name ?? s.country.trim(),
       region: (country?.region ?? "Asia Pacific") as SupplyRegion, // valid rows always have a country
       category: s.category.trim(),
-      sharePercent: realShares ? (s.sharePercent as number) : share,
+      sharePercent: realShares ? (s.sharePercent as number) : evenShares[i],
       leadTimeDays: hasLeadTime(s) ? Math.round(s.leadTimeDays as number) : 0,
     }
   })

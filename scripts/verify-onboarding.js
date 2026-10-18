@@ -12,6 +12,11 @@ const {
 } = require("../.verify/onboardingInsights.js");
 
 let failed = 0;
+function scoreEventsForProfileForShareCheck() {
+  const { scoreEventsForProfile } = require("../.verify/scoreEvents.js");
+  const r = scoreEventsForProfile([{ id: "x", title: "China factory floods", url: "", date: "2026-10-08T00:00:00Z", sourceDomain: "x", sourceCountry: "", category: "Weather", severity: 2, region: "Asia Pacific" }], profile)[0];
+  return r.relevanceReason === "67% of your supply comes from this region";
+}
 function check(label, actual, expected) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
   if (!ok) failed++;
@@ -118,7 +123,7 @@ const extras = draftToExtras(draft, NOW);
 check("unknown-country supplier dropped", profile.suppliers.map(s => s.id), ["s1", "s2", "s3"]);
 check("country canonicalised", profile.suppliers[1].country, "China");
 check("regions from country", profile.suppliers.map(s => s.region), ["Asia Pacific", "Asia Pacific", "Europe"]);
-check("even share", profile.suppliers.map(s => s.sharePercent), [33.33, 33.33, 33.33]);
+check("even share in whole numbers summing to 100", profile.suppliers.map(s => s.sharePercent), [34, 33, 33]);
 check("missing lead time -> 0", profile.suppliers[1].leadTimeDays, 0);
 check("leadTimeUnknown", extras.leadTimeUnknown, ["s2"]);
 check("unnamed product dropped", profile.productLines.map(p => p.id), ["p1", "p2"]);
@@ -133,6 +138,16 @@ check("company name trimmed", profile.companyName, "Meridian Electronics Co.");
 check("trade lanes from ports", profile.tradeLanes, ["Asia-Pacific to US West Coast", "Asia-Pacific to US East Coast", "Europe to US"]);
 check("painPoints empty", profile.painPoints, []);
 check("extras carry role, ports, path", [extras.role, extras.entryPorts, extras.path], ["operations", ["la-lb", "ny-nj"], "manual"]);
+
+console.log("-- whole-number shares (largest remainder) --");
+const { largestRemainderShares, wholeNumberShares } = require("../.verify/importCalculations.js");
+check("3 -> 34/33/33", wholeNumberShares(3), [34, 33, 33]);
+check("6 -> 17/17/17/17/16/16", wholeNumberShares(6), [17, 17, 17, 17, 16, 16]);
+check("7 sums to 100", wholeNumberShares(7).reduce((t, n) => t + n, 0), 100);
+check("every count 1..10 sums to 100", [1,2,3,4,5,6,7,8,9,10].every(n => wholeNumberShares(n).reduce((t, x) => t + x, 0) === 100), true);
+check("weighted: largest remainder gets the spare point", largestRemainderShares([2, 1, 1, 1, 1, 1]), [29, 15, 14, 14, 14, 14]);
+check("0 suppliers -> []", wholeNumberShares(0), []);
+check("scorer now prints a whole percent", scoreEventsForProfileForShareCheck(), true);
 
 console.log("-- supplierEventMatch (spec 7) --");
 const tsmc = profile.suppliers[0];

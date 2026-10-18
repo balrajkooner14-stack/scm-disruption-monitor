@@ -13,9 +13,32 @@ export function computeDaysOnHand(
   return Math.round(onHandValue / dailyRate)
 }
 
-export function distributeShareEvenly(count: number): number {
-  if (count <= 0) return 0
-  return Math.round((100 / count) * 100) / 100
+/**
+ * Whole-number percentages that sum to exactly 100, proportional to
+ * `weights`, by the largest-remainder method: floor every share, then hand
+ * the leftover points to the largest remainders, earlier entries first on a
+ * tie. [1, 1, 1] → [34, 33, 33].
+ */
+export function largestRemainderShares(weights: number[]): number[] {
+  const total = weights.reduce((t, w) => t + Math.max(0, w), 0)
+  if (weights.length === 0 || total <= 0) return weights.map(() => 0)
+  const exact = weights.map(w => (Math.max(0, w) / total) * 100)
+  const shares = exact.map(Math.floor)
+  let leftover = 100 - shares.reduce((t, n) => t + n, 0)
+  const order = exact
+    .map((x, i) => ({ i, rem: x - Math.floor(x) }))
+    .sort((a, b) => b.rem - a.rem || a.i - b.i)
+  for (const { i } of order) {
+    if (leftover <= 0) break
+    shares[i] += 1
+    leftover -= 1
+  }
+  return shares
+}
+
+/** An even split across `count` suppliers in whole numbers: 3 → [34, 33, 33]. */
+export function wholeNumberShares(count: number): number[] {
+  return count > 0 ? largestRemainderShares(new Array(count).fill(1)) : []
 }
 
 /**
