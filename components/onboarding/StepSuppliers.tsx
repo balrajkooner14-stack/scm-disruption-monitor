@@ -396,7 +396,7 @@ export default function StepSuppliers({ suppliers, events, onChange, onBack, onC
                 </div>
                 <p className="font-serif text-[21px] leading-tight text-ink">{teaser.event.title}</p>
                 <p className="text-sm leading-relaxed text-ink-2">
-                  {teaser.supplier.name} is in the affected region. Once you add products, we&apos;ll show which ones depend on it.
+                  {teaser.supplier.name} is in the affected country. Once you add products, we&apos;ll show which ones depend on it.
                 </p>
               </div>
             ) : (

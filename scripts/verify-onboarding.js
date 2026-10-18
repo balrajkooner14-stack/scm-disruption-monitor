@@ -138,19 +138,24 @@ console.log("-- supplierEventMatch (spec 7) --");
 const tsmc = profile.suppliers[0];
 check("monitor severity never active", supplierEventMatch(tsmc, ev("Taiwan typhoon", "Weather", 1, "2026-10-08T00:00:00Z")), null);
 check("country named -> country", supplierEventMatch(tsmc, ev("Taiwan chip export curbs", "Tariff", 2, "2026-10-08T00:00:00Z")), "country");
-check("region-wide category -> region", supplierEventMatch(tsmc, ev("Typhoon in the Philippines", "Weather", 2, "2026-10-08T00:00:00Z")), "region");
-check("region but not region-wide category -> null", supplierEventMatch(tsmc, ev("Vietnam tariff talks", "Tariff", 3, "2026-10-08T00:00:00Z")), null);
+// Country-only since Oct 2026: same-region Port/Labor/Weather events no longer count.
+check("same-region weather, country not named -> null", supplierEventMatch(tsmc, ev("Typhoon in the Philippines", "Weather", 2, "2026-10-08T00:00:00Z")), null);
+check("same-region labor, country not named -> null", supplierEventMatch(tsmc, ev("Dockworkers walk out in Busan", "Labor", 3, "2026-10-08T00:00:00Z")), null);
+check("Japan vessel sanctions does NOT touch TSMC (Taiwan)", supplierEventMatch(tsmc, ev("Japan Launches First Vessel Sanctions in Support of Ukraine", "Port", 3, "2026-10-08T00:00:00Z")), null);
+check("same-region tariff, country not named -> null", supplierEventMatch(tsmc, ev("Vietnam tariff talks", "Tariff", 3, "2026-10-08T00:00:00Z")), null);
+check("port event naming the country -> country", supplierEventMatch(tsmc, ev("Taiwan port congestion worsens", "Port", 2, "2026-10-08T00:00:00Z")), "country");
 
-console.log("-- supplierTeaser: country beats region, then severity, then newest --");
+console.log("-- supplierTeaser: country-named events only, then severity, then newest --");
 const teaserEvents = [
   ev("Typhoon hits Asia", "Weather", 3, "2026-10-08T00:00:00Z"),
   ev("China port congestion", "Port", 2, "2026-10-06T00:00:00Z"),
   ev("China factory floods", "Weather", 2, "2026-10-07T00:00:00Z"),
 ];
 const t = supplierTeaser(profile.suppliers, teaserEvents);
-check("country match picked over a more severe region match", [t.event.id, t.supplier.id, t.matchedBy], ["China factory floods", "s2", "country"]);
+check("unnamed-country event ignored even when more severe", [t.event.id, t.supplier.id, t.matchedBy], ["China factory floods", "s2", "country"]);
+check("Japan sanctions alone -> no teaser for Taiwan/China/Germany suppliers", supplierTeaser(profile.suppliers, [ev("Japan Launches First Vessel Sanctions in Support of Ukraine", "Port", 3, "2026-10-08T00:00:00Z")]), null);
 check("no suppliers -> null", supplierTeaser([], teaserEvents), null);
-check("active events counted once each", activeEventsForSuppliers(profile.suppliers, teaserEvents).length, 3);
+check("only country-named events count as active", activeEventsForSuppliers(profile.suppliers, teaserEvents).map(e => e.id), ["China port congestion", "China factory floods"]);
 
 console.log("-- stockDaysRemaining: as-of countdown --");
 const p1 = profile.productLines[0];
@@ -164,16 +169,16 @@ console.log("-- productInsight rules (spec 7) --");
 const taiwanEvent = ev("Taiwan power outage halts fabs", "General", 3, "2026-10-08T00:00:00Z");
 const r1 = productInsight(draft, [taiwanEvent], NOW);
 check("rule 1: stock <= lead with active event", [r1.rule, r1.productId, r1.headline], [1, "p1", "EV Charging Module is your tightest spot."]);
-check("rule 1 body", r1.body, "18 days of stock against a 45-day lead time from TSMC, while Asia Pacific has active disruptions.");
+check("rule 1 body names the country", r1.body, "18 days of stock against a 45-day lead time from TSMC, while Taiwan has active disruptions.");
 const chinaEvent = ev("China port closure", "Port", 3, "2026-10-08T00:00:00Z", { region: "Asia Pacific" });
 const draft2 = JSON.parse(JSON.stringify(draft));
 draft2.products[0].stockDays = 90; // no longer tight
 const r2 = productInsight(draft2, [chinaEvent], NOW);
-// Both suppliers are in Asia Pacific and a severity-3 Port event is region-wide, so both are active;
-// p2 has unknown stock, so p1 (90 days) sorts first by stock.
-check("rule 2: single source with an active event", [r2.rule, r2.productId], [2, "p1"]);
-check("rule 2 headline", r2.headline, "EV Charging Module has one source: TSMC, in Taiwan.");
-check("rule 2 body with stock clause", r2.body, "With 90 days of stock against a 45-day lead time, a disruption there would leave a gap. You can name a backup later.");
+// Only Foxconn (China) is named, so only p2 is exposed; TSMC in Taiwan is not, despite sharing the region.
+check("rule 2: single source whose supplier's country is named", [r2.rule, r2.productId], [2, "p2"]);
+check("rule 2 headline", r2.headline, "Smart Home Hub has one source: Foxconn, in China.");
+const r2s = productInsight(draft2, [ev("Taiwan port closure", "Port", 3, "2026-10-08T00:00:00Z")], NOW);
+check("rule 2 body with stock clause", [r2s.productId, r2s.body], ["p1", "With 90 days of stock against a 45-day lead time, a disruption there would leave a gap. You can name a backup later."]);
 const draft3 = JSON.parse(JSON.stringify(draft));
 draft3.products = [draft.products[1]];
 const r2b = productInsight(draft3, [chinaEvent], NOW);

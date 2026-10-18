@@ -89,7 +89,7 @@ export default function MiniNetwork({
         const orphan = !usedSuppliers.has(s.id)
         return (
           <g key={`s-${s.id}`}>
-            <title>{s.name}{s.active ? " · active event in its country or region" : ""}</title>
+            <title>{s.name}{s.active ? " · active event naming its country" : ""}</title>
             <rect
               x={SUP_X}
               y={supY(i)}

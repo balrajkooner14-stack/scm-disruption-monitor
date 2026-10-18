@@ -48,19 +48,16 @@ export function countrySeen(event: DisruptionEvent, country: string): boolean {
   return textMentionsCountry(event.title, country)
 }
 
-// Categories that hit everything in a region, not just the named place.
-const REGION_WIDE_CATEGORIES = new Set(["Weather", "Port", "Labor"])
-
 /**
- * How an event touches a supplier: "country" when the headline names its
- * country, "region" when it's a weather/port/labor event in its region, else
- * null. Severity 1 (monitor) events never count as active.
+ * Whether an event touches a supplier: "country" when the event is severity 2+
+ * and its headline names the supplier's country (or an alias), else null.
+ * There is deliberately no same-region fallback (owner decision, Oct 2026): a
+ * region like "Asia Pacific" is too wide — a Japanese vessel-sanctions story
+ * used to read as "TSMC is in the affected region".
  */
-export function supplierEventMatch(supplier: SupplierLike, event: DisruptionEvent): "country" | "region" | null {
+export function supplierEventMatch(supplier: SupplierLike, event: DisruptionEvent): "country" | null {
   if (event.severity < 2) return null
-  if (countrySeen(event, supplier.country)) return "country"
-  if (event.region === supplier.region && REGION_WIDE_CATEGORIES.has(event.category)) return "region"
-  return null
+  return countrySeen(event, supplier.country) ? "country" : null
 }
 
 export function supplierHasActiveEvent(supplier: SupplierLike, events: DisruptionEvent[]): boolean {
@@ -75,26 +72,21 @@ export function activeEventsForSuppliers(suppliers: SupplierLike[], events: Disr
 export interface SupplierTeaser {
   event: DisruptionEvent
   supplier: SupplierLike
-  matchedBy: "country" | "region"
+  matchedBy: "country"
 }
 
-/** Best event for the "Now watching" card: country match > region match, then severity, then newest. */
+/** Best event for the "Now watching" card: higher severity, then newest. */
 export function supplierTeaser(suppliers: SupplierLike[], events: DisruptionEvent[]): SupplierTeaser | null {
   let best: SupplierTeaser | null = null
-  const rank = (t: SupplierTeaser) => (t.matchedBy === "country" ? 1 : 0)
   for (const event of events) {
     for (const supplier of suppliers) {
-      const matchedBy = supplierEventMatch(supplier, event)
-      if (!matchedBy) continue
-      const candidate = { event, supplier, matchedBy }
+      if (!supplierEventMatch(supplier, event)) continue
       if (
         !best ||
-        rank(candidate) > rank(best) ||
-        (rank(candidate) === rank(best) &&
-          (event.severity > best.event.severity ||
-            (event.severity === best.event.severity && compareDateDesc(event, best.event) < 0)))
+        event.severity > best.event.severity ||
+        (event.severity === best.event.severity && compareDateDesc(event, best.event) < 0)
       ) {
-        best = candidate
+        best = { event, supplier, matchedBy: "country" }
       }
     }
   }
@@ -174,7 +166,7 @@ export function productInsightForProfile(
       productId: p.id,
       supplierId: supplier.id,
       headline: `${p.name} is your tightest spot.`,
-      body: `${stock} days of stock against a ${lead}-day lead time from ${supplier.name}, while ${supplier.region} has active disruptions.`,
+      body: `${stock} days of stock against a ${lead}-day lead time from ${supplier.name}, while ${supplier.country} has active disruptions.`,
     }
   }
 
