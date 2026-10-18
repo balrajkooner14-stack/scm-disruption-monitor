@@ -224,6 +224,14 @@ systematic trading and financial markets background.
                                     but would pin stale data forever under ISR. Merged with GDACS
                                     (fetchGlobalDisasters) + NOAA (fetchWeatherAlerts) via Promise.all,
                                     deduplication, fallback (v4.0).
+                                    v5.1 (owner-authorized, "fix: contain GDELT timeouts"): the GDELT request uses
+                                    Next's unpatched fetch (fetch._nextOriginalFetch, falling back to fetch) so its
+                                    responses never enter Next's Data Cache. Before, a stale cached GDELT entry was
+                                    re-fetched in the background outside fetchQuery's try/catch and added to the
+                                    response's waitUntil; a connect timeout there became "failed to pipe response"
+                                    (500). Now every GDELT failure is caught, logged as [GDELT] Query N failed, and
+                                    falls back per query. Do NOT switch this to cache: "no-store" — that makes the
+                                    ISR pages dynamic.
   fetchGlobalDisasters.ts         → GDACS API (earthquakes/cyclones/floods/volcanoes/droughts/wildfires),
                                     global coverage, country-NAME-keyed region map — deliberately NOT the
                                     same lookup as GDELT's FIPS-style codes (collision risk, e.g. "CH") (v4.0)
@@ -263,7 +271,9 @@ systematic trading and financial markets background.
   ports.ts                        → PORTS (8 US entry points), custom:<name> ports, matchEventsToPorts() (v5.1)
   onboardingInsights.ts           → Pure functions for every onboarding panel: pickHeadlineEvents, supplierEventMatch,
                                     supplierTeaser, portWatchHeadline, stockDaysRemaining, productInsight rules 1-3,
-                                    firstLightCards (v5.1)
+                                    firstLightCards (v5.1). supplierEventMatch is COUNTRY-ONLY: severity ≥2 and the
+                                    supplier's country (or alias) named in the headline. No same-region fallback
+                                    (owner decision, Oct 18 2026) — do not reintroduce one.
   setupChecklist.ts               → computeChecklist(), setupPercent(), checklistProgress() (v5.1)
   sampleProfile.ts                → Meridian Electronics sample; dates built at runtime so stock never decays (v5.1)
   demoMode.ts                     → sessionStorage["foreglow_demo"] flag: isDemoMode/enterDemoMode/exitDemoMode (v5.1)
@@ -330,8 +340,12 @@ systematic trading and financial markets background.
   parseImportFile.ts              → Client-side file parser: parseFile() for CSV (papaparse) and Excel (xlsx),
                                     prepareForAI() trims to 20 rows for token efficiency. 50-row cap.
   importCalculations.ts           → Deterministic post-processing for imports: computeDaysOnHand(onHandValue,
-                                    usageValue, usageWindowDays), distributeShareEvenly(count). Gemini extracts
-                                    raw numbers/structure only — this file does the arithmetic, never the AI.
+                                    usageValue, usageWindowDays), matchSupplierByName(), and (v5.1, replacing
+                                    distributeShareEvenly which gave 33.33 each) largestRemainderShares(weights) /
+                                    wholeNumberShares(count): whole percents summing to exactly 100, largest
+                                    remainder first, earlier entries win ties (3 → 34/33/33). Used by
+                                    onboardingToProfile and ImportProfileFlow. Gemini extracts raw numbers/structure
+                                    only — this file does the arithmetic, never the AI.
   gemini.ts                       → Shared 4-layer Gemini utility (retry/cache/dedup/degrade, v2.8) used by
                                     analyze, advisor, event-brief, cost-estimate, import-profile, structural-
                                     risk-radar. callGeminiWithRetry() accepts enableGoogleSearch?: boolean (v4.4)
@@ -379,8 +393,9 @@ systematic trading and financial markets background.
   tsconfig.verify.json            → compiles the pure lib/ modules to .verify/ with the "@/" alias (v5.1)
   verify-alias.js                 → maps emitted "@/lib/x" requires to .verify/x at run time (v5.1)
   verify-auth-routing.js          → safeNextPath open-redirect cases (v5.1)
-  verify-onboarding.js            → 157 checks across onboarding, countries, ports, insights, checklist, sample,
-                                    carry-over, port scoring, inventory as-of, /profile save bookkeeping (v5.1)
+  verify-onboarding.js            → 168 checks across onboarding, countries, ports, insights, checklist, sample,
+                                    carry-over, port scoring, inventory as-of, /profile save bookkeeping,
+                                    country-only supplier matching, whole-number shares (v5.1)
 
 /data
   fallback.json                   → Fallback events if GDELT is down
@@ -430,6 +445,11 @@ Spec: docs/superpowers/specs/2026-10-08-onboarding-and-sign-in.md (mockups in on
   profile + extras (no completedAt) when ≥1 valid supplier exists and leaves the checklist's "Finish setting up".
 - Every right-hand panel is computed from the user's answers + today's real events (lib/onboardingInsights.ts).
   Nothing is fabricated; empty states say ALL QUIET / CLEAR / "Nothing urgent for your network today".
+- An event touches a supplier only if it is severity ≥2 AND its headline names the supplier's country
+  (countrySeen). Spec 7 also counted any Port/Labor/Weather event in the supplier's region; the owner removed
+  that on Oct 18, 2026 after a Japan vessel-sanctions story read as "TSMC is in the affected region".
+  Copy follows: "…while {country} has active disruptions", "{supplier} is in the affected country".
+- Even supplier splits are whole numbers summing to 100 (34/33/33), so the scorer says "67%", not "66.66%".
 - Mexico is North America (matches GDELT/GDACS); deriveTradeLanes counts a Mexico supplier toward the
   Latin America → US lane (Laredo/Houston). "America" is not a US alias; "Korea" is a lookup-only alias.
 - Import path: ImportProfileFlow's optional onResult prop = parse + post-process only, never save, skip its own
@@ -1832,6 +1852,16 @@ v5.1 — Onboarding + sign-in (Oct 8-9, 2026). Branch feat/onboarding-and-sign-i
           with zero scm_* and zero Supabase writes, exit / set up my company, checklist (0 of 7 → 1 of 7), the
           muted unknown-stock card, /profile?step=3 30 days counted 10 days ago → 20 days left. Console: only the
           Grammarly extension's hydration attribute warning.
+        Follow-ups on the same branch (Oct 18, 2026, owner-approved):
+          - fix: supplier exposure only when the supplier's country is named (no same-region fallback;
+            Japan sanctions / TSMC is now a negative test).
+          - fix: whole-number supplier shares that sum to 100 (largest remainder; replaces distributeShareEvenly,
+            also used by the /profile import).
+          - fix: contain GDELT timeouts (lib/fetchDisruptions.ts, owner-authorized, GDELT fetch only): root cause
+            traced in Next 14.2's patch-fetch — background refresh of a stale Data Cache entry ran outside our
+            try/catch and rejected the response's waitUntil. Verified with a clean build while GDELT was
+            unreachable: 3 caught [GDELT] failures, "GDELT 0 events … 3 failed", 21 events from the other sources,
+            ISR 1800 intact on all five ISR pages, 0 GDELT entries in .next/cache/fetch-cache (3 before).
         NOT verified: email-code sign-up end to end (needs 3.3/3.4), Google/Microsoft (flags off), a signed-in
           account with NO profile (so the carry-over prompt itself and signed-in onboarding saves to
           profiles.onboarding were not exercised in a browser — agent cannot create accounts), the 1280×800 fit
@@ -1840,16 +1870,18 @@ v5.1 — Onboarding + sign-in (Oct 8-9, 2026). Branch feat/onboarding-and-sign-i
 ## Known issues / next session notes
 - v5.1: the AI routes (/api/advisor etc.) still read raw inventoryDaysOnHand with no as-of decay, so their
   numbers can differ from the Inventory panel (protected files; separate decision).
-- v5.1: spec 7's region rule treats any Port/Labor/Weather event (severity ≥2) anywhere in a supplier's region as
-  "active". In testing a Japan vessel-sanctions story produced "TSMC Semiconductor is in the affected region".
-  One-line tightening available in supplierEventMatch (region-only for Weather; Port/Labor need the country
-  named) — awaiting the owner's call.
-- v5.1: the scorer's reason prints "66.66% of your supply comes from this region" for an even 3-way split
-  (distributeShareEvenly → 33.33 each). Integer shares (34/33/33) would read better; scorer is protected.
+- v5.1 RESOLVED (Oct 18): region-wide supplier matching removed (country-only now); even splits are whole numbers.
+- v5.1 trade-off of country-only matching: a regional event that never names the country (e.g. "typhoon
+  hits South China Sea ports") no longer lights up a Taiwan or China supplier in onboarding panels. Accepted
+  by the owner as the honest choice. The dashboard scorer (lib/scoreEvents.ts) still weights region share
+  independently — this rule governs the onboarding panels (Now watching, MiniNetwork, found-while-you-typed)
+  and the first-light cards only.
 - v5.1: Gemini import misread a lead time (25 → 21) in testing; mitigated by editable lead time on less-sure rows.
-- v5.1: the "failed to pipe response" dev error (v5.0 note below) is now traced: a GDELT ConnectTimeoutError
-  (undici's 10s connect timeout) escapes a cold dev render of a page calling fetchDisruptions(). Fix belongs in
-  lib/fetchDisruptions.ts (out of scope for v5.1).
+- v5.1 RESOLVED (Oct 18): the "failed to pipe response" error (v5.0 note below) — see "fix: contain GDELT
+  timeouts". Latent, NOT fixed (files out of scope): fetchTradeNews, fetchGlobalDisasters and
+  fetchWeatherAlerts still use Next's patched fetch, so a stale Data Cache entry for one of them is refreshed the
+  same way and a timeout there could cause the same 500. NOAA also logs "items over 2MB can not be cached" on
+  every render (its response is ~4MB). Same one-line fix applies if it ever shows up; needs authorization.
 - v5.1: the brief headline can read "4 events touch X today. 9 are critical." (critical count is global, not
   relevant-only) — pre-existing v5.0 wording, not changed.
 - v5.0 browser checks: the Chrome extension again refused to drive the page
