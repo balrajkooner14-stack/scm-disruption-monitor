@@ -259,8 +259,20 @@ async function fetchDisruptionsUncached(): Promise<DisruptionEvent[]> {
     // (including the syntactically-simple, no-OR one) hitting AbortError at
     // exactly 8000ms with no response at all. 20s gives real headroom.
     const timer = setTimeout(() => controller.abort(), 20000)
+    // Use Next's unpatched fetch for GDELT. The patched fetch() stores the
+    // response in Next's Data Cache; once stale, a later render serves the old
+    // copy and re-fetches GDELT in the background, OUTSIDE this try/catch, and
+    // adds that promise to the response's waitUntil. A GDELT connect timeout
+    // there escaped as "fetch failed" → "failed to pipe response" (a 500)
+    // instead of landing in the per-query fallback below. Uncached, every
+    // failure is caught here like the other sources. Our own per-query cache,
+    // the 5-minute memo and ISR still apply. `cache: "no-store"` would also
+    // bypass the Data Cache but makes the ISR pages dynamic, so it isn't used.
+    // If a future Next drops _nextOriginalFetch this falls back to fetch().
+    const gdeltFetch: typeof fetch =
+      (globalThis.fetch as typeof fetch & { _nextOriginalFetch?: typeof fetch })._nextOriginalFetch ?? fetch
     try {
-      const res = await fetch(url, {
+      const res = await gdeltFetch(url, {
         signal: controller.signal,
         headers: { "User-Agent": "SCM-Disruption-Monitor/1.0" },
       })
