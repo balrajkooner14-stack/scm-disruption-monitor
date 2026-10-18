@@ -1,4 +1,5 @@
 import { DisruptionEvent, DisruptionCategory, SeverityLevel, Region } from "./types"
+import { uncachedFetch } from "./uncachedFetch"
 
 // GDACS (Global Disaster Alert and Coordination System) — UN/EU-backed,
 // free, no auth. Genuinely global, unlike GDELT (news-lag) or NOAA
@@ -98,7 +99,7 @@ export async function fetchGlobalDisasters(): Promise<DisruptionEvent[]> {
   const timer = setTimeout(() => controller.abort(), 8000)
 
   try {
-    const res = await fetch(url, {
+    const res = await uncachedFetch(url, {
       signal: controller.signal,
       headers: { "User-Agent": "SCM-Disruption-Monitor/1.0" },
     })

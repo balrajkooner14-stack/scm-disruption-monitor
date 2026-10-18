@@ -2,6 +2,7 @@ import { XMLParser } from "fast-xml-parser"
 import { DisruptionEvent } from "./types"
 import { TRADE_FEEDS, TradeFeed, matchesDisruptionKeywords, inferRegionFromHeadline } from "./tradeFeeds"
 import { assignCategory, scoreSeverity } from "./fetchDisruptions"
+import { uncachedFetch } from "./uncachedFetch"
 
 const FEED_TIMEOUT_MS = 10000
 const TOTAL_CAP = 30
@@ -112,7 +113,7 @@ async function fetchOneFeed(feed: TradeFeed): Promise<DisruptionEvent[]> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS)
   try {
-    const res = await fetch(feed.url, {
+    const res = await uncachedFetch(feed.url, {
       signal: controller.signal,
       headers: { "User-Agent": "SCM-Disruption-Monitor/1.0 (+https://scm-disruption-monitor.vercel.app)" },
     })

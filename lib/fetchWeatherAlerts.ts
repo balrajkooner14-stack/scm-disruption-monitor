@@ -1,4 +1,5 @@
 import { DisruptionEvent, SeverityLevel } from "./types"
+import { uncachedFetch } from "./uncachedFetch"
 
 // NOAA/NWS — free, no auth. US-specific supplement to the global GDACS
 // layer (fetchGlobalDisasters.ts): faster/more granular for domestic
@@ -65,7 +66,7 @@ export async function fetchWeatherAlerts(): Promise<DisruptionEvent[]> {
   const timer = setTimeout(() => controller.abort(), 8000)
 
   try {
-    const res = await fetch(NOAA_ALERTS_URL, {
+    const res = await uncachedFetch(NOAA_ALERTS_URL, {
       signal: controller.signal,
       headers: {
         "User-Agent": "SCM-Disruption-Monitor/1.0 (contact: scm-disruption-monitor)",

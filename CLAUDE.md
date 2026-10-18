@@ -283,6 +283,11 @@ systematic trading and financial markets background.
   textMatch.ts                    → containsTerm(): whole-term match; ≤3-letter all-caps terms are case-sensitive (v5.1)
   eventOrder.ts                   → bySeverityThenDate(), compareDateDesc() (v5.1)
   asOfDates.ts                    → YYYY-MM-DD stock dates parsed as LOCAL dates; daysSinceLocalDate() (v5.1)
+  uncachedFetch.ts                → fetch() via Next's unpatched fetch (fetch._nextOriginalFetch, resolved per call,
+                                    falling back to fetch) for GDELT, trade news, GDACS and NOAA, so their responses
+                                    never enter Next's Data Cache. Background refreshes of stale entries ran outside
+                                    the sources' try/catch and could 500 the page. Never replace with cache:
+                                    "no-store" — that makes the ISR pages dynamic (v5.1)
   mapGeo.ts                       → world-atlas name → region table + GEO_URL, moved out of WorldMap.tsx (v5.1;
                                     "Czechia" and "Dominican Rep." fixed to the atlas names — never shaded before)
   featureFlags.ts                 → Build-time feature toggles (v4.7). ENABLE_SANCTIONS_SCREENING = false —
@@ -1862,6 +1867,9 @@ v5.1 — Onboarding + sign-in (Oct 8-9, 2026). Branch feat/onboarding-and-sign-i
             try/catch and rejected the response's waitUntil. Verified with a clean build while GDELT was
             unreachable: 3 caught [GDELT] failures, "GDELT 0 events … 3 failed", 21 events from the other sources,
             ISR 1800 intact on all five ISR pages, 0 GDELT entries in .next/cache/fetch-cache (3 before).
+          - fix: keep trade news, GDACS and NOAA out of Next's fetch cache (owner-authorized): shared
+            lib/uncachedFetch.ts used by all four sources. Clean build: ISR intact, fetch cache empty, NOAA 2MB
+            warning gone, two trade-feed timeouts caught by fetchTradeNews.
         NOT verified: email-code sign-up end to end (needs 3.3/3.4), Google/Microsoft (flags off), a signed-in
           account with NO profile (so the carry-over prompt itself and signed-in onboarding saves to
           profiles.onboarding were not exercised in a browser — agent cannot create accounts), the 1280×800 fit
@@ -1877,11 +1885,11 @@ v5.1 — Onboarding + sign-in (Oct 8-9, 2026). Branch feat/onboarding-and-sign-i
   independently — this rule governs the onboarding panels (Now watching, MiniNetwork, found-while-you-typed)
   and the first-light cards only.
 - v5.1: Gemini import misread a lead time (25 → 21) in testing; mitigated by editable lead time on less-sure rows.
-- v5.1 RESOLVED (Oct 18): the "failed to pipe response" error (v5.0 note below) — see "fix: contain GDELT
-  timeouts". Latent, NOT fixed (files out of scope): fetchTradeNews, fetchGlobalDisasters and
-  fetchWeatherAlerts still use Next's patched fetch, so a stale Data Cache entry for one of them is refreshed the
-  same way and a timeout there could cause the same 500. NOAA also logs "items over 2MB can not be cached" on
-  every render (its response is ~4MB). Same one-line fix applies if it ever shows up; needs authorization.
+- v5.1 RESOLVED (Oct 18): the "failed to pipe response" error (v5.0 note below). All four external sources
+  (GDELT, trade news, GDACS, NOAA) now fetch through lib/uncachedFetch.ts, so none of them enters Next's Data
+  Cache and a timeout can no longer escape from a background refresh. NOAA's "items over 2MB can not be cached"
+  build warning disappeared with it. Owner-authorized edits to fetchDisruptions/fetchTradeNews/
+  fetchGlobalDisasters/fetchWeatherAlerts — the fetch call only.
 - v5.1: the brief headline can read "4 events touch X today. 9 are critical." (critical count is global, not
   relevant-only) — pre-existing v5.0 wording, not changed.
 - v5.0 browser checks: the Chrome extension again refused to drive the page
